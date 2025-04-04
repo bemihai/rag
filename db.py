@@ -28,7 +28,7 @@ collection = client.get_or_create_collection(
     }
 )
 
-files = Path("/Users/lu80mf/projects/P25525-learning/rag/data").glob("**/*.pdf")
+files = Path("data").glob("**/*.pdf")
 documents = split_pdfs(list(files), chunk_size=512, overlap_size=128)
 
 docs = [d[0] for d in documents]
