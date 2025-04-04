@@ -30,7 +30,3 @@ def split_pdfs(pdf_files: list[str | Path], chunk_size: int = 512, overlap_size:
 
     return docs
 
-
-if __name__ == "__main__":
-    files = Path("/Users/lu80mf/projects/P25525-learning/rag/data").glob("**/*.pdf")
-    documents = split_pdfs(list(files), chunk_size=512, overlap_size=128)
