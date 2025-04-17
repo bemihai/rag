@@ -1,0 +1,10 @@
+[project]
+name = "wine-rag"
+version = "0.1.0"
+description = "Ask anything about wine"
+requires-python = ">=3.12"
+dependencies = [
+    "chromadb>=1.0.5",
+    "pypdf>=5.4.0",
+    "python-dotenv>=1.1.0",
+]

@@ -5,10 +5,12 @@ import chromadb
 from chromadb.utils import embedding_functions as ef
 
 from chunks import split_pdfs
+from env import CHROMA_HOST, CHROMA_PORT, DATA_PATH
 from utils import hash8
 
+
 # create the chroma client
-client = chromadb.HttpClient(host="localhost", port=8000)
+client = chromadb.HttpClient(host=CHROMA_HOST, port=CHROMA_PORT)
 
 # define the embedding function (default is all-MiniLM-L6-v2 from sentence transformers)
 default_ef = ef.DefaultEmbeddingFunction()
@@ -28,7 +30,7 @@ collection = client.get_or_create_collection(
     }
 )
 
-files = Path("data").glob("**/*.pdf")
+files = Path(DATA_PATH).glob("**/*.pdf")
 documents = split_pdfs(list(files), chunk_size=512, overlap_size=128)
 
 docs = [d[0] for d in documents]
