@@ -7,5 +7,6 @@ build/
 
 .idea/
 chroma-data/
+secrets.*
 
 experimental/

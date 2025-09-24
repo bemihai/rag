@@ -2,10 +2,10 @@
 import streamlit as st
 from dotenv import load_dotenv
 
-from helper import APP_TITLE, INITIAL_MESSAGE, CONTENT_STYLE
+from helper import APP_TITLE, CONTENT_STYLE, get_initial_message
 from display import display_message, process_user_prompt
 
-from src.model.llm import load_google_ai_model
+from src.model.llm import load_base_model
 from src.utils import get_config
 
 load_dotenv()
@@ -20,8 +20,7 @@ st.caption("Talk to your cellar!")
 def load_llm():
     """Load model wrapper to allow caching."""
     cfg = get_config()
-    model_name = cfg.model.name
-    return load_google_ai_model(model_name)
+    return load_base_model(cfg.model.provider, cfg.model.name)
 
 
 model = load_llm()
@@ -35,13 +34,13 @@ with st.sidebar:
     st.subheader("Example questions")
     st.markdown("#")
     if st.button("Reset Chat"):
-        st.session_state.messages = INITIAL_MESSAGE.copy()
+        st.session_state.messages = get_initial_message()
         st.rerun()
 
 # App main page
 # Initialize the chat messages history
 if "messages" not in st.session_state.keys():
-    st.session_state.messages = INITIAL_MESSAGE.copy()
+    st.session_state.messages = get_initial_message()
 
 st.write(CONTENT_STYLE, unsafe_allow_html=True)
 
@@ -67,3 +66,5 @@ if prompt := st.chat_input("Type your question here"):
         sys_message = {"role": "ai", **content}
     display_message(sys_message)
     st.session_state.messages.append(sys_message)
+
+

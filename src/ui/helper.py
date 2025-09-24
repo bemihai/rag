@@ -1,11 +1,15 @@
 """Custom CSS/HTML code used in the UI."""
+from src.utils import get_config
 
-NO_DATA_ANSWERS = [
-    "No results found.",
-    "An error occurred while executing the query",
-    "I can't generate a query for your question",
-    "I can't extract the relevant columns to your question",
-]
+def get_initial_message():
+    cfg = get_config()
+    msg = cfg.initial_message
+    return [
+        {
+            "role": msg["role"] if "role" in msg else "ai",
+            "answer": msg["answer"] if "answer" in msg else "Welcome! Ask me anything about wine."
+        }
+    ]
 
 APP_TITLE = """
 <style>
@@ -25,14 +29,6 @@ APP_TITLE = """
 </style>
 <div class="rag-title">Wine RAG</div>
 """
-
-INITIAL_MESSAGE = [
-    {
-        "role": "ai",
-        "initial": True,
-        "answer": "Hey there! How can I help you today?",
-    },
-]
 
 CONTENT_STYLE = """
 <style> 

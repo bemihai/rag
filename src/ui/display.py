@@ -1,29 +1,21 @@
 import base64
-
-import pandas as pd
 import streamlit as st
-from google.api_core.exceptions import InternalServerError
+from scipy.stats import ansari
 
-from helper import NO_DATA_ANSWERS
-from src.model.llm import run_llm
+from src.model.llm import invoke_llm
 from src.utils import logger
 
 
 def process_user_prompt(model, prompt: str, human_messages: list) -> dict:
     """Process a user prompt"""
     content = {"initial": False}
-    error_msg = "Can't generate an answer, please try again."
-
-    # Generate the query and schema used
     try:
-        answer = run_llm(prompt, model, human_messages)
-        logger.info(f"Query generated for prompt: '{prompt}'")
-        logger.info(f"Query: {answer}")
-    except Exception as err:
-        answer = None
-        error_msg = err.default_answer
-
+        answer = invoke_llm(prompt, model, human_messages)
+    except ModelInternalError as err:
+        answer = err.default_message
+        logger.error(f"ModelInternalError: {err}")
     content["answer"] = answer
+
     return content
 
 

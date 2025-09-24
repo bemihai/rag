@@ -10,3 +10,6 @@ chroma:
 model:
   provider: google
   name: gemini-2.5-flash-preview-05-20
+
+initial_message:
+  answer: "Welcome! Ask me anything about wine."

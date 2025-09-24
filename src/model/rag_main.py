@@ -5,7 +5,7 @@ from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_core.prompts import PromptTemplate
 from langchain.chains import RetrievalQA
 
-from src.model.llm import load_google_ai_model
+from src.model.llm import load_base_model
 from src.utils import get_config
 
 if __name__ == "__main__":
@@ -18,7 +18,7 @@ if __name__ == "__main__":
     )
 
     # load the LLM for generation
-    llm = load_google_ai_model(config.model.name)
+    llm = load_base_model(config.model.name)
 
     # create a local vector store from ChromaDB
     chroma_client = chromadb.HttpClient(host=config.chroma.host, port=config.chroma.port)
