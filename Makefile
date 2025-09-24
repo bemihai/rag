@@ -19,12 +19,13 @@ help:
 
 
 .PHONY: db-up
-db-up:
+db-up: db-down
 	@docker run --name ${CHROMA_NAME} -v ${CHROMA_VOLUME}:/data -d -p ${CHROMA_PORT}:8000 chromadb/chroma:latest
 
 .PHONY: db-down
 db-down:
 	@docker stop ${CHROMA_NAME} || true
+	@docker rm ${CHROMA_NAME} || true
 
 .PHONY: db-restart
 db-restart: db-down db-up
