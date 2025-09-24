@@ -4,6 +4,7 @@ from scipy.stats import ansari
 
 from src.model.llm import invoke_llm
 from src.utils import logger
+from src.model.exceptions import ModelInternalError
 
 
 def process_user_prompt(model, prompt: str, human_messages: list) -> dict:

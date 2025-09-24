@@ -53,18 +53,17 @@ if "messages" in st.session_state:
 if prompt := st.chat_input("Type your question here"):
     user_message = {"role": "human", "question": prompt}
     display_message(user_message)
-    
-    # Get only messages from the human for the ChatPromptTemplate
-    human_messages = [("human", msg['question']) for msg in st.session_state.messages if msg["role"] == "human"]
-
     st.session_state.messages.append(user_message)
+
+    # Pass the full message history (including both human and ai turns)
+    message_history = st.session_state.messages.copy()
+
     with st.spinner("Thinking...", show_time=True):
         try:
-            content = process_user_prompt(model, prompt, human_messages)
+            # process_user_prompt should accept the full message history
+            content = process_user_prompt(model, prompt, message_history)
         except TimeoutError as _:
             pass
         sys_message = {"role": "ai", **content}
     display_message(sys_message)
     st.session_state.messages.append(sys_message)
-
-

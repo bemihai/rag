@@ -57,26 +57,25 @@ def load_base_model(model_provider: str, model_name: str, **kwargs) -> BaseChatM
             raise ValueError(f"Unsupported model provider: {model_provider}")
 
 
-def invoke_llm(question: str, model: BaseChatModel, human_messages: list) -> str:
+def invoke_llm(question: str, model: BaseChatModel, message_history: list) -> str:
     """
-    Invoke the LLM model with the provided question and human messages.
+    Invoke the LLM model with the provided question and full message history.
 
     Args:
         question (str): The user's question to be answered by the model.
         model (BaseChatModel): The loaded LLM model instance.
-        human_messages (list): A list of tuples containing previous human messages in the format (role, content).
+        message_history (list): List of dicts with previous messages, each having 'role' and 'question'/'answer'.
 
     Returns: The model's answer as a string.
     """
-    if human_messages:
-        messages = [("system", SYSTEM_PROMPT), *human_messages, ("human", USER_PROMPT)]
-        prompt = ChatPromptTemplate.from_messages(messages)
-    else:
-        prompt = ChatPromptTemplate.from_messages([
-            ("system", SYSTEM_PROMPT),
-            ("human", USER_PROMPT)
-        ])
-
+    messages = [("system", SYSTEM_PROMPT)]
+    for msg in message_history:
+        if msg["role"] == "human" and "question" in msg:
+            messages.append(("human", msg["question"]))
+        elif msg["role"] == "ai" and "answer" in msg:
+            messages.append(("ai", msg["answer"]))
+    messages.append(("human", USER_PROMPT))
+    prompt = ChatPromptTemplate.from_messages(messages)
     tagging_chain = prompt | model
 
     try:
