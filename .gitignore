@@ -1,6 +1,9 @@
 .venv/
 venv/
 .env
+build/
+*.egg
+*.egg-info
 
 .idea/
 chroma-data/

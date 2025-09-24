@@ -1,0 +1,12 @@
+data:
+  local_path: /Users/lu80mf/Desktop/Books
+
+chroma:
+  host: localhost
+  port: 8000
+  volume: ./chroma-data
+  name: chroma-db
+
+model:
+  provider: google
+  name: gemini-2.5-flash-preview-05-20

@@ -5,8 +5,8 @@ import chromadb
 from langchain_huggingface import HuggingFaceEmbeddings
 
 from chunks import split_file
-from env import CHROMA_HOST, CHROMA_PORT, DATA_PATH
-from utils import create_chroma_batches
+from src.utils.env import CHROMA_HOST, CHROMA_PORT, DATA_PATH
+from src.utils import create_chroma_batches
 
 
 # create the chroma client

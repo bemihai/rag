@@ -1,0 +1,45 @@
+services:
+  app:
+    build: .
+    container_name: streamlit_app
+    ports:
+      - "8501:8501"
+    env_file:
+      - .env
+    working_dir: /app
+    command: >
+      sh -c "python -u src/sqlite/setup.py 2>&1 && streamlit run src/ui/app.py"
+
+
+#services:
+#  app:
+#    build: .
+#    container_name: streamlit_app
+#    ports:
+#      - "8501:8501"
+#    env_file:
+#      - .env
+#    environment:
+#      - BQ_API_ENDPOINT=http://bigquery:${BQ_CONTAINER_PORT}
+#    depends_on:
+#      - bigquery
+#    working_dir: /app
+#    command: >
+#      sh -c "./wait-for-bq.sh bigquery ${BQ_CONTAINER_PORT} -- python -u src/bigquery/setup.py 2>&1 && streamlit run src/ui/app.py"
+#
+#  bigquery:
+#    image: ghcr.io/goccy/bigquery-emulator:latest
+#    container_name: bigquery_emulator
+#    platform: linux/x86_64
+#    ports:
+#      - "${BQ_CONTAINER_PORT}:9050"
+#    command: >
+#      --project=${BQ_PROJECT_ID}
+#    env_file:
+#      - .env
+
+
+      
+
+
+

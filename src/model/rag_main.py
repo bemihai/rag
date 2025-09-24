@@ -5,10 +5,12 @@ from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_core.prompts import PromptTemplate
 from langchain.chains import RetrievalQA
 
-from env import CHROMA_HOST, CHROMA_PORT, GOOGLE_API_KEY
-
+from src.model.llm import load_google_ai_model
+from src.utils import get_config
 
 if __name__ == "__main__":
+
+    config = get_config()
 
     # load the embedding model
     embeddings = HuggingFaceEmbeddings(
@@ -16,16 +18,10 @@ if __name__ == "__main__":
     )
 
     # load the LLM for generation
-    # llm = GeminiModel(model_name="gemini-2.0-flash", max_tokens=1024, google_api_key=GOOGLE_API_KEY)
-    llm = ChatGoogleGenerativeAI(
-        model="gemini-2.0-flash",
-        max_retries=2,
-        max_tokens=1024,
-        google_api_key=GOOGLE_API_KEY,
-    )
+    llm = load_google_ai_model(config.model.name)
 
     # create a local vector store from ChromaDB
-    chroma_client = chromadb.HttpClient(host=CHROMA_HOST, port=CHROMA_PORT)
+    chroma_client = chromadb.HttpClient(host=config.chroma.host, port=config.chroma.port)
     vector_store = Chroma(
         client=chroma_client,
         collection_name="wine_books",

@@ -2,19 +2,19 @@
 name = "wine-rag"
 version = "0.1.0"
 description = "Ask anything about wine"
-requires-python = ">=3.12"
+requires-python = ">=3.11"
 dependencies = [
     "chromadb>=1.0.5",
     "huggingface-hub[hf-xet]>=0.30.2",
     "langchain-community>=0.3.21",
     "langchain-google-genai>=2.1.5",
     "langchain-huggingface>=0.3.0",
-    "numpy<2.0.0", # numpy>2 is not compatible with torch 2.2.2
+    "langchain-chroma>=0.2.6",
     "pypdf>=5.4.0",
     "python-dotenv>=1.1.0",
     "sentence-transformers>=4.1.0",
-    "torch==2.2.2",
     "unstructured[all-docs,pdf]>=0.17.2",
+    "streamlit>=1.50.0",
 ]
 
 
