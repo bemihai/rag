@@ -2,11 +2,10 @@ import os
 from getpass import getpass
 from dotenv import load_dotenv
 
-from langchain_community.llms.llamacpp import LlamaCpp
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.prompts import ChatPromptTemplate
 
-from src.utils import logger, get_config
+from src.utils import logger
 from .prompts import SYSTEM_PROMPT, USER_PROMPT
 from .exceptions import ModelInternalError
 
@@ -39,8 +38,6 @@ def run_llm(
     """
     Run model.
     """
-    config = get_config()
-
     if human_messages:
         messages = [("system", SYSTEM_PROMPT), *human_messages, ("human", USER_PROMPT)]
         prompt = ChatPromptTemplate.from_messages(messages)
@@ -54,6 +51,12 @@ def run_llm(
 
     try:
         model_output = tagging_chain.invoke({"question": f"{question}"})
-        return model_output
+        # Extract the textual answer from the model output
+        if hasattr(model_output, "content"):
+            return model_output.content
+        elif isinstance(model_output, dict) and "content" in model_output:
+            return model_output["content"]
+        else:
+            return str(model_output)
     except Exception as e:
         raise ModelInternalError() from e

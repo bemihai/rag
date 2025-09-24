@@ -5,8 +5,8 @@ import streamlit as st
 from google.api_core.exceptions import InternalServerError
 
 from helper import NO_DATA_ANSWERS
-from model.llm import run_llm
-from utils import logger
+from src.model.llm import run_llm
+from src.utils import logger
 
 
 def process_user_prompt(model, prompt: str, human_messages: list) -> dict:
@@ -16,14 +16,14 @@ def process_user_prompt(model, prompt: str, human_messages: list) -> dict:
 
     # Generate the query and schema used
     try:
-        query = run_llm(prompt, model, human_messages)
+        answer = run_llm(prompt, model, human_messages)
         logger.info(f"Query generated for prompt: '{prompt}'")
-        logger.info(f"Query: {query}")
+        logger.info(f"Query: {answer}")
     except Exception as err:
-        query = None
+        answer = None
         error_msg = err.default_answer
 
-    content["query"] = query
+    content["answer"] = answer
     return content
 
 
@@ -74,5 +74,3 @@ def display_message(message: dict):
     if message["role"] == "ai":
         container_html = format_assistant_message(message)
         st.write(container_html, unsafe_allow_html=True)
-
-

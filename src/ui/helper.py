@@ -31,9 +31,6 @@ INITIAL_MESSAGE = [
         "role": "ai",
         "initial": True,
         "answer": "Hey there! How can I help you today?",
-        "data": None,
-        "query": None,
-        "schema": None,
     },
 ]
 

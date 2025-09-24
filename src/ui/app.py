@@ -67,4 +67,3 @@ if prompt := st.chat_input("Type your question here"):
         sys_message = {"role": "ai", **content}
     display_message(sys_message)
     st.session_state.messages.append(sys_message)
-

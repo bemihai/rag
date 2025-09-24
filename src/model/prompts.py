@@ -7,6 +7,6 @@ Answer the following question:
 "{question}"
 
 Instructions:
-- Think carefully about the intent of the question.
+- Keep the answer concise and short.
 - Use the data provided as context and your general knowledge about wine.
 """
