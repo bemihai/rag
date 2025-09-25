@@ -5,12 +5,24 @@ from langchain_core.language_models import BaseChatModel
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_openai import ChatOpenAI
 from langchain.prompts import ChatPromptTemplate
+from langchain_core.callbacks import CallbackManager
 
-from src.utils import logger
+from src.utils import logger, get_langfuse_callback
 from .prompts import SYSTEM_PROMPT, USER_PROMPT
-from .exceptions import ModelInternalError
 
 load_dotenv()
+
+
+class ModelInternalError(Exception):
+    """Gen AI Model error."""
+    def __init__(self, message: str | None = None) -> None:
+        self.message = message or "Model internal error"
+        super().__init__(self.message)
+
+    @property
+    def default_message(self) -> str:
+        """Default answer when model raises this error."""
+        return "I can't answer your question due to an internal error, please try again later."
 
 
 def load_base_model(model_provider: str, model_name: str, **kwargs) -> BaseChatModel:
@@ -24,6 +36,7 @@ def load_base_model(model_provider: str, model_name: str, **kwargs) -> BaseChatM
 
     Returns: An instance of the loaded chat model.
     """
+    callback_manager = CallbackManager([get_langfuse_callback()])
     match model_provider.lower():
         case "google":
             api_key = st.secrets["GOOGLE_API_KEY"] if "GOOGLE_API_KEY" in st.secrets else None
@@ -34,6 +47,7 @@ def load_base_model(model_provider: str, model_name: str, **kwargs) -> BaseChatM
                 temperature=0.0,
                 max_retries=2,
                 google_api_key=api_key,
+                callback_manager=callback_manager,
                 **kwargs,
             )
             logger.info(f"Loaded Google model successfully: {model_name}")
@@ -47,6 +61,7 @@ def load_base_model(model_provider: str, model_name: str, **kwargs) -> BaseChatM
                 temperature=0.0,
                 max_retries=2,
                 api_key=api_key,
+                callback_manager=callback_manager,
                 **kwargs,
             )
             logger.info(f"Loaded OpenAI model successfully: {model_name}")
