@@ -55,12 +55,13 @@ def load_base_model(model_provider: str, model_name: str, **kwargs) -> BaseChatM
             raise ValueError(f"Unsupported model provider: {model_provider}")
 
 
-def invoke_llm(question: str, model: BaseChatModel, message_history: list) -> str:
+def invoke_llm(question: str, context: str, model: BaseChatModel, message_history: list) -> str:
     """
-    Invoke the LLM model with the provided question and full message history.
+    Invoke the LLM model with the provided question, context, and full message history.
 
     Args:
         question (str): The user's question to be answered by the model.
+        context (str): The context retrieved by the RAG pipeline.
         model (BaseChatModel): The loaded LLM model instance.
         message_history (list): List of dicts with previous messages, each having 'role' and 'question'/'answer'.
 
@@ -72,12 +73,13 @@ def invoke_llm(question: str, model: BaseChatModel, message_history: list) -> st
             messages.append(("human", msg["question"]))
         elif msg["role"] == "ai" and "answer" in msg:
             messages.append(("ai", msg["answer"]))
-    messages.append(("human", USER_PROMPT))
+    # Inject the user prompt with context and question
+    messages.append(("human", USER_PROMPT.format(question=question, context=context)))
     prompt = ChatPromptTemplate.from_messages(messages)
     tagging_chain = prompt | model
 
     try:
-        model_output = tagging_chain.invoke({"question": f"{question}"})
+        model_output = tagging_chain.invoke({"question": question, "context": context})
         if hasattr(model_output, "content"):
             return model_output.content
         elif isinstance(model_output, dict) and "content" in model_output:
@@ -88,11 +90,11 @@ def invoke_llm(question: str, model: BaseChatModel, message_history: list) -> st
         raise ModelInternalError() from e
 
 
-def process_user_prompt(model: BaseChatModel, prompt: str, human_messages: list) -> dict:
-    """Process a user prompt"""
+def process_user_prompt(model: BaseChatModel, prompt: str, context: str, message_history: list) -> str:
+    """Process a user prompt with context"""
     try:
-        answer = invoke_llm(prompt, model, human_messages)
+        answer = invoke_llm(prompt, context, model, message_history)
     except ModelInternalError as err:
         answer = err.default_message
         logger.error(f"ModelInternalError: {err}")
-    return {"answer": answer}
+    return answer

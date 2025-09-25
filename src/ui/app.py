@@ -76,10 +76,10 @@ if prompt := st.chat_input("Type your question here"):
 
     with st.spinner("Thinking...", show_time=True):
         try:
-            # process_user_prompt should accept the full message history
-            content = process_user_prompt(model, prompt, message_history)
+            context = ""  # No external context retrieval in this version
+            answer = process_user_prompt(model, prompt, context, message_history)
         except TimeoutError as _:
-            pass
-        sys_message = {"role": "ai", **content}
+            answer = ""
+        sys_message = {"role": "ai", "answer": answer}
     display_message(sys_message)
     st.session_state.messages.append(sys_message)
