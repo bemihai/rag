@@ -1,9 +1,7 @@
 import os
-import re
-from io import BytesIO
+import base64
 from pathlib import Path
 
-import pandas as pd
 from omegaconf import DictConfig, OmegaConf
 
 
@@ -26,5 +24,18 @@ def get_config() -> DictConfig:
     cfg.data.local_path = Path(find_project_root()) / cfg.data.local_path
 
     return cfg
+
+
+def get_initial_message():
+    """Returns the initial message from config."""
+    cfg = get_config()
+    msg = cfg.initial_message
+    return [
+        {
+            "role": msg["role"] if "role" in msg else "ai",
+            "answer": msg["answer"] if "answer" in msg else "Welcome! Ask me anything about wine."
+        }
+    ]
+
 
 

@@ -1,5 +1,3 @@
-from typing import Any
-
 import streamlit as st
 from dotenv import load_dotenv
 
@@ -88,3 +86,13 @@ def invoke_llm(question: str, model: BaseChatModel, message_history: list) -> st
             return str(model_output)
     except Exception as e:
         raise ModelInternalError() from e
+
+
+def process_user_prompt(model: BaseChatModel, prompt: str, human_messages: list) -> dict:
+    """Process a user prompt"""
+    try:
+        answer = invoke_llm(prompt, model, human_messages)
+    except ModelInternalError as err:
+        answer = err.default_message
+        logger.error(f"ModelInternalError: {err}")
+    return {"answer": answer}

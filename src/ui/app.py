@@ -2,18 +2,23 @@
 import streamlit as st
 from dotenv import load_dotenv
 
-from helper import APP_TITLE, CONTENT_STYLE, get_initial_message
-from display import display_message, process_user_prompt
+from display import display_message, make_app_title, CONTENT_STYLE
 
-from src.model.llm import load_base_model
-from src.utils import get_config
+from src.model.llm import load_base_model, process_user_prompt
+from src.utils import get_config, get_initial_message
 
 load_dotenv()
 
-# App title
-st.set_page_config(page_title="Wine RAG")
-st.markdown(APP_TITLE, unsafe_allow_html=True)
-st.caption("Talk to your cellar!")
+# App title and description
+st.set_page_config(page_title="Pour Decisions: Let the bot choose your bottle 🍷🤖", page_icon="🍷")
+st.markdown(make_app_title(
+    "Pour Decisions",
+    "Let the bot choose your bottle 🍷"
+), unsafe_allow_html=True)
+# st.caption("""
+# Sip, chat, and never whine alone! Pour Decisions is your AI-powered wine sidekick—ready to uncork facts,
+# pairings, and grape wisdom.
+# """, unsafe_allow_html=True)
 
 # Load the LLM model
 @st.cache_resource
@@ -27,11 +32,22 @@ model = load_llm()
 
 # App sidebar
 with st.sidebar:
-    st.header("Wine RAG")
+    st.header("About Pour Decisions")
     st.write(
-        "Ask questions about wine. "
+        """
+        Pour Decisions uses Retrieval-Augmented Generation (RAG) and LLMs 
+        to answer your wine-related questions using both curated knowledge and external data. 🍇
+        
+        **Try asking questions like:**
+        """
     )
-    st.subheader("Example questions")
+    st.markdown("""
+    - What is the difference between Merlot and Cabernet Sauvignon?
+    - Suggest a wine pairing for spicy Thai food.
+    - What are the main wine regions in France?
+    - How should I store an opened bottle of wine?
+    - What does 'terroir' mean in winemaking?
+    """)
     st.markdown("#")
     if st.button("Reset Chat"):
         st.session_state.messages = get_initial_message()

@@ -1,65 +1,127 @@
-import base64
+"""Custom CSS/HTML code used in the UI."""
 import streamlit as st
-from scipy.stats import ansari
-
-from src.model.llm import invoke_llm
-from src.utils import logger
-from src.model.exceptions import ModelInternalError
+import html
 
 
-def process_user_prompt(model, prompt: str, human_messages: list) -> dict:
-    """Process a user prompt"""
-    content = {"initial": False}
-    try:
-        answer = invoke_llm(prompt, model, human_messages)
-    except ModelInternalError as err:
-        answer = err.default_message
-        logger.error(f"ModelInternalError: {err}")
-    content["answer"] = answer
+CONTENT_STYLE = """
+<style> 
+#input-container { 
+    position: fixed; 
+    bottom: 0; 
+    width: 100%; 
+    padding: 10px; 
+    background-color: white; 
+    z-index: 100; 
+}
 
-    return content
+.user-avatar, .bot-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    object-fit: cover;
+    margin-bottom: -10px;
+}
+.user-avatar {
+    float: right;
+    margin-left: 5px;
+}
+.bot-avatar {
+    float: left;
+    margin-right: 5px;
+}
+.user-bubble {
+    background: #e6f4ea;
+    color: #222;
+    border-radius: 20px 20px 4px 20px;
+    padding: 14px 18px;
+    margin-right: 8px;
+    max-width: 70%;
+    font-size: 0.98em;
+    box-shadow: 0 2px 8px rgba(91,140,42,0.08);
+    line-height: 1.5;
+    word-break: break-word;
+}
+.bot-bubble {
+    background: #ede7f6;
+    color: #222;
+    border-radius: 20px 20px 20px 4px;
+    padding: 14px 18px;
+    max-width: 70%;
+    font-size: 0.98em;
+    box-shadow: 0 2px 8px rgba(123,31,162,0.08);
+    line-height: 1.5;
+    word-break: break-word;
+}
+</style>
+"""
 
 
-def load_local_img(pth: str) -> str:
-    """Load a local image to display."""
-    file_ = open(pth, "rb")
-    contents = file_.read()
-    data_url = base64.b64encode(contents).decode("utf-8")
-    file_.close()
-    return data_url
+def make_app_title(title: str, subtitle: str) -> str:
+    """
+    Returns a styled HTML/CSS string for a custom app title and subtitle.
+    Args:
+        title (str): The main title text.
+        subtitle (str): The subtitle text (smaller font).
+    Returns:
+        str: HTML/CSS for the styled title and subtitle.
+    """
+    return f"""
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@700;900&display=swap');
+    .rag-title {{
+      font-family: 'Poppins', sans-serif;
+      font-weight: 700;
+      font-size: 4em;
+      background: linear-gradient(90deg, #7b1fa2 0%, #a4508b 50%, #5e3370 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      color: transparent;
+      margin: 0;
+      padding: 20px 0 0 0;
+      text-align: center;
+    }}
+    .rag-subtitle {{
+      font-family: 'Poppins', sans-serif;
+      font-weight: 400;
+      font-size: 1.5em;
+      color: #5b8c2a;
+      margin: 0;
+      padding: 0 0 20px 0;
+      text-align: center;
+    }}
+    </style>
+    <div class="rag-title">{title}</div>
+    <div class="rag-subtitle">{subtitle}</div>
+    """
 
 
 def format_user_message(message: dict) -> str:
-    """Format a user message"""
-    message_text = message["question"]
-    data_url = load_local_img("src/ui/img/human.jpg")
+    """Format a user message with improved style and emoji avatar"""
+    message_text = html.escape(message["question"])
+    avatar_emoji = "🧑‍💼"  # person in suit
     return f"""
-    <div style="display:flex; align-items:flex-start; justify-content:flex-end; margin:0; padding:0; margin-bottom:10px;">
-        <div style="background:#006AFF; color:white; border-radius:20px; padding:10px; margin-right:5px; max-width:75%; margin:0; line-height:1.2; word-wrap:break-word;">
-            {message_text}
-        </div>
-        <img src="data:image/gif;base64,{data_url}" class="user-avatar" alt="avatar" style="width:40px; height:40px; margin:0;" />
+    <div style="display:flex; align-items:flex-end; justify-content:flex-end; margin-bottom:18px;">
+        <div class="user-bubble">{message_text}</div>
+        <span class="user-avatar" style="display:flex; align-items:center; justify-content:center; font-size:2em; background:#e6f4ea;">{avatar_emoji}</span>
     </div>
     """
 
 
 def format_assistant_message(message: dict) -> str:
-    """Format a assistant message"""
-    message_text = message["answer"]
-    data_url = load_local_img("src/ui/img/bot.png")
+    """Format an assistant message with improved style and emoji avatar"""
+    message_text = html.escape(message["answer"])
+    avatar_emoji = "🍇" # grapes
     return f"""
-    <div style="display:flex; align-items:flex-start; justify-content:flex-start; margin:0; padding:0; margin-bottom:10px;">
-        <img src="data:image/gif;base64,{data_url}" class="bot-avatar" alt="avatar" style="width:30px; height:30px; margin:0; margin-right:5px; margin-top:5px;" />
-        <div style="background:#71797E; color:white; border-radius:20px; padding:10px; margin-left:5px; max-width:75%; font-size:14px; margin:0; line-height:1.2; word-wrap:break-word;">
-            {message_text}
-        </div>
+    <div style="display:flex; align-items:flex-end; justify-content:flex-start; margin-bottom:18px;">
+        <span class="bot-avatar" style="display:flex; align-items:center; justify-content:center; font-size:2em; background:#ede7f6;">{avatar_emoji}</span>
+        <div class="bot-bubble">{message_text}</div>
     </div>
     """
 
 
 def display_message(message: dict):
     """Display a message in the UI."""
-
     if message["role"] == "human":
         container_html = format_user_message(message)
         st.markdown(container_html, unsafe_allow_html=True)
