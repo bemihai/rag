@@ -1,11 +1,11 @@
 data:
-  local_path: /Users/lu80mf/Desktop/Books
+  local_path: /Users/bemihai/Books/Wine/test
 
 chroma:
   host: localhost
   port: 8000
-  volume: ./chroma-data
-  name: chroma-db
+  embedder: sentence-transformers/all-MiniLM-L6-v2
+  batch_size: 2500
 
 model:
   provider: google

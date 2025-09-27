@@ -91,4 +91,4 @@ def build_logger(key: str) -> logging.Logger:
 
 
 # exported module logger
-logger = build_logger("TRUE-JARVIS")
+logger = build_logger("POUR-DECISIONS")
