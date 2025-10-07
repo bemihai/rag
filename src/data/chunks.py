@@ -1,10 +1,8 @@
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Union
 import hashlib
-import logging
 from dataclasses import dataclass
 
-from pypdf import PdfReader
 from unstructured.chunking.basic import chunk_elements
 from unstructured.chunking.title import chunk_by_title
 from unstructured.partition.auto import partition
@@ -13,20 +11,21 @@ from pydantic import BaseModel
 
 from src.utils import logger
 
+
 @dataclass
 class ChunkMetadata:
-    """Enhanced metadata for document chunks."""
+    """Metadata for document chunks."""
     filename: str
     file_path: str
     file_type: str
     chunk_index: int
     chunk_id: str
     content_hash: str
-    page_number: Optional[int] = None
-    language: Optional[str] = None
-    category: Optional[str] = None
-    topic: Optional[str] = None
-    summary: Optional[str] = None
+    page_number: int = -1
+    language: str = "unknown"
+    category: str = "unknown"
+    topic: str = "unknown"
+    summary: str = "none"
     word_count: int = 0
     char_count: int = 0
 
@@ -84,7 +83,7 @@ def analyze_document_structure(file_path: Path, instructor_client: instructor.In
         sample_text = "\n".join([str(elem) for elem in elements[:10]])  # First 10 elements
 
         response = instructor_client.chat.completions.create(
-            model="gemini-1.5-flash",  # Model name stays the same
+            model="gemini-1.5-flash",
             response_model=DocumentStructure,
             messages=[
                 {"role": "system", "content": "Analyze the document structure and classify it for optimal chunking."},
@@ -287,9 +286,8 @@ def split_file(
                     chunk_index=i,
                     chunk_id=chunk_id,
                     content_hash=generate_content_hash(chunk_text),
-                    page_number=chunk_metadata.get('page_number'),
-                    language=chunk_metadata.get('languages', [None])[0] if chunk_metadata.get('languages') else None,
-                    category=chunk_metadata.get('category'),
+                    page_number=chunk_metadata.get("page_number", -1),
+                    language=chunk_metadata.get("languages", ["unknown"])[0],
                     word_count=len(chunk_text.split()),
                     char_count=len(chunk_text)
                 )

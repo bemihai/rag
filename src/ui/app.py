@@ -1,6 +1,6 @@
 """Main agent page."""
 import streamlit as st
-from dotenv import load_dotenv
+
 
 from display import display_message, make_app_title, CONTENT_STYLE
 

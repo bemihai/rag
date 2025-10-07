@@ -1,116 +1,90 @@
-from datetime import datetime
 from pathlib import Path
-from typing import List, Dict, Any, Optional
 from tqdm import tqdm
 import time
-import streamlit as st
 
-import chromadb
 from langchain_huggingface import HuggingFaceEmbeddings
 import instructor
 
-from src.data.chunks import split_file, create_chroma_batches, validate_chunks, generate_content_hash
-from src.utils import get_config, logger
+from src.data.chunks import split_file, create_chroma_batches, validate_chunks
+from src.utils import logger, initialize_chroma_client, get_or_create_collection
 
 
-class DataLoader:
-    """Enhanced data loader with better error handling and progress tracking."""
+class CollectionDataLoader:
+    """
+    Data loader class for processing and loading documents into a ChromaDB collection.
+    If the provided collection does not exist, a new one will be created.
 
+    Args:
+        collection_name: Name of the ChromaDB collection.
+        collection_metadata: Optional metadata for the collection.
+        chroma_host: Host for ChromaDB.
+        chroma_port: Port for ChromaDB.
+        embedding_model: HuggingFace model name for embeddings.
+        batch_size: Number of documents to process in each batch.
+        use_instructor: Whether to use semantic chunking with Instructor.
+        gemini_model: Optional, model name for Google Gemini if using Instructor. Should be
+            a string like 'google/gemini-2.5-flash'.
+        gemini_api_key: Optional, the API key for Google Gemini if using Instructor.
+    """
     def __init__(
         self,
-        collection_name: str = "wine_books",
-        chroma_host: str = "localhost",
-        chroma_port: str = "8000",
-        embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2",
+        collection_name: str,
+        collection_metadata: dict,
+        chroma_host: str,
+        chroma_port: int,
+        embedding_model: str,
         batch_size: int = 2500,
         use_instructor: bool = False,
-        gemini_api_key: Optional[str] = None,  # Changed from openai_api_key
+        gemini_model: str | None = None,
+        gemini_api_key: str | None = None,
     ):
         self.collection_name = collection_name
         self.batch_size = batch_size
         self.use_instructor = use_instructor
-
-        # Initialize ChromaDB client with retry logic
-        self.client = self._initialize_chroma_client(chroma_host, chroma_port)
-
-        # Initialize embedder
+        self.gemini_model = gemini_model
         self.embedder = HuggingFaceEmbeddings(model_name=embedding_model)
-
-        # Initialize instructor client with Gemini if needed
         self.instructor_client = None
+
+        # Initialize instructor client with Gemini if required
         if use_instructor and gemini_api_key:
             # Use the new from_provider approach to avoid deprecation warning
-            self.instructor_client = instructor.from_provider(
-                'google/gemini-2.5-flash-preview-05-20',
-                api_key=gemini_api_key
-            )
-            logger.info("Instructor client initialized for semantic chunking with Gemini")
+            self.instructor_client = instructor.from_provider(gemini_model, api_key=gemini_api_key)
+            logger.info("Instructor client with Gemini initialized for semantic chunking.")
 
-        # Initialize or get collection
-        self.collection = self._get_or_create_collection()
+        # Initialize or get ChromaDB collection
+        self.client = initialize_chroma_client(chroma_host, chroma_port)
+        self.collection = get_or_create_collection(self.client, collection_name, collection_metadata)
 
-    def _initialize_chroma_client(
-        self, host: str, port: int, max_retries: int = 3
-    ) -> chromadb.Client:
-        """Initialize ChromaDB client with retry logic."""
-        for attempt in range(max_retries):
-            try:
-                client = chromadb.HttpClient(host=host, port=port)
-                # Test connection
-                client.heartbeat()
-                logger.info(f"Connected to ChromaDB at {host}:{port}")
-                return client
-            except Exception as e:
-                logger.warning(f"Failed to connect to ChromaDB (attempt {attempt + 1}): {e}")
-                if attempt < max_retries - 1:
-                    time.sleep(2 ** attempt)  # Exponential backoff
-                else:
-                    raise ConnectionError(
-                        f"Could not connect to ChromaDB after {max_retries} attempts"
-                    )
 
-    def _get_or_create_collection(self):
-        """Get or create ChromaDB collection with optimized settings."""
-        try:
-            collection = self.client.get_collection(self.collection_name)
-            logger.info(f"Using existing collection: {self.collection_name}")
-        except Exception:
-            collection = self.client.create_collection(
-                name=self.collection_name,
-                metadata={
-                    "description": "Enhanced wine books collection with semantic chunking",
-                    "created": str(datetime.now()),
-                    "hnsw:space": "cosine",  # similarity measure
-                    "hnsw:search_ef": 100,  # num candidates for searching
-                    "hnsw:construction_ef": 200,  # increased for better indexing
-                    "hnsw:num_threads": 8,  # num of threads for indexing
-                    "version": "v1.1",
-                },
-            )
-            logger.info(f"Created new collection: {self.collection_name}")
-
-        return collection
-
-    def check_duplicate(self, content_hash: str) -> bool:
+    def _check_duplicate(self, content_hash: str) -> bool:
         """Check if content already exists in the collection."""
         try:
-            results = self.collection.get(
-                where={"content_hash": content_hash}, limit=1
-            )
+            results = self.collection.get(where={"content_hash": content_hash}, limit=1)
             return len(results["ids"]) > 0
         except Exception as e:
             logger.warning(f"Error checking for duplicates: {e}")
             return False
 
+
     def process_file(
         self,
-        file_path: Path,
+        file_path: str | Path,
         strategy: str = "basic",
         chunk_size: int = 512,
         overlap_size: int = 128,
         skip_duplicates: bool = True,
-    ) -> Dict[str, Any]:
-        """Process a single file and return statistics."""
+    ) -> dict:
+        """
+        Process a single file and return a dict with stats.
+
+        Args:
+            file_path: Path to the file to process.
+            strategy: Chunking strategy ("basic", "by_title", "semantic").
+            chunk_size: Size of each chunk.
+            overlap_size: Overlap size between chunks.
+            skip_duplicates: Whether to skip duplicate chunks based on content hash.
+        """
+        file_path = Path(file_path)
         start_time = time.time()
         stats = {
             "filename": file_path.name,
@@ -143,15 +117,13 @@ class DataLoader:
             # Validate chunks
             valid_chunks = validate_chunks(chunks)
 
-            # Prepare data for ChromaDB
+            # Prepare the chunked data for ChromaDB
             docs = []
-            embeddings = []
             metadata_list = []
             ids = []
 
             for chunk in valid_chunks:
-                # Skip duplicates if requested
-                if skip_duplicates and self.check_duplicate(chunk["metadata"]["content_hash"]):
+                if skip_duplicates and self._check_duplicate(chunk["metadata"]["content_hash"]):
                     stats["chunks_skipped"] += 1
                     continue
 
@@ -202,16 +174,27 @@ class DataLoader:
         stats["processing_time"] = time.time() - start_time
         return stats
 
+
     def load_directory(
         self,
-        data_path: str,
-        file_extensions: List[str] = [".epub", ".pdf", ".txt", ".md"],
+        data_path: str | Path,
+        file_extensions: list[str] = [".epub", ".pdf"],
         strategy: str = "basic",
         chunk_size: int = 512,
         overlap_size: int = 128,
         skip_duplicates: bool = True,
-    ) -> Dict[str, Any]:
-        """Load all files from directory with progress tracking."""
+    ) -> dict:
+        """
+        Load all files from directory with progress tracking. Returns a summary dict.
+
+        Args:
+            data_path: Path to the directory containing files.
+            file_extensions: List of file extensions to process, ex: [".epub", ".pdf"].
+            strategy: Chunking strategy ("basic", "by_title", "semantic").
+            chunk_size: Size of each chunk.
+            overlap_size: Overlap size between chunks.
+            skip_duplicates: Whether to skip duplicate chunks based on content hash.
+        """
 
         data_dir = Path(data_path)
         if not data_dir.exists():
@@ -279,64 +262,17 @@ class DataLoader:
         # Log final summary
         logger.info(
             f"""
-        Processing Complete:
-        - Files processed: {total_stats['files_processed']}/{total_stats['total_files']}
-        - Successful: {total_stats['successful_files']}
-        - Failed: {total_stats['failed_files']}
-        - Total chunks added: {total_stats['total_chunks_added']}
-        - Total chunks skipped: {total_stats['total_chunks_skipped']}
-        - Total processing time: {total_stats['total_processing_time']:.2f}s
-        """
+            Processing Complete:
+            - Files processed: {total_stats['files_processed']}/{total_stats['total_files']}
+            - Successful: {total_stats['successful_files']}
+            - Failed: {total_stats['failed_files']}
+            - Total chunks added: {total_stats['total_chunks_added']}
+            - Total chunks skipped: {total_stats['total_chunks_skipped']}
+            - Total processing time: {total_stats['total_processing_time']:.2f}s
+            """
         )
 
         return total_stats
 
-    def get_collection_stats(self) -> Dict[str, Any]:
-        """Get statistics about the current collection."""
-        try:
-            count = self.collection.count()
-            return {
-                "collection_name": self.collection_name,
-                "total_documents": count,
-                "last_updated": str(datetime.now()),
-            }
-        except Exception as e:
-            logger.error(f"Error getting collection stats: {e}")
-            return {"error": str(e)}
 
 
-# Convenience function for backward compatibility
-def load_wine_books(
-    data_path: str,
-    use_instructor: bool = False,
-    gemini_api_key: Optional[str] = None,
-    strategy: str = "basic",
-    chunk_size: int = 512,
-) -> Dict[str, Any]:
-    """Load wine books with enhanced processing."""
-
-    loader = DataLoader(
-        use_instructor=use_instructor, gemini_api_key=gemini_api_key  # Changed parameter name
-    )
-
-    return loader.load_directory(
-        data_path=data_path, strategy=strategy, chunk_size=chunk_size
-    )
-
-
-# Example usage
-if __name__ == "__main__":
-
-    cfg = get_config()
-
-    # Basic loading
-    # results = load_wine_books(data_path=cfg.data.local_path)
-    # print("Processing results:", results)
-
-    # With instructor using Gemini (requires Google API key)
-    results = load_wine_books(
-        data_path=cfg.data.local_path,
-        use_instructor=True,
-        gemini_api_key=st.secrets["GOOGLE_API_KEY"],  # Changed from OPENAI_API_KEY
-        strategy="semantic"
-    )

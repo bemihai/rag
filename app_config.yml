@@ -1,11 +1,24 @@
-data:
-  local_path: /Users/bemihai/Books/Wine/test
-
 chroma:
-  host: localhost
-  port: 8000
-  embedder: sentence-transformers/all-MiniLM-L6-v2
-  batch_size: 2500
+  client:
+    host: localhost
+    port: 8000
+  chunking:
+    strategy: basic  # basic, by_title, semantic
+    chunk_size: 512
+    chunk_overlap: 128
+  settings:
+    batch_size: 2500
+    embedder: sentence-transformers/all-MiniLM-L6-v2
+  collections:
+    - name: wine_books
+      local_data_path: /Users/bemihai/Books/Wine/test
+      metadata:
+        description: "Professional wine books collection"
+        hnsw:space: cosine              # similarity measure
+        hnsw:search_ef: 100             # num candidates for searching
+        hnsw:construction_ef: 200       # increased for better indexing
+        hnsw:num_threads: 8             # num of threads for indexing
+        version: v1.1
 
 model:
   provider: google

@@ -20,10 +20,7 @@ def find_project_root(marker="pyproject.toml"):
 
 def get_config() -> DictConfig:
     """Returns the app config object."""
-    cfg = OmegaConf.load(Path(find_project_root()) / "app_config.yml")
-    cfg.data.local_path = Path(find_project_root()) / cfg.data.local_path
-
-    return cfg
+    return OmegaConf.load(Path(find_project_root()) / "app_config.yml")
 
 
 def get_initial_message():
