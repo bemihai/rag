@@ -24,6 +24,30 @@ def initialize_chroma_client(host: str, port: int) -> cdb.ClientAPI:
     return client
 
 
+def create_chroma_batches(
+        ids: list,
+        embeddings: list | None = None,
+        metadata: list | None = None,
+        documents: list | None = None,
+        batch_size: int = 1000,
+) -> list[tuple]:
+    """Create batches for ChromaDB to avoid FastAPI errors with large collections."""
+    batches = []
+    if len(ids) > batch_size:
+        for i in range(0, len(ids), batch_size):
+            batches.append(
+                (
+                    ids[i : i + batch_size],
+                    embeddings[i : i + batch_size] if embeddings else None,
+                    metadata[i: i + batch_size] if metadata else None,
+                    documents[i : i + batch_size] if documents else None,
+                )
+            )
+    else:
+        batches.append((ids, embeddings, metadata, documents))
+
+    return batches
+
 
 def get_or_create_collection(client: cdb.ClientAPI, name: str, metadata: dict | None = None) -> cdb.Collection:
     """
@@ -46,4 +70,25 @@ def get_or_create_collection(client: cdb.ClientAPI, name: str, metadata: dict | 
         logger.info(f"Created new collection: {name}")
 
     return collection
+
+
+def validate_chunks(chunks: list[dict]) -> list[dict]:
+    """Validate and filter chunks for quality."""
+    valid_chunks = []
+
+    for chunk in chunks:
+        text = chunk.get("text", "").strip()
+
+        # Skip empty or very short chunks
+        if len(text) < 10:
+            continue
+
+        # Skip chunks with too little actual content
+        if len(text.split()) < 3:
+            continue
+
+        valid_chunks.append(chunk)
+
+    logger.info(f"Validated {len(valid_chunks)} chunks from {len(chunks)} total")
+    return valid_chunks
 

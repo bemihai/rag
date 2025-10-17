@@ -1,5 +1,5 @@
+import hashlib
 import os
-import base64
 from pathlib import Path
 
 from omegaconf import DictConfig, OmegaConf
@@ -33,6 +33,11 @@ def get_initial_message():
             "answer": msg["answer"] if "answer" in msg else "Welcome! Ask me anything about wine."
         }
     ]
+
+
+def generate_hash(content: str) -> str:
+    """Generate a hash for content to detect duplicates."""
+    return hashlib.md5(content.encode()).hexdigest()
 
 
 

@@ -5,8 +5,8 @@ import time
 from langchain_huggingface import HuggingFaceEmbeddings
 import instructor
 
-from src.data.chunks import split_file, create_chroma_batches, validate_chunks
-from src.utils import logger, initialize_chroma_client, get_or_create_collection
+from src.data.chunks import split_file
+from src.utils import logger, initialize_chroma_client, get_or_create_collection, create_chroma_batches, validate_chunks
 
 
 class CollectionDataLoader:
@@ -104,7 +104,6 @@ class CollectionDataLoader:
                 strategy=strategy,
                 chunk_size=chunk_size,
                 overlap_size=overlap_size,
-                use_instructor=self.use_instructor,
                 instructor_client=self.instructor_client,
             )
 

@@ -1,7 +1,11 @@
 """Runnable script for processing external data and loading to ChromaDB."""
+import os
+
 from src.data import CollectionDataLoader
 from src.utils import get_config, logger
 from src.utils.env import GOOGLE_API_KEY
+
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 
 if __name__ == "__main__":
@@ -31,15 +35,3 @@ if __name__ == "__main__":
             chunk_size=chroma_cfg.chunking.chunk_size,
             overlap_size=chroma_cfg.chunking.chunk_overlap,
         )
-
-        # # Basic loading
-        # # results = load_wine_books(data_path=cfg.data.local_path)
-        # # print("Processing results:", results)
-        #
-        # # With instructor using Gemini (requires Google API key)
-        # res = load_wine_books(
-        #     data_path=cfg.data.local_path,
-        #     use_instructor=True,
-        #     gemini_api_key=st.secrets["GOOGLE_API_KEY"],  # Changed from OPENAI_API_KEY
-        #     strategy="semantic"
-        # )
