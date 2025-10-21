@@ -4,7 +4,8 @@ import streamlit as st
 from display import display_message, make_app_title, CONTENT_STYLE
 from src.model.llm import load_base_model, process_user_prompt
 from src.data import ChromaRetriever
-from src.utils import get_config, get_initial_message, initialize_chroma_client
+from src.utils import get_config, get_initial_message, build_semantic_context, format_sources_for_display
+from src.utils.chroma import initialize_chroma_client
 
 
 # App title and description
@@ -51,7 +52,7 @@ def load_retriever():
         similarity_threshold=chroma_cfg.retrieval.similarity_threshold,
     )
 
-
+cfg = get_config()
 model = load_llm()
 chroma_client = load_chroma_client()
 retriever = load_retriever()
@@ -74,6 +75,14 @@ with st.sidebar:
     - How should I store an opened bottle of wine?
     - What does 'terroir' mean in winemaking?
     """)
+
+    # Display sources from last query if available
+    if "last_sources" in st.session_state and st.session_state.last_sources:
+        st.markdown("---")
+        st.subheader("📚 Sources Used")
+        for source in st.session_state.last_sources:
+            st.text(source)
+
     st.markdown("#")
     if st.button("Reset Chat"):
         st.session_state.messages = get_initial_message()
@@ -102,7 +111,21 @@ if prompt := st.chat_input("Type your question here"):
 
     with st.spinner("Thinking...", show_time=True):
         try:
-            context = ""  # No external context retrieval in this version
+            # Retrieve relevant documents from ChromaDB and build context
+            retrieved_docs = retriever.retrieve(prompt)
+            context = build_semantic_context(
+                retrieved_docs,
+                similarity_threshold=0.9,
+                include_metadata=True,
+                embedding_model=cfg.chroma.settings.embedder
+            )
+
+            # Store retrieved docs in session state for potential display
+            if retrieved_docs:
+                st.session_state.last_sources = format_sources_for_display(retrieved_docs)
+            else:
+                st.session_state.last_sources = []
+
             answer = process_user_prompt(model, prompt, context, message_history)
         except TimeoutError as _:
             answer = ""
