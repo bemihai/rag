@@ -1,5 +1,4 @@
 import streamlit as st
-from dotenv import load_dotenv
 
 from langchain_core.language_models import BaseChatModel
 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -8,9 +7,8 @@ from langchain.prompts import ChatPromptTemplate
 from langchain_core.callbacks import CallbackManager
 
 from src.utils import logger, get_langfuse_callback
+from src.utils.env import GOOGLE_API_KEY
 from .prompts import SYSTEM_PROMPT, USER_PROMPT
-
-load_dotenv()
 
 
 class ModelInternalError(Exception):
@@ -39,14 +37,11 @@ def load_base_model(model_provider: str, model_name: str, **kwargs) -> BaseChatM
     callback_manager = CallbackManager([get_langfuse_callback()])
     match model_provider.lower():
         case "google":
-            api_key = st.secrets["GOOGLE_API_KEY"] if "GOOGLE_API_KEY" in st.secrets else None
-            if not api_key:
-                raise ValueError("GOOGLE_API_KEY not found in Streamlit secrets.")
             model = ChatGoogleGenerativeAI(
                 model=model_name,
                 temperature=0.0,
                 max_retries=2,
-                google_api_key=api_key,
+                google_api_key=GOOGLE_API_KEY,
                 callback_manager=callback_manager,
                 **kwargs,
             )

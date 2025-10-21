@@ -28,6 +28,7 @@ help:
 	@echo "  db-restore      - Restore ChromaDB data from backup"
 	@echo "  db-clean        - Remove ChromaDB data (destructive)"
 	@echo "  db-pull         - Pull latest ChromaDB image"
+	@echo "  db-load         - Load external data into ChromaDB"
 
 .PHONY: check-env
 check-env:
@@ -148,3 +149,8 @@ install-deps:
 test-connection: check-env
 	@echo "Testing ChromaDB connection..."
 	@python3 -c "import chromadb; client = chromadb.HttpClient(host='localhost', port=$(CHROMA_PORT)); print('✓ Connection successful'); print('Version:', client.get_version())" 2>/dev/null || echo "✗ Connection failed"
+
+.PHONY: db-load
+db-load: db-up install-deps
+	@echo "Loading external data into ChromaDB..."
+	@python3 src/data/load_data.py

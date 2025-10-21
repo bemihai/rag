@@ -6,6 +6,9 @@ chroma:
     strategy: by_title  # basic, by_title, semantic
     chunk_size: 1024
     chunk_overlap: 256
+  retrieval:
+    n_results: 5                        # number of chunks to retrieve
+    similarity_threshold: 0.3           # minimum similarity score (optional)
   settings:
     batch_size: 2500
     embedder: sentence-transformers/all-MiniLM-L6-v2

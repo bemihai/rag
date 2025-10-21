@@ -1,23 +1,22 @@
-import streamlit as st
 from langfuse import Langfuse
 from langfuse.langchain import CallbackHandler
+
+from src.utils import logger
+from src.utils.env import LANGFUSE_PUBLIC_KEY, LANGFUSE_SECRET_KEY
 
 
 def get_langfuse_callback():
     """Returns a Langfuse callback handler."""
-    public_key = st.secrets["LANGFUSE_PUBLIC_KEY"] if "LANGFUSE_PUBLIC_KEY" in st.secrets else None
-    secret_key = st.secrets["LANGFUSE_SECRET_KEY"] if "LANGFUSE_SECRET_KEY" in st.secrets else None
-
-    if public_key and secret_key:
+    try:
         langfuse = Langfuse(
-            public_key=public_key,
-            secret_key=secret_key,
+            public_key=LANGFUSE_PUBLIC_KEY,
+            secret_key=LANGFUSE_SECRET_KEY,
             host="https://cloud.langfuse.com"
         )
 
         langfuse_handler = CallbackHandler()
-    else:
+    except Exception as err:
         langfuse_handler = None
-        logger.error("Langfuse keys not found in Streamlit secrets. Langfuse logging is disabled.")
+        logger.error(f"Cannot instantiate the Langfuse handler. Langfuse logging is disabled: {err}")
 
     return langfuse_handler
