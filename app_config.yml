@@ -16,7 +16,7 @@ chroma:
     embedder: sentence-transformers/all-MiniLM-L6-v2  # embedding model for retrieval
   collections:
     - name: wine_books                  # primary collection name to query
-      local_data_path: /Users/bemihai/Books/Wine/test
+      local_data_path: /Users/bemihai/Books/Wine
       metadata:
         description: "Professional wine books collection"
         hnsw:space: cosine              # similarity measure (cosine, l2, ip)

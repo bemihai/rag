@@ -10,7 +10,7 @@ from src.utils.chroma import initialize_chroma_client
 
 
 # App title and description
-st.set_page_config(page_title="Pour Decisions: Let the bot choose your bottle 🍷🤖", page_icon="🍷")
+st.set_page_config(page_title="Pour Decisions", page_icon="🍷")
 st.markdown(make_app_title(
     "Pour Decisions",
     "Let the bot choose your bottle 🍷"

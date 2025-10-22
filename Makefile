@@ -153,4 +153,4 @@ test-connection: check-env
 .PHONY: db-load
 db-load: db-up install-deps
 	@echo "Loading external data into ChromaDB..."
-	@python3 src/data/load_data.py
+	@PYTHONPATH=$(shell pwd) python3 src/data/load_data.py
