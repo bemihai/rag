@@ -96,8 +96,6 @@ with st.sidebar:
     st.markdown("""
     - What is the difference between Merlot and Cabernet Sauvignon?
     - Suggest a wine pairing for spicy Thai food.
-    - What are the main wine regions in France?
-    - How should I store an opened bottle of wine?
     - What does 'terroir' mean in winemaking?
     """)
 
@@ -137,64 +135,6 @@ with st.sidebar:
         )
         st.session_state.n_results = n_results
 
-        # Show similarity threshold
-        show_similarity = st.checkbox(
-            "Show relevance scores",
-            value=False,
-            help="Display similarity scores for retrieved sources"
-        )
-        st.session_state.show_similarity = show_similarity
-
-    # Display sources from last query if available
-    if "last_sources" in st.session_state and st.session_state.last_sources and enable_rag:
-        st.markdown("---")
-        st.subheader("📚 Sources Used")
-
-        # Show retrieved documents with details
-        if "last_retrieved_docs" in st.session_state:
-            for idx, doc in enumerate(st.session_state.last_retrieved_docs, 1):
-                metadata = doc.get('metadata', {})
-                similarity = doc.get('similarity')
-
-                source = metadata.get('source', metadata.get('filename', 'Unknown'))
-                if '/' in source:
-                    source = source.split('/')[-1]
-
-                page = metadata.get('page', metadata.get('page_number'))
-
-                # Create expander for each source
-                with st.expander(f"📄 Source {idx}: {source}", expanded=False):
-                    if page is not None:
-                        st.caption(f"Page: {page}")
-
-                    if similarity is not None:
-                        # Show relevance indicator
-                        if st.session_state.get('show_similarity', False):
-                            st.caption(f"Relevance: {similarity:.2%}")
-                            # Visual relevance indicator
-                            if similarity >= 0.7:
-                                st.success("🟢 High Relevance")
-                            elif similarity >= 0.5:
-                                st.info("🟡 Medium Relevance")
-                            else:
-                                st.warning("🟠 Low Relevance")
-
-                    # Show snippet of the content
-                    document_text = doc.get('document', '')
-                    if document_text:
-                        st.text_area(
-                            "Content snippet:",
-                            value=document_text[:300] + "..." if len(document_text) > 300 else document_text,
-                            height=100,
-                            disabled=True,
-                            key=f"source_content_{idx}"
-                        )
-        else:
-            # Fallback to simple display
-            for source in st.session_state.last_sources:
-                st.text(source)
-
-    st.markdown("---")
     if st.button("🔄 Reset Chat"):
         st.session_state.messages = get_initial_message()
         if "last_sources" in st.session_state:
@@ -299,6 +239,6 @@ if prompt := st.chat_input("Type your question here"):
             answer = "I apologize, but an unexpected error occurred. Please try again."
             st.error(f"❌ An unexpected error occurred: {str(e)}")
 
-        sys_message = {"role": "ai", "answer": answer}
+        sys_message = {"role": "ai", "answer": answer, "sources": st.session_state.last_sources}
     display_message(sys_message)
     st.session_state.messages.append(sys_message)

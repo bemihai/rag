@@ -1,4 +1,5 @@
 """Context builder utility for formatting retrieved documents."""
+from pathlib import Path
 from typing import List, Dict, Any
 import numpy as np
 from langchain_huggingface import HuggingFaceEmbeddings
@@ -144,7 +145,7 @@ def cosine_similarity(vec1: List[float], vec2: List[float]) -> float:
     return dot_product / (norm1 * norm2)
 
 
-def format_sources_for_display(retrieved_docs: List[Dict[str, Any]]) -> List[str]:
+def format_sources_for_display(retrieved_docs: List[Dict[str, Any]]) -> list:
     """
     Format retrieved sources for UI display.
 
@@ -152,7 +153,7 @@ def format_sources_for_display(retrieved_docs: List[Dict[str, Any]]) -> List[str
         retrieved_docs: List of retrieved documents from ChromaRetriever.
 
     Returns:
-        List of formatted source strings for display.
+        A list of tuples of the form (source name, page number, relevance score).
     """
     sources = []
 
@@ -163,16 +164,10 @@ def format_sources_for_display(retrieved_docs: List[Dict[str, Any]]) -> List[str
         source = metadata.get('source', metadata.get('filename', 'Unknown'))
         if '/' in source:
             source = source.split('/')[-1]
+        source = Path(source).stem
 
         page = metadata.get('page', metadata.get('page_number'))
-
-        source_str = f"{idx}. {source}"
-        if page is not None:
-            source_str += f" (Page {page})"
-        if similarity is not None:
-            source_str += f" - Relevance: {similarity:.2f}"
-
-        sources.append(source_str)
+        sources.append((source, page, similarity))
 
     return sources
 
