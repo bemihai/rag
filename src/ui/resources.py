@@ -2,7 +2,7 @@
 import streamlit as st
 
 from src.model.llm import load_base_model
-from src.data import ChromaRetriever
+from src.rag import ChromaRetriever
 from src.utils import get_config, logger
 from src.utils.chroma import initialize_chroma_client
 

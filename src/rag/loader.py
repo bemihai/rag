@@ -5,7 +5,7 @@ import time
 from langchain_huggingface import HuggingFaceEmbeddings
 import instructor
 
-from src.data.chunks import split_file
+from src.rag.chunks import split_file
 from src.utils import logger, initialize_chroma_client, get_or_create_collection, create_chroma_batches, validate_chunks
 
 
@@ -116,7 +116,7 @@ class CollectionDataLoader:
             # Validate chunks
             valid_chunks = validate_chunks(chunks)
 
-            # Prepare the chunked data for ChromaDB
+            # Prepare the chunked rag for ChromaDB
             docs = []
             metadata_list = []
             ids = []

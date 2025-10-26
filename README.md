@@ -71,7 +71,7 @@ Pour Decisions is an intelligent wine assistant that combines the power of LLMs 
 Wine books are processed and stored in ChromaDB:
 
 ```python
-# src/data/load_data.py
+# src/rag/load_data.py
 - Splits documents into chunks (configurable size and overlap)
 - Supports multiple chunking strategies:
   - Basic: Fixed-size chunks
@@ -212,7 +212,7 @@ GOOGLE_API_KEY=your_google_api_key_here
 # ChromaDB Settings (optional, defaults provided)
 CHROMA_NAME=chroma-db
 CHROMA_PORT=8000
-CHROMA_VOLUME=./chroma-data
+CHROMA_VOLUME=./chroma-rag
 
 # Langfuse (optional, for tracing)
 LANGFUSE_SECRET_KEY=your_key
@@ -393,9 +393,9 @@ make db-down        # Stop ChromaDB
 make db-restart     # Restart ChromaDB
 make db-status      # Check status
 make db-logs        # View logs
-make db-clean       # Delete all data (destructive!)
+make db-clean       # Delete all rag (destructive!)
 make db-backup      # Create backup
-make db-load        # Load data into ChromaDB
+make db-load        # Load rag into ChromaDB
 
 # Testing
 make test-connection  # Test ChromaDB connection
@@ -467,7 +467,7 @@ The app integrates with Langfuse for observability:
 
 **Solution:** Run from project root with correct PYTHONPATH:
 ```bash
-PYTHONPATH=$(pwd) python3 src/data/load_data.py
+PYTHONPATH=$(pwd) python3 src/rag/load_data.py
 # or use
 make db-load
 ```

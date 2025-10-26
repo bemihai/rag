@@ -1,7 +1,7 @@
-"""Runnable script for processing external data and loading to ChromaDB."""
+"""Runnable script for processing external rag and loading to ChromaDB."""
 import os
 
-from src.data import CollectionDataLoader
+from src.rag import CollectionDataLoader
 from src.utils import get_config, logger
 from src.utils.env import GOOGLE_API_KEY
 
