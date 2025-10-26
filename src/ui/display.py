@@ -80,9 +80,9 @@ CONTENT_STYLE = """
 """
 
 
-def make_app_title(title: str, subtitle: str) -> str:
+def make_page_title(title: str, subtitle: str) -> str:
     """
-    Returns a styled HTML/CSS string for a custom app title and subtitle.
+    Returns a styled HTML/CSS string for a custom page title and subtitle.
     Args:
         title (str): The main title text.
         subtitle (str): The subtitle text (smaller font).
