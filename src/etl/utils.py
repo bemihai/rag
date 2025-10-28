@@ -106,12 +106,17 @@ def parse_vintage(vintage_str: str) -> Optional[int]:
         return None
 
 
-def parse_drinking_window(window_str: str) -> tuple[Optional[int], Optional[int]]:
+def parse_drinking_window(window_str: str, end_str: Optional[str] = None) -> tuple[Optional[int], Optional[int]]:
     """
-    Parse drinking window from Vivino format (e.g., "2025 2027").
+    Parse drinking window from various formats.
+
+    Supports:
+    - Vivino format: "2025 2027" (single string with space)
+    - CellarTracker format: separate start and end parameters
 
     Args:
-        window_str: Drinking window string from Vivino
+        window_str: Drinking window string from Vivino, or start year from CellarTracker
+        end_str: Optional end year (for CellarTracker format)
 
     Returns:
         Tuple of (start_year, end_year) or (None, None)
@@ -120,6 +125,13 @@ def parse_drinking_window(window_str: str) -> tuple[Optional[int], Optional[int]
         return None, None
 
     try:
+        # If end_str is provided, use CellarTracker format
+        if end_str:
+            start = int(window_str.strip()) if window_str else None
+            end = int(end_str.strip()) if end_str else None
+            return start, end
+
+        # Otherwise try Vivino format (space-separated)
         parts = window_str.strip().split()
         if len(parts) == 2:
             start = int(parts[0])
