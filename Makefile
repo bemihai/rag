@@ -36,6 +36,7 @@ help:
 	@echo "  cellar-backup   - Backup wine cellar database"
 	@echo "  cellar-restore  - Restore wine cellar database from backup"
 	@echo "  cellar-info     - Show wine cellar database info"
+	@echo "  cellar-import-vivino - Import Vivino CSV data"
 
 .PHONY: check-env
 check-env:
@@ -229,6 +230,17 @@ cellar-info:
 		echo "Status: Not initialized"; \
 		echo "Run 'make cellar-init' to create the database"; \
 	fi
+
+.PHONY: cellar-import-vivino
+cellar-import-vivino:
+	@echo "Importing Vivino CSV data..."
+	@if [ ! -f "$(CELLAR_DB_PATH)" ]; then \
+		echo "Error: Database not initialized. Run 'make cellar-init' first."; exit 1; \
+	fi
+	@PYTHONPATH=$(shell pwd) python3 src/etl/import_vivino.py
+	@echo ""
+	@echo "Updated database statistics:"
+	@$(MAKE) cellar-info
 
 .PHONY: db-load
 db-load: db-up install-deps
