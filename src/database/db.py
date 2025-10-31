@@ -60,7 +60,6 @@ def initialize_database(db_path: str = DEFAULT_DB_PATH) -> bool:
             _create_wines_table(cursor)
             _create_bottles_table(cursor)
             _create_sync_log_table(cursor)
-            _create_data_sources_table(cursor)
             _create_schema_version_table(cursor)
             _create_views(cursor)
 
@@ -80,10 +79,8 @@ def _create_producers_table(cursor: sqlite3.Cursor):
         CREATE TABLE IF NOT EXISTS producers (
             id                  INTEGER PRIMARY KEY AUTOINCREMENT,
             name                TEXT NOT NULL UNIQUE,
-            sort_name           TEXT,
             country             TEXT,
             region              TEXT,
-            website             TEXT,
             notes               TEXT,
             created_at          TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at          TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -104,8 +101,6 @@ def _create_regions_table(cursor: sqlite3.Cursor):
             name                TEXT NOT NULL,
             country             TEXT NOT NULL,
             parent_region_id    INTEGER REFERENCES regions(id),
-            level               TEXT,
-            regional_style      TEXT,
             created_at          TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             UNIQUE(name, country)
         )
@@ -128,22 +123,17 @@ def _create_wines_table(cursor: sqlite3.Cursor):
             producer_id             INTEGER REFERENCES producers(id),
             vintage                 INTEGER,
             wine_type               TEXT NOT NULL,
-            color                   TEXT,
             varietal                TEXT,
             designation             TEXT,
             region_id               INTEGER REFERENCES regions(id),
             appellation             TEXT,
-            alcohol_content         DECIMAL(4,2),
             bottle_size             TEXT DEFAULT '750ml',
             personal_rating         INTEGER,
             community_rating        DECIMAL(3,2),
-            community_rating_count  INTEGER,
             tasting_notes           TEXT,
             last_tasted_date        DATE,
             drink_from_year         INTEGER,
             drink_to_year           INTEGER,
-            label_image_url         TEXT,
-            vivino_url              TEXT,
             created_at              TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at              TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             UNIQUE(source, external_id)
@@ -179,7 +169,6 @@ def _create_bottles_table(cursor: sqlite3.Cursor):
             currency                TEXT DEFAULT 'RON',
             store_name              TEXT,
             consumed_date           DATE,
-            consumption_type        TEXT,
             bottle_note             TEXT,
             created_at              TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at              TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -227,25 +216,6 @@ def _create_sync_log_table(cursor: sqlite3.Cursor):
     logger.debug("Created sync_log table")
 
 
-def _create_data_sources_table(cursor: sqlite3.Cursor):
-    """Create data_sources table."""
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS data_sources (
-            id                  INTEGER PRIMARY KEY AUTOINCREMENT,
-            source_name         TEXT NOT NULL UNIQUE,
-            source_type         TEXT NOT NULL,
-            is_enabled          BOOLEAN DEFAULT TRUE,
-            last_sync_at        TIMESTAMP,
-            last_sync_status    TEXT,
-            next_sync_at        TIMESTAMP,
-            config              TEXT,
-            created_at          TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at          TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    """)
-
-    logger.debug("Created data_sources table")
-
 
 def _create_schema_version_table(cursor: sqlite3.Cursor):
     """Create schema_version table for tracking migrations."""
@@ -287,8 +257,7 @@ def _create_views(cursor: sqlite3.Cursor):
             w.community_rating,
             w.drink_from_year,
             w.drink_to_year,
-            b.purchase_date as last_purchase_date,
-            w.label_image_url
+            b.purchase_date as last_purchase_date
         FROM wines w
         JOIN bottles b ON w.id = b.wine_id
         LEFT JOIN producers p ON w.producer_id = p.id
@@ -309,8 +278,7 @@ def _create_views(cursor: sqlite3.Cursor):
             r.country,
             w.personal_rating,
             w.community_rating,
-            COUNT(b.id) as bottles_owned,
-            w.label_image_url
+            COUNT(b.id) as bottles_owned
         FROM wines w
         LEFT JOIN producers p ON w.producer_id = p.id
         LEFT JOIN regions r ON w.region_id = r.id
@@ -361,7 +329,6 @@ def drop_all_tables(db_path: str = DEFAULT_DB_PATH) -> bool:
             cursor.execute("DROP VIEW IF EXISTS cellar_stats")
 
             # Drop tables in reverse order of dependencies
-            cursor.execute("DROP TABLE IF EXISTS data_sources")
             cursor.execute("DROP TABLE IF EXISTS sync_log")
             cursor.execute("DROP TABLE IF EXISTS bottles")
             cursor.execute("DROP TABLE IF EXISTS wines")
