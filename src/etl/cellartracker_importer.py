@@ -192,14 +192,16 @@ class CellarTrackerImporter:
         producer_id = self._get_or_create_producer(
             conn,
             producer_name,
-            record.get('Country')
+            record.get('Country'),
+            record.get("Locale"),
         )
 
         # Get or create region (from Region + Country)
         region_id = self._get_or_create_region(
             conn,
             record.get('Region'),
-            record.get('Country')
+            record.get('Country'),
+            record.get("SubRegion") or record.get("Appellation"),
         )
 
         # Check if wine exists
@@ -635,7 +637,7 @@ class CellarTrackerImporter:
         return purchase_note or consumption_note
 
 
-    def _get_or_create_producer(self, conn, name: str, country: Optional[str]) -> Optional[int]:
+    def _get_or_create_producer(self, conn, name: str | None, country: str | None, region: str | None) -> int | None:
         """
         Get or create producer, return ID.
 
@@ -644,62 +646,55 @@ class CellarTrackerImporter:
         if not name:
             return None
 
-        # Check cache
         if name in self.producer_cache:
             return self.producer_cache[name]
 
         cursor = conn.cursor()
-
-        # Check if exists
-        cursor.execute("SELECT id FROM producers WHERE name = ?", (name,))
+        cursor.execute("SELECT id FROM producers WHERE name = ? AND country = ?", (name, country))
         existing = cursor.fetchone()
 
         if existing:
             producer_id = existing[0]
         else:
-            # Create new producer (no sort_name field)
             cursor.execute("""
-                INSERT INTO producers (name, country)
-                VALUES (?, ?)
-            """, (name, country))
+                INSERT INTO producers (name, country, region)
+                VALUES (?, ?, ?)
+            """, (name, country, region))
             producer_id = cursor.lastrowid
             self.stats['producers_created'] += 1
             conn.commit()
 
-        # Cache it
         self.producer_cache[name] = producer_id
         return producer_id
 
 
-    def _get_or_create_region(self, conn, name: Optional[str], country: Optional[str]) -> Optional[int]:
+    def _get_or_create_region(self, conn, name: str | None, country: str | None, subregion: str| None) -> int | None:
         """Get or create region, return ID."""
         if not name or not country:
             return None
 
-        # Check cache
         cache_key = (name, country)
         if cache_key in self.region_cache:
             return self.region_cache[cache_key]
 
         cursor = conn.cursor()
-
-        # Check if exists
-        cursor.execute("SELECT id FROM regions WHERE name = ? AND country = ?", (name, country))
+        cursor.execute(
+            "SELECT id FROM regions WHERE name = ? AND country = ? AND sub_region = ?",
+            (name, country, subregion)
+        )
         existing = cursor.fetchone()
 
         if existing:
             region_id = existing[0]
         else:
-            # Create new region
             cursor.execute("""
-                INSERT INTO regions (name, country)
-                VALUES (?, ?)
-            """, (name, country))
+                INSERT INTO regions (name, country, sub_region)
+                VALUES (?, ?, ?)
+            """, (name, country, subregion))
             region_id = cursor.lastrowid
             self.stats['regions_created'] += 1
             conn.commit()
 
-        # Cache it
         self.region_cache[cache_key] = region_id
         return region_id
 

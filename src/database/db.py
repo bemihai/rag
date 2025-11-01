@@ -101,15 +101,13 @@ def _create_regions_table(cursor: sqlite3.Cursor):
             id                  INTEGER PRIMARY KEY AUTOINCREMENT,
             name                TEXT NOT NULL,
             country             TEXT NOT NULL,
-            parent_region_id    INTEGER REFERENCES regions(id),
+            sub_region          TEXT,
             created_at          TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             UNIQUE(name, country)
         )
     """)
 
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_regions_country ON regions(country)")
-    cursor.execute("CREATE INDEX IF NOT EXISTS idx_regions_parent ON regions(parent_region_id)")
-
     logger.debug("Created regions table")
 
 

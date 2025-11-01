@@ -25,7 +25,7 @@ class Region(BaseModel):
     id: Optional[int] = Field(None, description="Unique identifier")
     name: str = Field("", description="Region name (e.g., Loire Valley, Bordeaux)")
     country: str = Field("", description="Country where region is located")
-    parent_region_id: Optional[int] = Field(None, description="Parent region ID for hierarchical regions")
+    sub_region: Optional[str] = Field(None, description="Sub-region or appellation")
     created_at: Optional[datetime] = Field(None, description="Record creation timestamp")
 
 
