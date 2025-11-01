@@ -3,11 +3,12 @@ import sqlite3
 from pathlib import Path
 from contextlib import contextmanager
 
+from src.utils import find_project_root
 from src.utils.logger import logger
 
 
 # Default database path
-DEFAULT_DB_PATH = 'data/wine_cellar.db'
+DEFAULT_DB_PATH = f"{find_project_root()}/data/wine_cellar.db"
 
 
 @contextmanager
@@ -174,7 +175,7 @@ def _create_bottles_table(cursor: sqlite3.Cursor):
             updated_at              TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             CHECK(
                 (status = 'in_cellar' AND consumed_date IS NULL) OR
-                (status != 'in_cellar' AND consumed_date IS NOT NULL)
+                (status = 'consumed' AND consumed_date IS NOT NULL)
             )
         )
     """)

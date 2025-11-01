@@ -40,11 +40,7 @@ help:
 	@echo "Import Commands:"
 	@echo "  cellar-import-vivino     - Import Vivino CSV data"
 	@echo "  cellar-import-ct         - Import all data from CellarTracker API"
-	@echo "  cellar-import-ct-inventory - Import only current inventory (fast)"
-	@echo "  cellar-import-ct-init    - Initialize DB and import from CellarTracker"
-	@echo "  cellar-test-ct-import    - Test import with sample JSON data"
 	@echo "  cellar-sync              - Sync all sources (with backup)"
-	@echo "  cellar-sync-quick        - Quick sync (inventory only, no backup)"
 
 .PHONY: check-env
 check-env:
@@ -256,49 +252,15 @@ cellar-import-ct:
 	@if [ ! -f "$(CELLAR_DB_PATH)" ]; then \
 		echo "Error: Database not initialized. Run 'make cellar-init' first."; exit 1; \
 	fi
-	@if [ -z "$(CELLARTRACKER_USERNAME)" ] || [ -z "$(CELLARTRACKER_PASSWORD)" ]; then \
+	@if [ -z "$(CELLAR_TRACKER_USERNAME)" ] || [ -z "$(CELLAR_TRACKER_PASSWORD)" ]; then \
 		echo "Error: CellarTracker credentials not set!"; \
-		echo "Set CELLARTRACKER_USERNAME and CELLARTRACKER_PASSWORD in .env file"; exit 1; \
+		echo "Set CELLAR_TRACKER_USERNAME and CELLAR_TRACKER_PASSWORD in .env file"; exit 1; \
 	fi
 	@PYTHONPATH=$(shell pwd) python3 -m src.etl.import_cellartracker
 	@echo ""
 	@echo "✅ Import completed!"
 	@$(MAKE) cellar-info
 
-.PHONY: cellar-import-ct-inventory
-cellar-import-ct-inventory:
-	@echo "Importing current inventory from CellarTracker API..."
-	@if [ ! -f "$(CELLAR_DB_PATH)" ]; then \
-		echo "Error: Database not initialized. Run 'make cellar-init' first."; exit 1; \
-	fi
-	@if [ -z "$(CELLAR_TRACKER_USERNAME)" ] || [ -z "$(CELLAR_TRACKER_PASSWORD)" ]; then \
-		echo "Error: CellarTracker credentials not set!"; \
-		echo "Set CELLAR_TRACKER_USERNAME and CELLAR_TRACKER_PASSWORD in .env file"; exit 1; \
-	fi
-	@PYTHONPATH=$(shell pwd) python3 -m src.etl.import_cellartracker --inventory-only
-	@echo ""
-	@echo "✅ Inventory import completed!"
-	@$(MAKE) cellar-info
-
-.PHONY: cellar-import-ct-init
-cellar-import-ct-init:
-	@echo "Initializing database and importing from CellarTracker..."
-	@if [ -z "$(CELLAR_TRACKER_USERNAME)" ] || [ -z "$(CELLAR_TRACKER_PASSWORD)" ]; then \
-		echo "Error: CellarTracker credentials not set!"; \
-		echo "Set CELLAR_TRACKER_USERNAME and CELLAR_TRACKER_PASSWORD in .env file"; exit 1; \
-	fi
-	@PYTHONPATH=$(shell pwd) python3 -m src.etl.import_cellartracker --init-db
-	@echo ""
-	@echo "✅ Database initialized and data imported!"
-	@$(MAKE) cellar-info
-
-.PHONY: cellar-test-ct-import
-cellar-test-ct-import:
-	@echo "Testing CellarTracker import with sample data..."
-	@PYTHONPATH=$(shell pwd) python3 -m src.etl.test_cellartracker_import
-	@echo ""
-	@echo "✅ Test import completed!"
-	@echo "Test database created at: data/wine_cellar_test.db"
 
 .PHONY: cellar-sync
 cellar-sync:
@@ -310,16 +272,6 @@ cellar-sync:
 	@echo ""
 	@echo "✅ All sources synced!"
 
-.PHONY: cellar-sync-quick
-cellar-sync-quick:
-	@echo "Quick sync (inventory only)..."
-	@$(MAKE) cellar-import-ct-inventory
-	@echo ""
-	@echo "✅ Quick sync completed!"
-	@PYTHONPATH=$(shell pwd) python3 src/etl/import_cellar_tracker.py
-	@echo ""
-	@echo "Updated database statistics:"
-	@$(MAKE) cellar-info
 
 .PHONY: db-load
 db-load: db-up install-deps
