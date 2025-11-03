@@ -1,6 +1,7 @@
-"""Utility functions for ETL processes."""
+"""Utility functions for ETL pipelines."""
 import html
 import hashlib
+from difflib import SequenceMatcher
 from datetime import datetime
 from typing import Optional
 from dateutil import parser
@@ -24,54 +25,55 @@ WINE_TYPE_MAP = {
     'Fortified': 'Fortified',
 }
 
+COUNTRY_MAP = {
+    "ro": "Romania",
+    "fr": "France",
+    "it": "Italy",
+    "es": "Spain",
+    "de": "Germany",
+    "pt": "Portugal",
+    "us": "United States",
+    "md": "Moldova",
+}
+
 
 def normalize_wine_type(type_str: str) -> str:
     """
     Standardize wine type to unified format.
-
-    Args:
-        type_str: Wine type string from source
-
-    Returns:
-        Standardized wine type
     """
     if not type_str:
-        return 'Red'
+        return "Red"
 
-    return WINE_TYPE_MAP.get(type_str.strip(), 'Red')
+    return WINE_TYPE_MAP.get(type_str.strip(), "Red")
 
 
 def clean_text(text: str) -> Optional[str]:
     """
     Clean and normalize text.
-
-    Args:
-        text: Raw text string
-
-    Returns:
-        Cleaned text or None if empty/unknown
     """
-    if not text or text.strip() == '' or text.strip().lower() == 'unknown':
+    if not text or text.strip() == "" or text.strip().lower() == "unknown":
         return None
-
-    # Decode HTML entities
     text = html.unescape(text)
-
-    # Strip whitespace
     text = text.strip()
 
     return text if text else None
 
 
+def parse_country(country_str: str) -> str | None:
+    """
+    Parse country name from various formats.
+    """
+    if not country_str or country_str.strip() == "":
+        return None
+    country_str = clean_text(country_str)
+    if country_str in COUNTRY_MAP.keys():
+        return COUNTRY_MAP[country_str]
+    return country_str
+
+
 def parse_date(date_str: str) -> Optional[str]:
     """
     Parse various date formats to YYYY-MM-DD.
-
-    Args:
-        date_str: Date string in various formats
-
-    Returns:
-        ISO format date string (YYYY-MM-DD) or None
     """
     if not date_str:
         return None
@@ -86,19 +88,12 @@ def parse_date(date_str: str) -> Optional[str]:
 def parse_vintage(vintage_str: str) -> Optional[int]:
     """
     Parse vintage year from string.
-
-    Args:
-        vintage_str: Vintage string (may be empty for NV wines)
-
-    Returns:
-        Vintage year as integer or None for NV wines
     """
-    if not vintage_str or vintage_str.strip() == '':
+    if not vintage_str or vintage_str.strip() == "":
         return None
 
     try:
         vintage = int(vintage_str.strip())
-        # Sanity check: wine vintage should be between 1900 and current year + 2
         if 1900 <= vintage <= datetime.now().year + 2:
             return vintage
         return None
@@ -146,16 +141,16 @@ def parse_drinking_window(window_str: str, end_str: Optional[str] = None) -> tup
     return None, None
 
 
+def string_similarity(str1: str, str2: str) -> float:
+    """
+    Calculate similarity ratio between two strings (0-1 scale).
+    """
+    return SequenceMatcher(None, str1.lower(), str2.lower()).ratio()
+
+
 def normalize_rating(rating: float, source: str) -> Optional[int]:
     """
     Normalize ratings to 0-100 scale.
-
-    Args:
-        rating: Rating value
-        source: Source of rating ('vivino' or 'cellar_tracker')
-
-    Returns:
-        Rating on 0-100 scale or None
     """
     if rating is None:
         return None
@@ -173,44 +168,14 @@ def normalize_rating(rating: float, source: str) -> Optional[int]:
     return None
 
 
-def generate_external_id(winery: str, wine_name: str, vintage: Optional[int]) -> str:
+def generate_external_id(winery: str, wine_name: str, vintage: Optional[int]) -> int:
     """
     Generate a consistent external ID for Vivino wines.
-
-    Args:
-        winery: Winery/producer name
-        wine_name: Wine name
-        vintage: Vintage year (can be None)
-
-    Returns:
-        MD5 hash as external ID
     """
-    vintage_str = str(vintage) if vintage else 'NV'
+    vintage_str = str(vintage) if vintage else "NV"
     key = f"{winery}_{wine_name}_{vintage_str}".lower()
-    return hashlib.md5(key.encode()).hexdigest()
+    md5_hash = hashlib.md5(key.encode()).hexdigest()
+    return int(md5_hash, 16) % (2**32)
 
 
-def normalize_string_for_comparison(s: str) -> str:
-    """
-    Normalize string for fuzzy matching.
-
-    Args:
-        s: String to normalize
-
-    Returns:
-        Normalized string
-    """
-    import unicodedata
-
-    if not s:
-        return ''
-
-    # Remove accents
-    s = ''.join(c for c in unicodedata.normalize('NFD', s)
-                if unicodedata.category(c) != 'Mn')
-
-    # Lowercase and remove extra spaces
-    s = ' '.join(s.lower().split())
-
-    return s
 

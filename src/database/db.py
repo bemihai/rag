@@ -229,7 +229,7 @@ def _create_schema_version_table(cursor: sqlite3.Cursor):
     # Insert initial version if not exists
     cursor.execute("""
         INSERT OR IGNORE INTO schema_version (version, description)
-        VALUES (1, 'Initial schema - hobby cellar management')
+        VALUES (1, 'Initial schema')
     """)
 
     logger.debug("Created schema_version table")
