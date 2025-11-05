@@ -3,12 +3,10 @@ import sqlite3
 from pathlib import Path
 from contextlib import contextmanager
 
-from src.utils import find_project_root
-from src.utils.logger import logger
+from src.utils import logger, get_default_db_path
 
 
-# Default database path
-DEFAULT_DB_PATH = f"{find_project_root()}/data/wine_cellar.db"
+DEFAULT_DB_PATH = get_default_db_path()
 
 
 @contextmanager
@@ -21,11 +19,6 @@ def get_db_connection(db_path: str = DEFAULT_DB_PATH):
 
     Yields:
         sqlite3.Connection: Database connection
-
-    Example:
-        with get_db_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("SELECT * FROM wines")
     """
     conn = None
     try:
@@ -91,8 +84,6 @@ def _create_producers_table(cursor: sqlite3.Cursor):
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_producers_name ON producers(name)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_producers_country ON producers(country)")
 
-    logger.debug("Created producers table")
-
 
 def _create_regions_table(cursor: sqlite3.Cursor):
     """Create regions table."""
@@ -108,7 +99,6 @@ def _create_regions_table(cursor: sqlite3.Cursor):
     """)
 
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_regions_country ON regions(country)")
-    logger.debug("Created regions table")
 
 
 def _create_wines_table(cursor: sqlite3.Cursor):
@@ -145,9 +135,6 @@ def _create_wines_table(cursor: sqlite3.Cursor):
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_wines_type ON wines(wine_type)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_wines_name ON wines(wine_name)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_wines_rating ON wines(personal_rating)")
-    cursor.execute("CREATE INDEX IF NOT EXISTS idx_wines_characteristics ON wines(wine_type, vintage, personal_rating)")
-
-    logger.debug("Created wines table")
 
 
 def _create_bottles_table(cursor: sqlite3.Cursor):
@@ -184,8 +171,6 @@ def _create_bottles_table(cursor: sqlite3.Cursor):
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_bottles_consumed_date ON bottles(consumed_date)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_bottles_location_status ON bottles(location, status)")
 
-    logger.debug("Created bottles table")
-
 
 def _create_sync_log_table(cursor: sqlite3.Cursor):
     """Create sync_log table."""
@@ -212,9 +197,6 @@ def _create_sync_log_table(cursor: sqlite3.Cursor):
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_sync_log_status ON sync_log(status)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_sync_log_date ON sync_log(sync_started_at)")
 
-    logger.debug("Created sync_log table")
-
-
 
 def _create_schema_version_table(cursor: sqlite3.Cursor):
     """Create schema_version table for tracking migrations."""
@@ -225,14 +207,10 @@ def _create_schema_version_table(cursor: sqlite3.Cursor):
             description     TEXT
         )
     """)
-
-    # Insert initial version if not exists
     cursor.execute("""
         INSERT OR IGNORE INTO schema_version (version, description)
         VALUES (1, 'Initial schema')
     """)
-
-    logger.debug("Created schema_version table")
 
 
 def _create_views(cursor: sqlite3.Cursor):
@@ -305,8 +283,6 @@ def _create_views(cursor: sqlite3.Cursor):
         ORDER BY total_bottles DESC
     """)
 
-    logger.debug("Created database views")
-
 
 def drop_all_tables(db_path: str = DEFAULT_DB_PATH) -> bool:
     """
@@ -322,12 +298,9 @@ def drop_all_tables(db_path: str = DEFAULT_DB_PATH) -> bool:
         with get_db_connection(db_path) as conn:
             cursor = conn.cursor()
 
-            # Drop views first
             cursor.execute("DROP VIEW IF EXISTS current_inventory")
             cursor.execute("DROP VIEW IF EXISTS top_rated_wines")
             cursor.execute("DROP VIEW IF EXISTS cellar_stats")
-
-            # Drop tables in reverse order of dependencies
             cursor.execute("DROP TABLE IF EXISTS sync_log")
             cursor.execute("DROP TABLE IF EXISTS bottles")
             cursor.execute("DROP TABLE IF EXISTS wines")

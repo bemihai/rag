@@ -27,7 +27,10 @@ chroma:
 
 model:
   provider: google                      # LLM provider (google, openai)
-  name: gemini-2.5-flash-preview-05-20  # model name
+  name: gemini-2.5-flash                # model name
 
 initial_message:
   answer: "Hi there! Ask me anything about wine."
+
+cellar:
+  db_path: data/wine_cellar.db        # path to SQLite database for wine cellar
