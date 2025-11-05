@@ -5,7 +5,7 @@ from src.database import get_db_connection
 from src.utils import get_default_db_path
 
 
-class StatisticsRepository:
+class StatsRepository:
     """Repository for wine cellar statistics and aggregations."""
 
     def __init__(self, db_path: str | None = None):

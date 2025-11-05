@@ -47,7 +47,7 @@ def normalize_wine_type(type_str: str) -> str:
     return WINE_TYPE_MAP.get(type_str.strip(), "Red")
 
 
-def clean_text(text: str) -> Optional[str]:
+def clean_text(text: str) -> str | None:
     """
     Clean and normalize text.
     """
@@ -71,7 +71,7 @@ def parse_country(country_str: str) -> str | None:
     return country_str
 
 
-def parse_date(date_str: str) -> Optional[str]:
+def parse_date(date_str: str) -> str | None:
     """
     Parse various date formats to YYYY-MM-DD.
     """
@@ -101,7 +101,7 @@ def parse_vintage(vintage_str: str) -> Optional[int]:
         return None
 
 
-def parse_drinking_window(window_str: str, end_str: Optional[str] = None) -> tuple[Optional[int], Optional[int]]:
+def parse_drinking_window(window_str: str, end_str: str | None = None) -> tuple[Optional[int], Optional[int]]:
     """
     Parse drinking window from various formats.
 
@@ -158,6 +158,7 @@ def normalize_rating(rating: float, source: str) -> Optional[int]:
     try:
         if source == 'vivino':
             # Vivino uses 0-5 scale, convert to 0-100
+            # TODO: log scale conversion later
             return int((float(rating) / 5.0) * 100)
         elif source == 'cellar_tracker':
             # CellarTracker already uses 0-100
