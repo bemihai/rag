@@ -33,7 +33,7 @@ class Wine(BaseModel):
 
     id: int | None = Field(None, description="Unique identifier")
     source: str = Field("manual", description="Data source: 'cellar_tracker', 'vivino', or 'manual'")
-    external_id: str | None = Field(None, description="External ID from source system (e.g., CellarTracker iWine)")
+    external_id: int | None = Field(None, description="External ID from source system (e.g., CellarTracker iWine)")
     wine_name: str = Field("", description="Full wine name")
     producer_id: int | None = Field(None, description="Foreign key to producer table")
     vintage: int | None = Field(None, description="Vintage year (empty for non-vintage wines)")
@@ -66,7 +66,7 @@ class Bottle(BaseModel):
     id: int | None = Field(None, description="Unique identifier")
     wine_id: int = Field(0, description="Foreign key to wine table")
     source: str = Field("manual", description="Data source: 'cellar_tracker', 'vivino', or 'manual'")
-    external_bottle_id: str | None = Field(None, description="External bottle ID (e.g., CellarTracker barcode)")
+    external_bottle_id: int | None = Field(None, description="External bottle ID (e.g., CellarTracker barcode)")
     quantity: int = Field(1, description="Number of bottles in this record")
     status: str = Field("in_cellar", description="Status: 'in_cellar', 'consumed', 'gifted', 'lost'")
     location: str | None = Field(None, description="Storage location (e.g., Cellar, Wine rack)")

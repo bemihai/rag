@@ -43,6 +43,31 @@ class WineRepository:
                 return Wine(**dict(row))
             return None
 
+    def get_by_external_id(self, external_id: int) -> Wine | None:
+        """
+        Get wine by external ID.
+
+        Args:
+            external_id: External ID from source system
+
+        Returns:
+            Wine model or None if not found
+        """
+        with get_db_connection(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT w.*, p.name as producer_name, r.name as region_name, r.country
+                FROM wines w
+                LEFT JOIN producers p ON w.producer_id = p.id
+                LEFT JOIN regions r ON w.region_id = r.id
+                WHERE w.external_id = ?
+            """, (external_id,))
+
+            row = cursor.fetchone()
+            if row:
+                return Wine(**dict(row))
+            return None
+
     def get_all(
         self, wine_type: str | None = None, country: str | None = None, min_rating: int | None = None,
         search: str | None = None, limit: int | None = None, offset: int = 0

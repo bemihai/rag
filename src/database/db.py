@@ -107,7 +107,7 @@ def _create_wines_table(cursor: sqlite3.Cursor):
         CREATE TABLE IF NOT EXISTS wines (
             id                      INTEGER PRIMARY KEY AUTOINCREMENT,
             source                  TEXT NOT NULL CHECK(source IN ('cellar_tracker', 'vivino', 'manual')),
-            external_id             TEXT,
+            external_id             INTEGER NOT NULL,
             wine_name               TEXT NOT NULL,
             producer_id             INTEGER REFERENCES producers(id),
             vintage                 INTEGER,
@@ -144,7 +144,7 @@ def _create_bottles_table(cursor: sqlite3.Cursor):
             id                      INTEGER PRIMARY KEY AUTOINCREMENT,
             wine_id                 INTEGER NOT NULL REFERENCES wines(id) ON DELETE CASCADE,
             source                  TEXT NOT NULL CHECK(source IN ('cellar_tracker', 'vivino', 'manual')),
-            external_bottle_id      TEXT,
+            external_bottle_id      INTEGER NOT NULL,
             quantity                INTEGER NOT NULL DEFAULT 1,
             status                  TEXT NOT NULL DEFAULT 'in_cellar' 
                                     CHECK(status IN ('in_cellar', 'consumed', 'gifted', 'lost')),

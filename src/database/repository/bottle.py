@@ -37,6 +37,29 @@ class BottleRepository:
                 return Bottle(**dict(row))
             return None
 
+    def get_by_wine_and_external_id(self, wine_id: int, external_bottle_id: int) -> Bottle | None:
+        """
+        Get bottle by external bottle ID.
+
+        Args:
+            wine_id: Wine ID
+            external_bottle_id: External bottle ID from source system
+
+        Returns:
+            Bottle model or None if not found
+        """
+        with get_db_connection(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT * FROM bottles WHERE wine_id = ? AND external_bottle_id = ?",
+                (wine_id, external_bottle_id,)
+            )
+
+            row = cursor.fetchone()
+            if row:
+                return Bottle(**dict(row))
+            return None
+
     def get_by_wine(self, wine_id: int, status: str | None = None) -> list[Bottle]:
         """
         Get all bottles for a wine.
