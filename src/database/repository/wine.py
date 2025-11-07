@@ -156,7 +156,7 @@ class WineRepository:
 
             conn.commit()
             wine_id = cursor.lastrowid
-            logger.info(f"Created wine: {wine.wine_name} (ID: {wine_id})")
+            logger.debug(f"Created wine: {wine.wine_name} (ID: {wine_id})")
             return wine_id
 
     def update(self, wine: Wine) -> bool:
@@ -174,12 +174,13 @@ class WineRepository:
 
         with get_db_connection(self.db_path) as conn:
             cursor = conn.cursor()
-
-            update_query, params = build_update_query("wines", wine)
+            update_query, params = build_update_query(
+                "wines", wine, "id", ["producer_name", "region_name", "country"]
+            )
             cursor.execute(update_query, params)
 
             conn.commit()
-            logger.info(f"Updated wine: {wine.wine_name} (ID: {wine.id})")
+            logger.debug(f"Updated wine: {wine.wine_name} (ID: {wine.id})")
             return True
 
     def delete(self, wine_id: int) -> bool:
@@ -196,7 +197,7 @@ class WineRepository:
             cursor = conn.cursor()
             cursor.execute("DELETE FROM wines WHERE id = ?", (wine_id,))
             conn.commit()
-            logger.info(f"Deleted wine ID: {wine_id}")
+            logger.debug(f"Deleted wine ID: {wine_id}")
             return True
 
     def count(

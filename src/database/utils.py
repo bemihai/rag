@@ -4,7 +4,9 @@ from datetime import datetime
 from pydantic import BaseModel
 
 
-def build_update_query(table_name: str, model: BaseModel, id_field: str = "id") -> tuple[str | None, list | None]:
+def build_update_query(
+        table_name: str, model: BaseModel, id_field: str = "id", exclude_fields: list[str] | None = None
+) -> tuple[str | None, list | None]:
     """
     Build dynamic SQL update query based on provided model non-null fields.
 
@@ -12,12 +14,15 @@ def build_update_query(table_name: str, model: BaseModel, id_field: str = "id") 
         table_name: Name of the database table.
         model: Model instance with updated data.
         id_field: Name of the ID field (default is "id", this is not updated).
+        exclude_fields: List of fields to exclude from update.
 
     Returns:
         Tuple of SQL update query string and list of parameters, or None if no fields to update.
     """
     fields, params = [], []
-    all_attrs = [f for f in model.model_fields.keys() if f != id_field]
+    exclude_fields = exclude_fields or []
+    exclude_fields.append(id_field)
+    all_attrs = [f for f in model.model_fields.keys() if f not in exclude_fields]
     for attr in all_attrs:
         value = getattr(model, attr)
         if value:

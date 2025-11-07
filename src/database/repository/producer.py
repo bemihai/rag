@@ -68,7 +68,7 @@ class ProducerRepository:
 
             conn.commit()
             producer_id = cursor.lastrowid
-            logger.info(f"Created producer: {name} (ID: {producer_id})")
+            logger.debug(f"Created producer: {name} (ID: {producer_id})")
             return producer_id
 
     def update(self, producer: Producer) -> bool:
@@ -93,7 +93,7 @@ class ProducerRepository:
             cursor = conn.cursor()
             cursor.execute(update_query, params)
             conn.commit()
-            logger.info(f"Updated producer ID: {producer.id}")
+            logger.debug(f"Updated producer ID: {producer.id}")
             return True
 
     def get_all(self) -> list[Producer]:

@@ -68,7 +68,7 @@ class RegionRepository:
 
             conn.commit()
             region_id = cursor.lastrowid
-            logger.info(f"Created region: {name}, {country} (ID: {region_id})")
+            logger.debug(f"Created region: {name}, {country} (ID: {region_id})")
             return region_id
 
     def get_all(self) -> list[Region]:

@@ -157,7 +157,7 @@ class BottleRepository:
 
             conn.commit()
             bottle_id = cursor.lastrowid
-            logger.info(f"Created bottle for wine_id={bottle.wine_id} (ID: {bottle_id})")
+            logger.debug(f"Created bottle for wine_id={bottle.wine_id} (ID: {bottle_id})")
             return bottle_id
 
     def update(self, bottle: Bottle) -> bool:
@@ -176,11 +176,13 @@ class BottleRepository:
         with get_db_connection(self.db_path) as conn:
             cursor = conn.cursor()
 
-            update_query, params = build_update_query("bottles", bottle)
+            update_query, params = build_update_query(
+                "bottles", bottle, "id", exclude_fields=["wine_name", "producer_name", "vintage"]
+            )
             cursor.execute(update_query, params)
 
             conn.commit()
-            logger.info(f"Updated bottle ID: {bottle.id}")
+            logger.debug(f"Updated bottle ID: {bottle.id}")
             return True
 
     def mark_consumed(self, bottle_id: int, consumed_date: date | None = None) -> bool:
@@ -205,7 +207,7 @@ class BottleRepository:
             """, (consumed_date, datetime.now(), bottle_id))
 
             conn.commit()
-            logger.info(f"Marked bottle {bottle_id} as consumed on {consumed_date}")
+            logger.debug(f"Marked bottle {bottle_id} as consumed on {consumed_date}")
             return True
 
     def get_total_bottles(self, status: str = "in_cellar") -> int:

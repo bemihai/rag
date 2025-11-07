@@ -2,17 +2,21 @@
 CellarTracker API importer for wine cellar database.
 """
 from typing import Dict, List, Optional
-from datetime import datetime
+from datetime import datetime, date
 from cellartracker import cellartracker
 
-from src.database.db import get_db_connection
+from src.database import Wine, Bottle
+from src.database.repository import (
+    SyncLogRepository, WineRepository, BottleRepository, ProducerRepository, RegionRepository
+)
 from src.etl.utils import (
     normalize_wine_type,
     clean_text,
     parse_date,
     parse_vintage,
-    parse_drinking_window
+    parse_drinking_window, parse_country
 )
+from src.utils import get_default_db_path
 from src.utils.logger import logger
 
 
@@ -29,7 +33,7 @@ class CellarTrackerImporter:
             db_path: Path to SQLite database
         """
         self.client = cellartracker.CellarTracker(username, password)
-        self.db_path = db_path
+        self.db_path = db_path or get_default_db_path()
         self.stats = {
             'wines_processed': 0,
             'wines_imported': 0,
@@ -43,10 +47,11 @@ class CellarTrackerImporter:
             'notes_processed': 0,
             'errors': []
         }
-
-        # Cache for producer and region IDs to avoid duplicate lookups
-        self.producer_cache: Dict[str, int] = {}
-        self.region_cache: Dict[tuple, int] = {}
+        self.sync_log_repo = SyncLogRepository(self.db_path)
+        self.wine_repo = WineRepository(self.db_path)
+        self.bottle_repo = BottleRepository(self.db_path)
+        self.producer_repo = ProducerRepository(self.db_path)
+        self.region_repo = RegionRepository(self.db_path)
 
     def import_all(self) -> Dict:
         """
@@ -61,7 +66,7 @@ class CellarTrackerImporter:
             Import statistics dictionary
         """
         logger.info("Starting full CellarTracker import")
-        sync_id = self._start_sync_log('full')
+        sync_id = self.sync_log_repo.start_sync_log("full")
 
         try:
             logger.info("Step 1/3: Fetching and importing inventory...")
@@ -76,14 +81,14 @@ class CellarTrackerImporter:
             notes = self.client.get_notes()
             self._process_notes(notes)
 
-            self._complete_sync_log(sync_id, 'success')
+            self.sync_log_repo.complete_sync_log(sync_id, self.stats, status="success")
             logger.info(f"✅ Import completed successfully!")
 
         except Exception as e:
             error_msg = f"Import failed: {e}"
             logger.error(error_msg)
-            self.stats['errors'].append(error_msg)
-            self._complete_sync_log(sync_id, 'failed', error_msg)
+            self.stats["errors"].append(error_msg)
+            self.sync_log_repo.complete_sync_log(sync_id, self.stats, "failed", error_msg)
 
         return self.stats
 
@@ -92,66 +97,87 @@ class CellarTrackerImporter:
         """
         Process inventory.json - Current cellar snapshot.
 
-        Maps to: BOTH Wine + Bottle entities
-        Priority: HIGH - This is the starting point
-
         Creates:
         - Wine entities with catalog info (name, producer, vintage, type, etc.)
         - Bottle entities for current cellar (location, purchase info, status='in_cellar')
         """
         logger.info(f"Processing {len(inventory)} bottles from inventory (current bottles in cellar)")
 
-        with get_db_connection(self.db_path) as conn:
-            for record in inventory:
-                self.stats['bottles_processed'] += 1
+        for record in inventory:
+            try:
+                # Process Wine
+                self.stats["wines_processed"] += 1
+                iwine = record.get("iWine")
+                wine = self._get_wine_object_from_inventory_record(record)
+                if existing := self.wine_repo.get_by_external_id(iwine):
+                    wine.id = existing.id
+                    wine_id = existing.id
+                    self.wine_repo.update(wine)
+                    self.stats["wines_updated"] += 1
+                    logger.debug(f"Updated wine: {wine.wine_name} ({wine.vintage})")
+                else:
+                    wine_id = self.wine_repo.create(wine)
+                    self.stats["wines_imported"] += 1
+                    logger.debug(f"Imported wine: {wine.wine_name} ({wine.vintage})")
 
-                try:
-                    # Step 1: Create or find Wine entity
-                    wine_id = self._import_wine_from_inventory(conn, record)
+                # Process Bottle
+                self.stats["bottles_processed"] += 1
+                bottle = self._get_bottle_object_from_inventory_record(record, wine_id)
+                barcode = record.get("Barcode")
+                if existing := self.bottle_repo.get_by_wine_and_external_id(wine_id, barcode):
+                    bottle.id = existing.id
+                    self.bottle_repo.update(bottle)
+                    self.stats["bottles_updated"] += 1
+                    logger.debug(f"Updated bottle: {barcode}")
+                else:
+                    bottle.quantity = 1
+                    bottle.status = "in_cellar"
+                    self.bottle_repo.create(bottle)
 
-                    # Step 2: Create Bottle entity linked to wine
-                    self._import_bottle_from_inventory(conn, record, wine_id)
-
-                except Exception as e:
-                    error_msg = f"Error processing inventory record {record.get('iWine')}/{record.get('Barcode')}: {e}"
-                    logger.error(error_msg)
-                    self.stats['errors'].append(error_msg)
+                    self.stats["bottles_imported"] += 1
+                    logger.debug(f"Imported bottle: {barcode}")
+            except Exception as e:
+                error_msg = f"Error processing inventory record {record.get('iWine')}/{record.get('Barcode')}: {e}"
+                logger.error(error_msg)
+                self.stats["errors"].append(error_msg)
 
 
     def _process_bottles(self, bottles: List[Dict]):
         """
         Process bottles.json - Complete bottle lifecycle.
-
-        Maps to: Bottle (primary), Wine (drinking window update)
-        Priority: HIGH - Complete history
-
         Updates:
         - Wine: drink_from_year, drink_to_year (drinking window)
         - Bottle: Creates or updates complete lifecycle (active + consumed + gifted)
         """
         logger.info(f"Processing {len(bottles)} bottles from complete lifecycle")
 
-        with get_db_connection(self.db_path) as conn:
-            for record in bottles:
-                self.stats['bottles_processed'] += 1
+        for record in bottles:
+            self.stats["bottles_processed"] += 1
 
-                try:
-                    wine_id = self._find_and_update_wine_from_bottles(conn, record)
-                    self._import_bottle_from_bottles_json(conn, record, wine_id)
+            try:
+                wine_id = self._find_and_update_wine_from_bottles(record)
+                bottle = self._get_bottle_object_from_bottles_record(record, wine_id)
 
-                except Exception as e:
-                    error_msg = f"Error processing bottle {record.get('Barcode')}: {e}"
-                    logger.error(error_msg)
-                    self.stats['errors'].append(error_msg)
+                barcode = record.get("Barcode")
+                if existing := self.bottle_repo.get_by_wine_and_external_id(wine_id, barcode):
+                    bottle.id = existing.id
+                    self.bottle_repo.update(bottle)
+                    self.stats["bottles_updated"] += 1
+                    logger.debug(f"Updated bottle from bottles: {barcode}")
+                else:
+                    self.bottle_repo.create(bottle)
+                    self.stats["bottles_imported"] += 1
+                    logger.debug(f"Imported bottle from bottles: {barcode}")
+
+            except Exception as e:
+                error_msg = f"Error processing bottle {record.get('Barcode')}: {e}"
+                logger.error(error_msg)
+                self.stats["errors"].append(error_msg)
 
 
     def _process_notes(self, notes: List[Dict]):
         """
         Process notes.json - Tasting notes and ratings.
-
-        Maps to: Wine ONLY
-        Priority: MEDIUM - Enhances quality
-
         Updates Wine with:
         - personal_rating (0-100 scale, keep highest)
         - tasting_notes (merge with date stamps)
@@ -159,408 +185,189 @@ class CellarTrackerImporter:
         """
         logger.info(f"Processing {len(notes)} tasting notes")
 
-        with get_db_connection(self.db_path) as conn:
-            for record in notes:
-                self.stats['notes_processed'] += 1
+        for record in notes:
+            self.stats["notes_processed"] += 1
+            try:
+                iwine = record.get("iWine")
+                wine = self.wine_repo.get_by_external_id(iwine)
 
-                try:
-                    self._update_wine_with_note(conn, record)
-                except Exception as e:
-                    error_msg = f"Error processing note {record.get('iNote')}: {e}"
-                    logger.error(error_msg)
-                    self.stats['errors'].append(error_msg)
+                if not wine:
+                    logger.warning(f"Wine {iwine} not found for note update")
+                    return
+
+                existing_rating = wine.personal_rating
+                existing_notes = wine.tasting_notes or ""
+                last_tasted = wine.last_tasted_date
+
+                wine.personal_rating = self._merge_ratings(existing_rating, record)
+                wine.tasting_notes = self._merge_tasting_notes(existing_notes, record)
+
+                should_update_date, tasting_date = self._update_tasting_date(last_tasted, record)
+                if should_update_date and tasting_date:
+                    wine.last_tasted_date = tasting_date
+
+                self.wine_repo.update(wine)
+                logger.debug(f"Updated wine {iwine} with tasting note and rating)")
+
+            except Exception as e:
+                error_msg = f"Error processing note {record.get('iNote')}: {e}"
+                logger.error(error_msg)
+                self.stats['errors'].append(error_msg)
 
 
-    def _import_wine_from_inventory(self, conn, record: Dict) -> int:
+    def _get_wine_object_from_inventory_record(self, record: Dict) -> Wine:
         """
-        Create or update Wine from inventory.json record.
-
-        Per mapping: inventory.json → Wine entity
-        Creates Wine with basic catalog info.
+        Create a Wine object from an inventory record.
         """
-        cursor = conn.cursor()
-        self.stats['wines_processed'] += 1
+        iwine = record.get("iWine")
+        wine_name = clean_text(record.get("Wine", ""))
+        vintage = parse_vintage(record.get("Vintage"))
+        wine_type = normalize_wine_type(record.get("Type", ""))
 
-        # Extract required fields per mapping
-        iwine = record.get('iWine')
-        wine_name = clean_text(record.get('Wine', ''))
-        vintage = parse_vintage(record.get('Vintage'))
-        wine_type = normalize_wine_type(record.get('Type', ''))
-
-        # Get or create producer (from Producer field)
-        producer_name = clean_text(record.get('Producer', ''))
-        producer_id = self._get_or_create_producer(
-            conn,
-            producer_name,
-            record.get('Country'),
-            record.get("Locale"),
+        producer_id = self.producer_repo.get_or_create(
+            clean_text(record.get("Producer", "")),
+            parse_country(record.get("Country")),
+            clean_text(record.get("Locale")),
         )
 
-        # Get or create region (from Region + Country)
-        region_id = self._get_or_create_region(
-            conn,
-            record.get('Region'),
-            record.get('Country'),
-            record.get("SubRegion") or record.get("Appellation"),
+        region_id = self.region_repo.get_or_create(
+            clean_text(record.get("Region")),
+            parse_country(record.get("Country")),
+            clean_text(record.get("SubRegion") or record.get("Appellation")),
         )
 
-        # Check if wine exists
-        cursor.execute(
-            "SELECT id FROM wines WHERE source = ? AND external_id = ?",
-            ('cellar_tracker', iwine)
+        return Wine(
+            source="cellar_tracker",
+            external_id=iwine,
+            wine_name=wine_name,
+            producer_id=producer_id,
+            vintage=vintage,
+            wine_type=wine_type,
+            varietal=clean_text(record.get("Varietal")),
+            designation=clean_text(record.get("Designation")),
+            region_id=region_id,
+            appellation=clean_text(record.get("Appellation")),
+            bottle_size=record.get("Size", "750ml")
         )
-        existing = cursor.fetchone()
-
-        if existing:
-            # Update existing wine
-            wine_id = existing[0]
-            cursor.execute("""
-                UPDATE wines SET
-                    wine_name = ?,
-                    producer_id = ?,
-                    vintage = ?,
-                    wine_type = ?,
-                    varietal = ?,
-                    designation = ?,
-                    region_id = ?,
-                    appellation = ?,
-                    bottle_size = ?,
-                    updated_at = CURRENT_TIMESTAMP
-                WHERE id = ?
-            """, (
-                wine_name,
-                producer_id,
-                vintage,
-                wine_type,
-                clean_text(record.get('Varietal')),
-                clean_text(record.get('Designation')),
-                region_id,
-                clean_text(record.get('Appellation')),
-                record.get('Size', '750ml'),
-                wine_id
-            ))
-            self.stats['wines_updated'] += 1
-            logger.debug(f"Updated wine: {wine_name} ({vintage})")
-
-        else:
-            # Insert new wine
-            cursor.execute("""
-                INSERT INTO wines (
-                    source, external_id, wine_name, producer_id, vintage,
-                    wine_type, varietal, designation, region_id,
-                    appellation, bottle_size
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                'cellar_tracker',
-                iwine,
-                wine_name,
-                producer_id,
-                vintage,
-                wine_type,
-                clean_text(record.get('Varietal')),
-                clean_text(record.get('Designation')),
-                region_id,
-                clean_text(record.get('Appellation')),
-                record.get('Size', '750ml')
-            ))
-            wine_id = cursor.lastrowid
-            self.stats['wines_imported'] += 1
-            logger.debug(f"Imported wine: {wine_name} ({vintage})")
-
-        conn.commit()
-        return wine_id
 
 
-    def _find_and_update_wine_from_bottles(self, conn, record: Dict) -> Optional[int]:
+    def _find_and_update_wine_from_bottles(self, record: Dict) -> Optional[int]:
         """
         Find Wine and update drinking window from bottles.json record.
-
-        Per mapping: bottles.json → Wine (drinking window update)
-        Updates: drink_from_year, drink_to_year
         """
-        cursor = conn.cursor()
-        iwine = record.get('iWine')
-        cursor.execute(
-            "SELECT id FROM wines WHERE source = ? AND external_id = ?",
-            ('cellar_tracker', iwine)
-        )
-        wine = cursor.fetchone()
+        iwine = record.get("iWine")
+        wine = self.wine_repo.get_by_external_id(iwine)
 
-        # Add a new wine if not found
         if not wine:
-            wine_id = self._import_wine_from_inventory(conn, record)
-        else:
-            wine_id = wine[0]
+            wine = self._get_wine_object_from_inventory_record(record)
+            self.wine_repo.create(wine)
+            self.stats["wines_imported"] += 1
 
-        begin_consume = record.get('BeginConsume')
-        end_consume = record.get('EndConsume')
-
+        begin_consume = record.get("BeginConsume")
+        end_consume = record.get("EndConsume")
         if begin_consume or end_consume:
             drink_from_year, drink_to_year = parse_drinking_window(begin_consume, end_consume)
+            wine.drink_from_year = drink_from_year or wine.drink_from_year
+            wine.drink_to_year = drink_to_year or wine.drink_to_year
+            self.wine_repo.update(wine)
 
-            cursor.execute("""
-                UPDATE wines SET
-                    drink_from_year = COALESCE(?, drink_from_year),
-                    drink_to_year = COALESCE(?, drink_to_year),
-                    updated_at = CURRENT_TIMESTAMP
-                WHERE id = ?
-            """, (drink_from_year, drink_to_year, wine_id))
+        return wine.id
 
-            conn.commit()
-            logger.debug(f"Updated drinking window for wine {iwine}: {drink_from_year}-{drink_to_year}")
-
-        return wine_id
-
-
-    def _import_bottle_from_inventory(self, conn, record: Dict, wine_id: int) -> int:
-        """
-        Create Bottle from inventory.json record.
-
-        Per mapping: inventory.json → Bottle entity
-        Creates Bottle with status='in_cellar' for current cellar inventory.
-        """
-        cursor = conn.cursor()
-
-        # Extract bottle fields per mapping
-        barcode = record.get('Barcode')
-        location = clean_text(record.get('Location'))
-        bin_location = clean_text(record.get('Bin'))
-        purchase_date = parse_date(record.get('PurchaseDate'))
-        bottle_note = clean_text(record.get('BottleNote'))
-
-        # Parse price
-        price = None
-        price_str = record.get('Price')
-        if price_str:
-            try:
-                price = float(price_str)
-            except (ValueError, TypeError):
-                pass
-
-        # Check if bottle already exists
-        if barcode:
-            cursor.execute(
-                "SELECT id FROM bottles WHERE source = ? AND external_bottle_id = ?",
-                ('cellar_tracker', barcode)
-            )
-            existing = cursor.fetchone()
-
-            if existing:
-                # Update existing bottle
-                bottle_id = existing[0]
-                cursor.execute("""
-                    UPDATE bottles SET
-                        wine_id = ?,
-                        quantity = 1,
-                        status = 'in_cellar',
-                        location = ?,
-                        bin = ?,
-                        purchase_date = ?,
-                        purchase_price = ?,
-                        currency = ?,
-                        store_name = ?,
-                        bottle_note = ?,
-                        updated_at = CURRENT_TIMESTAMP
-                    WHERE id = ?
-                """, (
-                    wine_id,
-                    location,
-                    bin_location,
-                    purchase_date,
-                    price,
-                    record.get('Currency', 'RON'),
-                    clean_text(record.get('StoreName')),
-                    bottle_note,
-                    bottle_id
-                ))
-                self.stats['bottles_updated'] += 1
-                logger.debug(f"Updated bottle: {barcode}")
-                conn.commit()
-                return bottle_id
-
-        # Insert new bottle
-        cursor.execute("""
-            INSERT INTO bottles (
-                wine_id, source, external_bottle_id, quantity, status,
-                location, bin, purchase_date, purchase_price, currency,
-                store_name, bottle_note
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            wine_id,
-            'cellar_tracker',
-            barcode,
-            1,  # Quantity is always 1 per inventory record
-            'in_cellar',  # Status is always in_cellar for inventory.json
-            location,
-            bin_location,
-            purchase_date,
-            price,
-            record.get('Currency', 'RON'),
-            clean_text(record.get('StoreName')),
-            bottle_note
-        ))
-        bottle_id = cursor.lastrowid
-        self.stats['bottles_imported'] += 1
-        logger.debug(f"Imported bottle: {barcode or bottle_id}")
-
-        conn.commit()
-        return bottle_id
-
-
-    def _import_bottle_from_bottles_json(self, conn, record: Dict, wine_id: int) -> int:
-        """
-        Create or update Bottle from bottles.json record.
-
-        Per mapping: bottles.json → Bottle entity
-        Complete bottle lifecycle including consumption tracking.
-        """
-        cursor = conn.cursor()
-
-        # Extract bottle fields
-        barcode = record.get('Barcode')
-        quantity = int(record.get('Quantity', 1))
-
-        # Map BottleState to status
-        bottle_state = record.get('BottleState', '0')
-        consumption_date = record.get('ConsumptionDate')
-
-        if bottle_state == '0' and not consumption_date:
-            status = 'in_cellar'
-        elif consumption_date:
-            # Determine status from consumption type
-            short_type = record.get('ShortType', '').lower()
-            if 'gift' in short_type:
-                status = 'gifted'
-            elif 'spoil' in short_type or 'dump' in short_type:
-                status = 'lost'
-            else:
-                status = 'consumed'
-        else:
-            status = 'in_cellar'
-
-        # Parse dates
-        purchase_date = parse_date(record.get('PurchaseDate'))
-        consumed_date = parse_date(consumption_date) if consumption_date else None
-
-        # Parse price
-        price = None
-        price_str = record.get('BottleCost')
-        if price_str:
-            try:
-                price = float(price_str)
-            except (ValueError, TypeError):
-                pass
-
-        # Merge notes
-        purchase_note = clean_text(record.get('PurchaseNote'))
-        consumption_note = clean_text(record.get('ConsumptionNote'))
-        bottle_note = self._merge_bottle_notes(purchase_note, consumption_note)
-
-        # Check if bottle exists
-        if barcode:
-            cursor.execute(
-                "SELECT id FROM bottles WHERE source = ? AND external_bottle_id = ?",
-                ('cellar_tracker', barcode)
-            )
-            existing = cursor.fetchone()
-
-            if existing:
-                # Update existing bottle
-                bottle_id = existing[0]
-                cursor.execute("""
-                    UPDATE bottles SET
-                        wine_id = ?,
-                        quantity = ?,
-                        status = ?,
-                        location = ?,
-                        bin = ?,
-                        purchase_date = ?,
-                        purchase_price = ?,
-                        currency = ?,
-                        store_name = ?,
-                        consumed_date = ?,
-                        bottle_note = ?,
-                        updated_at = CURRENT_TIMESTAMP
-                    WHERE id = ?
-                """, (
-                    wine_id,
-                    quantity,
-                    status,
-                    clean_text(record.get('Location')),
-                    clean_text(record.get('Bin')),
-                    purchase_date,
-                    price,
-                    record.get('BottleCostCurrency', 'RON'),
-                    clean_text(record.get('Store')),
-                    consumed_date,
-                    bottle_note,
-                    bottle_id
-                ))
-                self.stats['bottles_updated'] += 1
-                logger.debug(f"Updated bottle from bottles.json: {barcode}")
-                conn.commit()
-                return bottle_id
-
-        # Insert new bottle
-        cursor.execute("""
-            INSERT INTO bottles (
-                wine_id, source, external_bottle_id, quantity, status,
-                location, bin, purchase_date, purchase_price, currency,
-                store_name, consumed_date, bottle_note
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            wine_id,
-            'cellar_tracker',
-            barcode,
-            quantity,
-            status,
-            clean_text(record.get('Location')),
-            clean_text(record.get('Bin')),
-            purchase_date,
-            price,
-            record.get('BottleCostCurrency', 'RON'),
-            clean_text(record.get('Store')),
-            consumed_date,
-            bottle_note
-        ))
-        bottle_id = cursor.lastrowid
-        self.stats['bottles_imported'] += 1
-        logger.debug(f"Imported bottle from bottles.json: {barcode or bottle_id}")
-
-        conn.commit()
-        return bottle_id
 
     @staticmethod
-    def _update_wine_with_note(conn, record: Dict):
+    def _get_bottle_object_from_inventory_record(record: Dict, wine_id: int) -> Bottle:
         """
-        Update Wine from notes.json record.
-
-        Per mapping: notes.json → Wine entity ONLY
-        Updates: personal_rating, tasting_notes, last_tasted_date
+        Create a Bottle object from an inventory record.
         """
-        cursor = conn.cursor()
+        price = None
+        price_str = record.get("Price")
+        if price_str:
+            try:
+                price = float(price_str)
+            except (ValueError, TypeError):
+                pass
 
-        iwine = record.get('iWine')
-
-        # Find the wine
-        cursor.execute(
-            "SELECT id, personal_rating, tasting_notes, last_tasted_date FROM wines WHERE source = ? AND external_id = ?",
-            ('cellar_tracker', iwine)
+        return Bottle(
+            wine_id=wine_id,
+            source="cellar_tracker",
+            external_bottle_id=record.get("Barcode"),
+            location=clean_text(record.get("Location")),
+            bin=clean_text(record.get("Bin")),
+            purchase_date=parse_date(record.get("PurchaseDate")),
+            bottle_note=clean_text(record.get("BottleNote")),
+            purchase_price=price,
+            currency=record.get("Currency", "RON"),
+            store_name=clean_text(record.get("StoreName"))
         )
-        wine = cursor.fetchone()
 
-        if not wine:
-            logger.warning(f"Wine {iwine} not found for note update")
-            return
 
-        wine_id = wine[0]
-        existing_rating = wine[1]
-        existing_notes = wine[2] or ""
-        last_tasted = wine[3]
+    def _get_bottle_object_from_bottles_record(self, record: Dict, wine_id: int) -> Bottle:
+        """
+        Create or update Bottle from bottles.json record.
+        """
+        barcode = record.get("Barcode")
+        quantity = int(record.get("Quantity", 1))
 
-        # Parse rating (CT uses 0-100 scale) - keep highest
+        bottle_state = record.get("BottleState", "0")
+        consumption_date = record.get("ConsumptionDate")
+        if bottle_state == "0" and not consumption_date:
+            status = "in_cellar"
+        elif consumption_date:
+            short_type = record.get("ShortType", "").lower()
+            if "gift" in short_type:
+                status = "gifted"
+            elif "spoil" in short_type or "dump" in short_type:
+                status = "lost"
+            else:
+                status = "consumed"
+        else:
+            status = "in_cellar"
+
+        purchase_date = parse_date(record.get("PurchaseDate"))
+        consumed_date = parse_date(consumption_date) if consumption_date else None
+
+        price = None
+        price_str = record.get("BottleCost")
+        if price_str:
+            try:
+                price = float(price_str)
+            except (ValueError, TypeError):
+                pass
+
+        purchase_note = clean_text(record.get("PurchaseNote"))
+        consumption_note = clean_text(record.get("ConsumptionNote"))
+        bottle_note = self._merge_bottle_notes(purchase_note, consumption_note)
+
+        return Bottle(
+            wine_id=wine_id,
+            source="cellar_tracker",
+            external_bottle_id=barcode,
+            quantity=quantity,
+            status=status,
+            location=clean_text(record.get("Location")),
+            bin=clean_text(record.get("Bin")),
+            purchase_date=purchase_date,
+            purchase_price=price,
+            currency=record.get("BottleCostCurrency", "RON"),
+            store_name=clean_text(record.get("Store")),
+            consumed_date=consumed_date,
+            bottle_note=bottle_note
+        )
+
+
+    @staticmethod
+    def _merge_bottle_notes(purchase_note: Optional[str], consumption_note: Optional[str]) -> Optional[str]:
+        """Merge purchase and consumption notes."""
+        if purchase_note and consumption_note:
+            return f"{purchase_note}\n\nConsumed: {consumption_note}"
+        return purchase_note or consumption_note
+
+
+    @staticmethod
+    def _merge_ratings(existing_rating: int | None, record: Dict) -> int | None:
+        """Merge existing rating with new rating, keeping the highest."""
         rating = existing_rating
-        rating_str = record.get('Rating')
+        rating_str = record.get("Rating")
         if rating_str:
             try:
                 new_rating = int(rating_str)
@@ -569,16 +376,16 @@ class CellarTrackerImporter:
             except (ValueError, TypeError):
                 pass
 
-        # Parse tasting date
-        tasting_date = parse_date(record.get('TastingDate'))
+        return rating
 
-        # Get note text
-        note_text = clean_text(record.get('TastingNotes'))
 
-        # Merge notes with date stamp
+    @staticmethod
+    def _merge_tasting_notes(existing_notes: str, record: Dict) -> str:
+        """Merge existing tasting notes with new notes, adding date stamps."""
+        tasting_date = parse_date(record.get("TastingDate"))
+        note_text = clean_text(record.get("TastingNotes"))
         if note_text:
             if existing_notes:
-                # Append new note with date
                 date_str = tasting_date or datetime.now().strftime('%Y-%m-%d')
                 combined_notes = f"{existing_notes}\n\n[{date_str}] {note_text}"
             else:
@@ -587,8 +394,13 @@ class CellarTrackerImporter:
         else:
             combined_notes = existing_notes
 
-        # Update if this is a newer tasting (keep most recent)
+        return combined_notes
+
+
+    @staticmethod
+    def _update_tasting_date(last_tasted: str | date, record: Dict) -> tuple[bool, date | None]:
         should_update_date = True
+        tasting_date = parse_date(record.get("TastingDate"))
         if last_tasted and tasting_date:
             try:
                 if isinstance(last_tasted, str):
@@ -605,140 +417,8 @@ class CellarTrackerImporter:
             except:
                 pass
 
-        # Update wine record
-        if should_update_date and tasting_date:
-            cursor.execute("""
-                UPDATE wines SET
-                    personal_rating = ?,
-                    tasting_notes = ?,
-                    last_tasted_date = ?,
-                    updated_at = CURRENT_TIMESTAMP
-                WHERE id = ?
-            """, (rating, combined_notes, tasting_date, wine_id))
-        else:
-            # Just update notes and rating, not date
-            cursor.execute("""
-                UPDATE wines SET
-                    personal_rating = ?,
-                    tasting_notes = ?,
-                    updated_at = CURRENT_TIMESTAMP
-                WHERE id = ?
-            """, (rating, combined_notes, wine_id))
+        return should_update_date, tasting_date
 
-        logger.debug(f"Updated wine {iwine} with note (rating: {rating})")
-        conn.commit()
-
-
-    @staticmethod
-    def _merge_bottle_notes(purchase_note: Optional[str], consumption_note: Optional[str]) -> Optional[str]:
-        """Merge purchase and consumption notes."""
-        if purchase_note and consumption_note:
-            return f"{purchase_note}\n\nConsumed: {consumption_note}"
-        return purchase_note or consumption_note
-
-
-    def _get_or_create_producer(self, conn, name: str | None, country: str | None, region: str | None) -> int | None:
-        """
-        Get or create producer, return ID.
-
-        Note: sort_name field removed per schema update.
-        """
-        if not name:
-            return None
-
-        if name in self.producer_cache:
-            return self.producer_cache[name]
-
-        cursor = conn.cursor()
-        cursor.execute("SELECT id FROM producers WHERE name = ? AND country = ?", (name, country))
-        existing = cursor.fetchone()
-
-        if existing:
-            producer_id = existing[0]
-        else:
-            cursor.execute("""
-                INSERT INTO producers (name, country, region)
-                VALUES (?, ?, ?)
-            """, (name, country, region))
-            producer_id = cursor.lastrowid
-            self.stats['producers_created'] += 1
-            conn.commit()
-
-        self.producer_cache[name] = producer_id
-        return producer_id
-
-
-    def _get_or_create_region(self, conn, name: str | None, country: str | None, subregion: str| None) -> int | None:
-        """Get or create region, return ID."""
-        if not name or not country:
-            return None
-
-        cache_key = (name, country)
-        if cache_key in self.region_cache:
-            return self.region_cache[cache_key]
-
-        cursor = conn.cursor()
-        cursor.execute(
-            "SELECT id FROM regions WHERE name = ? AND country = ? AND sub_region = ?",
-            (name, country, subregion)
-        )
-        existing = cursor.fetchone()
-
-        if existing:
-            region_id = existing[0]
-        else:
-            cursor.execute("""
-                INSERT INTO regions (name, country, sub_region)
-                VALUES (?, ?, ?)
-            """, (name, country, subregion))
-            region_id = cursor.lastrowid
-            self.stats['regions_created'] += 1
-            conn.commit()
-
-        self.region_cache[cache_key] = region_id
-        return region_id
-
-
-    def _start_sync_log(self, sync_type: str = 'full') -> int:
-        """Create sync log entry and return ID."""
-        with get_db_connection(self.db_path) as conn:
-            cursor = conn.cursor()
-            cursor.execute("""
-                INSERT INTO sync_log (
-                    source, sync_type, sync_started_at, status
-                ) VALUES (?, ?, ?, ?)
-            """, ('cellar_tracker', sync_type, datetime.now(), 'in_progress'))
-            conn.commit()
-            return cursor.lastrowid
-
-
-    def _complete_sync_log(self, sync_id: int, status: str, error_message: Optional[str] = None):
-        """Update sync log entry with completion status."""
-        with get_db_connection(self.db_path) as conn:
-            cursor = conn.cursor()
-            cursor.execute("""
-                UPDATE sync_log SET
-                    sync_completed_at = ?,
-                    status = ?,
-                    records_processed = ?,
-                    records_imported = ?,
-                    records_updated = ?,
-                    records_skipped = ?,
-                    records_failed = ?,
-                    error_message = ?
-                WHERE id = ?
-            """, (
-                datetime.now(),
-                status,
-                self.stats.get('wines_processed', 0)+ self.stats.get('bottles_processed', 0),
-                self.stats.get('wines_imported', 0) + self.stats.get('bottles_imported', 0),
-                self.stats.get('wines_updated', 0) + self.stats.get('bottles_updated', 0),
-                self.stats.get('wines_skipped', 0) + self.stats.get('bottles_skipped', 0),
-                len(self.stats['errors']),
-                error_message,
-                sync_id
-            ))
-            conn.commit()
 
 
 
