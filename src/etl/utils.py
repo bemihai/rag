@@ -148,7 +148,7 @@ def string_similarity(str1: str, str2: str) -> float:
     return SequenceMatcher(None, str1.lower(), str2.lower()).ratio()
 
 
-def normalize_rating(rating: float, source: str) -> Optional[int]:
+def normalize_rating(rating: float, source: str) -> int | None:
     """
     Normalize ratings to 0-100 scale.
     """
@@ -169,14 +169,14 @@ def normalize_rating(rating: float, source: str) -> Optional[int]:
     return None
 
 
-def generate_external_id(winery: str, wine_name: str, vintage: Optional[int]) -> int:
+def generate_external_id(winery: str, wine_name: str, vintage: int | None) -> str:
     """
     Generate a consistent external ID for Vivino wines.
     """
     vintage_str = str(vintage) if vintage else "NV"
     key = f"{winery}_{wine_name}_{vintage_str}".lower()
     md5_hash = hashlib.md5(key.encode()).hexdigest()
-    return int(md5_hash, 16) % (2**32)
+    return str(int(md5_hash, 16) % (2**32))
 
 
 

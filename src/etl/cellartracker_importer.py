@@ -193,7 +193,7 @@ class CellarTrackerImporter:
 
                 if not wine:
                     logger.warning(f"Wine {iwine} not found for note update")
-                    return
+                    continue
 
                 existing_rating = wine.personal_rating
                 existing_notes = wine.tasting_notes or ""
@@ -260,7 +260,8 @@ class CellarTrackerImporter:
 
         if not wine:
             wine = self._get_wine_object_from_inventory_record(record)
-            self.wine_repo.create(wine)
+            wine.id = self.wine_repo.create(wine)
+            self.stats["wines_processed"] += 1
             self.stats["wines_imported"] += 1
 
         begin_consume = record.get("BeginConsume")
@@ -269,6 +270,7 @@ class CellarTrackerImporter:
             drink_from_year, drink_to_year = parse_drinking_window(begin_consume, end_consume)
             wine.drink_from_year = drink_from_year or wine.drink_from_year
             wine.drink_to_year = drink_to_year or wine.drink_to_year
+            self.wine_repo.update(wine)
             self.wine_repo.update(wine)
 
         return wine.id
