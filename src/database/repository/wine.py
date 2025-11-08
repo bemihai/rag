@@ -3,6 +3,7 @@ from datetime import datetime
 
 from src.database import get_db_connection, build_update_query
 from src.database.models import Wine
+from src.database.utils import calculate_similarity
 from src.utils import get_default_db_path, logger
 
 
@@ -67,6 +68,69 @@ class WineRepository:
             if row:
                 return Wine(**dict(row))
             return None
+
+    def find_duplicates(
+            self, wine_name: str, producer: str, wine_type: str, vintage: int | None, confidence: float = 0.85
+    ) -> list[Wine] | None:
+        """
+        Get duplicate wines based on wine name, producer, type, and vintage.
+
+        Matching Algorithm:
+            - Producer similarity: max 30% (weighted by string similarity)
+            - Wine name similarity: max 30% (weighted by string similarity)
+            - Vintage match: 40% (if both have vintage)
+            - Confidence threshold: default 85%
+
+        Returns:
+            List of Wine models that are duplicates or None.
+        """
+        matches = []
+
+        with get_db_connection(self.db_path) as conn:
+            cursor = conn.cursor()
+
+            # Get all the wines with same type
+            cursor.execute("""
+                SELECT w.id, w.wine_name, p.name as producer_name, w.vintage
+                FROM wines w
+                LEFT JOIN producers p ON w.producer_id = p.id
+                WHERE w.wine_type = ?
+            """, (wine_type,))
+            existing_wines = cursor.fetchall()
+
+            for existing in existing_wines:
+                score = 0.0
+
+                # Vintage match
+                if vintage and existing["vintage"]:
+                    if vintage == existing["vintage"]:
+                        score += 30
+                elif not vintage and not existing["vintage"]:
+                    score += 30
+
+                # Producer match
+                if producer and existing["producer_name"]:
+                    producer_similarity = calculate_similarity(producer, existing["producer_name"])
+                    score += producer_similarity * 30
+
+                # Wine name match
+                if wine_name and existing["wine_name"]:
+                    name_similarity = calculate_similarity(
+                        wine_name,
+                        existing["wine_name"]
+                    )
+                    score += name_similarity * 40
+
+                if score >= 100 * confidence:
+                    matches.append(
+                        (existing["id"], score, existing["wine_name"], existing["producer_name"], existing["vintage"])
+                    )
+
+            # Sort matches by confidence score
+            matches.sort(key=lambda x: x[1], reverse=True)
+
+            return matches
+
 
     def get_all(
         self, wine_type: str | None = None, country: str | None = None, min_rating: int | None = None,
@@ -236,3 +300,5 @@ class WineRepository:
 
             cursor.execute(query, params)
             return cursor.fetchone()['count']
+
+

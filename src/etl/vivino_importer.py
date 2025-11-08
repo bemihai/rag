@@ -143,6 +143,18 @@ class VivinoImporter:
 
             self.wine_repository.update(wine_import)
             self.stats["wines_updated"] += 1
+
+        elif duplicates := self.wine_repository.find_duplicates(
+            wine_import.wine_name,
+            data["row"]["Winery"],
+            wine_import.wine_type,
+            wine_import.vintage,
+        ):
+            self.stats["wines_skipped"] += 1
+            logger.debug(f"Found duplicate wines for {wine_import.wine_name} ({wine_import.vintage}): {duplicates}")
+            # TODO: update missing data in existing records instead of skipping - average rating, rating, reviews, etc.
+            return
+
         else:
             wine_id = self.wine_repository.create(wine_import)
             self.stats['wines_imported'] += 1

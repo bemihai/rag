@@ -1,5 +1,7 @@
 """Database utility functions."""
+import unicodedata
 from datetime import datetime
+from difflib import SequenceMatcher
 
 from pydantic import BaseModel
 
@@ -38,3 +40,48 @@ def build_update_query(
     set_clause = ", ".join(fields)
 
     return f"UPDATE {table_name} SET {set_clause} WHERE id = ?", params
+
+
+def normalize_string(s: str) -> str:
+    """
+    Normalize string for comparison by removing accents and extra whitespace.
+
+    Args:
+        s: String to normalize
+
+    Returns:
+        Normalized string (lowercase, no accents, single spaces)
+    """
+    if not s:
+        return ""
+
+    # Remove accents
+    s = "".join(
+        c for c in unicodedata.normalize('NFD', s)
+        if unicodedata.category(c) != 'Mn'
+    )
+
+    # Lowercase and remove extra spaces
+    s = " ".join(s.lower().split())
+
+    return s
+
+
+def calculate_similarity(str1: str, str2: str) -> float:
+    """
+    Calculate similarity ratio between two strings.
+
+    Args:
+        str1: First string
+        str2: Second string
+
+    Returns:
+        Similarity ratio between 0.0 and 1.0
+    """
+    norm1 = normalize_string(str1)
+    norm2 = normalize_string(str2)
+
+    if not norm1 or not norm2:
+        return 0.0
+
+    return SequenceMatcher(None, norm1, norm2).ratio()
