@@ -2,7 +2,7 @@
 import streamlit as st
 
 from src.ui.helper import (show_cellar_metrics, make_page_title, show_cellar_inventory,
-                           show_top_rated_consumed_wines, TABS_DISPLAY)
+                           show_top_rated_consumed_wines, show_cellar_statistics, TABS_DISPLAY)
 
 
 def main():
@@ -21,9 +21,10 @@ def main():
         show_cellar_metrics()
 
     # Tabs with content in containers
-    tab_1, tab_2 = st.tabs([
+    tab_1, tab_2, tab_3 = st.tabs([
         "Cellar Inventory",
-        "Top Rated Consumed"
+        "Top Rated Consumed",
+        "Statistics & Charts"
     ])
 
     with tab_1:
@@ -33,6 +34,10 @@ def main():
     with tab_2:
         with st.container():
             show_top_rated_consumed_wines()
+
+    with tab_3:
+        with st.container():
+            show_cellar_statistics()
 
 
 if __name__ == "__main__":
