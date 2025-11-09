@@ -3,6 +3,35 @@ import streamlit as st
 import html
 
 
+TABS_DISPLAY = """
+        <style>
+        /* Tab styling */
+        .stTabs [data-baseweb="tab-list"] {
+            gap: 10px;
+            background-color: transparent;
+            padding: 10px 0;
+        }
+        .stTabs [data-baseweb="tab"] {
+            height: 50px;
+            background-color: white;
+            border-radius: 8px;
+            padding: 0 24px;
+            font-weight: 500;
+            border: 1px solid #e0e0e0;
+        }
+        .stTabs [aria-selected="true"] {
+            background-color: #7b1fa2;
+            color: white;
+            border-color: #7b1fa2;
+        }
+        /* Better vertical spacing */
+        div[data-testid="stVerticalBlock"] > div {
+            gap: 1.5rem;
+        }
+        </style>
+    """
+
+
 CONTENT_STYLE = """
 <style> 
 #input-container { 

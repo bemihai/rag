@@ -37,7 +37,7 @@ class BottleRepository:
                 return Bottle(**dict(row))
             return None
 
-    def get_by_wine_and_external_id(self, wine_id: int, external_bottle_id: int) -> Bottle | None:
+    def get_by_wine_and_external_id(self, wine_id: int, external_bottle_id: str) -> Bottle | None:
         """
         Get bottle by external bottle ID.
 

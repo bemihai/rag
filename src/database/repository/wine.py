@@ -44,7 +44,7 @@ class WineRepository:
                 return Wine(**dict(row))
             return None
 
-    def get_by_external_id(self, external_id: int) -> Wine | None:
+    def get_by_external_id(self, external_id: str) -> Wine | None:
         """
         Get wine by external ID.
 

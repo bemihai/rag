@@ -167,4 +167,138 @@ class StatsRepository:
                 'for_aging': for_aging
             }
 
+    def get_consumed_with_ratings(self, wine_type: str | None = None, limit: int | None = None) -> list[dict]:
+        """
+        Get consumed bottles with wine details and ratings.
 
+        Args:
+            wine_type: Filter by wine type
+            limit: Maximum number of results
+
+        Returns:
+            List of dictionaries with combined bottle and wine info, sorted by rating (descending)
+        """
+        with get_db_connection(self.db_path) as conn:
+            cursor = conn.cursor()
+
+            query = """
+                SELECT 
+                    b.*,
+                    w.wine_name, w.wine_type, w.vintage, w.personal_rating, w.tasting_notes,
+                    p.name as producer_name,
+                    r.country, r.name as region_name
+                FROM bottles b
+                JOIN wines w ON b.wine_id = w.id
+                LEFT JOIN producers p ON w.producer_id = p.id
+                LEFT JOIN regions r ON w.region_id = r.id
+                WHERE b.status = 'consumed' AND w.personal_rating IS NOT NULL
+            """
+            params = []
+
+            if wine_type:
+                query += " AND w.wine_type = ?"
+                params.append(wine_type)
+
+            query += " ORDER BY w.personal_rating DESC, b.consumed_date DESC"
+
+            if limit:
+                query += " LIMIT ?"
+                params.append(limit)
+
+            cursor.execute(query, params)
+            return [dict(row) for row in cursor.fetchall()]
+
+    def get_cellar_value(self) -> dict:
+        """
+        Calculate total cellar value based on purchase prices.
+
+        Returns:
+            Dictionary with value statistics by currency
+        """
+        with get_db_connection(self.db_path) as conn:
+            cursor = conn.cursor()
+
+            # Get total value by currency
+            cursor.execute("""
+                SELECT 
+                    currency,
+                    SUM(quantity * purchase_price) as total_value,
+                    COUNT(DISTINCT wine_id) as wines_with_price
+                FROM bottles
+                WHERE status = 'in_cellar' AND purchase_price IS NOT NULL
+                GROUP BY currency
+                ORDER BY total_value DESC
+            """)
+            by_currency = [dict(row) for row in cursor.fetchall()]
+
+            # Get bottles without price info
+            cursor.execute("""
+                SELECT SUM(quantity) as count
+                FROM bottles
+                WHERE status = 'in_cellar' AND purchase_price IS NULL
+            """)
+            bottles_without_price = cursor.fetchone()['count'] or 0
+
+            return {
+                'by_currency': by_currency,
+                'bottles_without_price': bottles_without_price
+            }
+
+    def get_drinking_window_stats(self) -> dict:
+        """
+        Get statistics about bottles by drinking window status.
+
+        Returns:
+            Dictionary with counts for ready, hold, and unknown categories
+        """
+        current_year = datetime.now().year
+
+        with get_db_connection(self.db_path) as conn:
+            cursor = conn.cursor()
+
+            # Bottles ready to drink
+            cursor.execute("""
+                SELECT SUM(b.quantity) as count
+                FROM bottles b
+                JOIN wines w ON b.wine_id = w.id
+                WHERE b.status = 'in_cellar'
+                  AND w.drink_from_year IS NOT NULL
+                  AND w.drink_from_year <= ?
+                  AND (w.drink_to_year >= ? OR w.drink_to_year IS NULL)
+            """, (current_year, current_year))
+            ready_to_drink = cursor.fetchone()['count'] or 0
+
+            # Bottles to hold (not yet in drinking window)
+            cursor.execute("""
+                SELECT SUM(b.quantity) as count
+                FROM bottles b
+                JOIN wines w ON b.wine_id = w.id
+                WHERE b.status = 'in_cellar'
+                  AND w.drink_from_year IS NOT NULL
+                  AND w.drink_from_year > ?
+            """, (current_year,))
+            to_hold = cursor.fetchone()['count'] or 0
+
+            # Bottles with unknown drinking window
+            cursor.execute("""
+                SELECT SUM(b.quantity) as count
+                FROM bottles b
+                JOIN wines w ON b.wine_id = w.id
+                WHERE b.status = 'in_cellar'
+                  AND w.drink_from_year IS NULL
+            """)
+            unknown = cursor.fetchone()['count'] or 0
+
+            return {
+                'ready_to_drink': ready_to_drink,
+                'to_hold': to_hold,
+                'unknown': unknown
+            }
+
+
+if __name__ == "__main__":
+    repo = StatsRepository()
+    overview = repo.get_cellar_overview()
+    value = repo.get_cellar_value()
+
+    print("Cellar Overview:")

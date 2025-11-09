@@ -1,7 +1,7 @@
 """Taste Profile page"""
 import streamlit as st
 
-from src.ui.display import make_page_title
+from src.ui.helper.display import make_page_title
 
 
 def main():
