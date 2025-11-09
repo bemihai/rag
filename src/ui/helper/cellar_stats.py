@@ -15,38 +15,38 @@ def show_cellar_metrics():
     value_stats = stats_repo.get_cellar_value()
 
     # Add a title for the metrics section
-    st.markdown("### Cellar Overview")
-    st.markdown("")  # Add spacing
+    st.markdown("### <i class='fa-solid fa-chart-bar fa-icon'></i>Cellar Overview", unsafe_allow_html=True)
+    st.markdown("")
 
     col1, col2, col3, col4, col5 = st.columns(5)
 
     with col1:
         st.metric(
-            label="🍾 Total Bottles",
-            value=f"{overview["total_bottles"]:,}",
-            delta=f"{overview["unique_wines"]} unique wines"
+            label="Total Bottles",
+            value=f"{overview['total_bottles']:,}",
+            delta=f"{overview['unique_wines']} unique wines"
         )
 
     with col2:
         top_type = overview["by_type"][0]
         percentage = (top_type["bottles"] / overview["total_bottles"] * 100) if overview["total_bottles"] > 0 else 0
         st.metric(
-            label=f"🍷 {top_type["wine_type"]}",
+            label=f"{top_type['wine_type']}",
             value=f"{percentage:.1f}%",
-            delta=f"{top_type["bottles"]} bottles"
+            delta=f"{top_type['bottles']} bottles"
         )
 
     with col3:
-        st.metric(label="✅ Ready to Drink", value=f"{drinking_stats["ready_to_drink"]:,}")
+        st.metric(label="Ready to Drink", value=f"{drinking_stats['ready_to_drink']:,}")
 
     with col4:
-        st.metric(label="⏳ To Hold", value=f"{drinking_stats["to_hold"]:,}")
+        st.metric(label="To Hold", value=f"{drinking_stats['to_hold']:,}")
 
     with col5:
         primary = value_stats["by_currency"][0]
         st.metric(
-            label="💰 Cellar Value",
-            value=f"{ primary["currency"]} {primary["total_value"]:,.0f}"
+            label="Cellar Value",
+            value=f"{primary['currency']} {primary['total_value']:,.0f}"
         )
 
 
@@ -58,12 +58,11 @@ def show_top_rated_consumed_wines():
     top_wines = state_repo.get_consumed_with_ratings(limit=5)
 
     if not top_wines:
-        st.warning("🍷 No consumed wines with ratings found yet.")
+        st.warning("No consumed wines with ratings found yet.")
         return
 
-    st.markdown("### 🌟 Your Top 5 Rated Consumed Wines")
-    st.markdown("*These are the highest-rated wines you've enjoyed*")
-    st.markdown("")  # Add spacing
+    st.markdown("### <i class='fa-solid fa-star fa-icon'></i>Your Top 5 Rated Consumed Wines", unsafe_allow_html=True)
+    st.markdown("")
 
     for idx, wine_data in enumerate(top_wines, 1):
         rating = wine_data.get("personal_rating", 0)
@@ -77,10 +76,17 @@ def show_top_rated_consumed_wines():
         bottle_note = wine_data.get("bottle_note", "")
         tasting_notes = wine_data.get("tasting_notes", "")
 
-        # Create star rating display (convert 0-100 to 5-star scale)
-        stars = "⭐" * (rating // 20) if rating else ""
+        # Create star rating display using Font Awesome
+        denorm_rating = denormalize_rating(rating)
+        stars_html = ""
+        if denorm_rating:
+            full_stars = int(denorm_rating)
+            stars_html = f"<i class='fa-solid fa-star' style='color: #FFD700;'></i> " * full_stars
 
-        with st.expander(f"#{idx} - {producer_name} {wine_name} ({vintage or "NV"}) - {rating}/100 {stars}"):
+        with st.expander(f"#{idx} - {producer_name} {wine_name} ({vintage or 'NV'}) - {rating}/100"):
+            if stars_html:
+                st.markdown(f"**Rating:** {rating}/100 {stars_html}", unsafe_allow_html=True)
+
             col1, col2 = st.columns(2)
 
             with col1:
@@ -90,7 +96,6 @@ def show_top_rated_consumed_wines():
                 st.write(f"**Type:** {wine_type}")
 
             with col2:
-                st.write(f"**Rating:** {rating}/100 {stars}")
                 st.write(f"**Country:** {country}")
                 if region_name:
                     st.write(f"**Region:** {region_name}")
@@ -137,8 +142,8 @@ def show_cellar_inventory():
 
     # Create filter UI with bordered container
     with st.container(border=True):
-        st.markdown("### 🔍 Filter Your Collection")
-        st.markdown("")
+        st.markdown("### <i class='fa-solid fa-filter fa-icon'></i>Filter Your Collection", unsafe_allow_html=True)
+        st.markdown("")  # Add spacing
 
         filter_col1, filter_col2, filter_col3, filter_col4 = st.columns(4)
 
@@ -239,13 +244,14 @@ def show_cellar_inventory():
         filtered_inventory.sort(key=lambda w: w.get('personal_rating') or 9999)
 
     if not filtered_inventory:
-        st.warning("🍷 No wines found matching the selected filters.")
+        st.warning("No wines found matching the selected filters.")
         return
 
     # Results header
     total_bottles = sum(w.get('quantity', 0) for w in filtered_inventory)
-    st.markdown(f"### 🍾 Your Collection ({len(filtered_inventory)} wines, {total_bottles} bottles)")
-    st.markdown("")
+    st.markdown("")  # Add spacing
+    st.markdown(f"### Your Collection ({len(filtered_inventory)} wines, {total_bottles} bottles)", unsafe_allow_html=True)
+    st.markdown("")  # Add spacing before wine cards
 
     # Display wines in expandable sections
     for wine_data in filtered_inventory:
@@ -265,12 +271,11 @@ def show_cellar_inventory():
         bottle_note = wine_data.get('bottle_note', '')
 
         # Create title with rating if available
-        title_parts = [f"{producer_name} {wine_name} ({vintage or 'NV'})",
-                       f"- {quantity} bottle{'s' if quantity > 1 else ''}"]
+        title_parts = [f"{producer_name} {wine_name} ({vintage or 'NV'})"]
         if rating:
-            denorm_rating = denormalize_rating(rating)
-            stars = '⭐' * ceil(denorm_rating) if denorm_rating else ''
-            title_parts.append(f" {stars}")
+            title_parts.append(f"- {quantity} bottle{'s' if quantity > 1 else ''} - {rating}/100")
+        else:
+            title_parts.append(f"- {quantity} bottle{'s' if quantity > 1 else ''}")
 
         with st.expander(" ".join(title_parts)):
             col1, col2, col3 = st.columns(3)
@@ -299,9 +304,14 @@ def show_cellar_inventory():
             with col3:
                 st.write("**Rating & Notes**")
                 if rating:
+                    # Create Font Awesome stars
                     denorm_rating = denormalize_rating(rating)
-                    stars = '⭐' * ceil(denorm_rating) if denorm_rating else ''
-                    st.write(f"Rating: {rating}/100 {stars}")
+                    stars_html = ""
+                    if denorm_rating:
+                        full_stars = int(denorm_rating)
+                        stars_html = f"<i class='fa-solid fa-star' style='color: #FFD700;'></i> " * full_stars
+
+                    st.markdown(f"Rating: {rating}/100 {stars_html}", unsafe_allow_html=True)
                     st.write(f"Category: {get_rating_description(rating)}")
 
                 else:

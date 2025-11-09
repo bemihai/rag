@@ -4,6 +4,7 @@ import html
 
 
 TABS_DISPLAY = """
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
         <style>
         /* Tab styling */
         .stTabs [data-baseweb="tab-list"] {
@@ -27,6 +28,11 @@ TABS_DISPLAY = """
         /* Better vertical spacing */
         div[data-testid="stVerticalBlock"] > div {
             gap: 1.5rem;
+        }
+        /* Font Awesome icon styling */
+        .fa-icon {
+            margin-right: 6px;
+            color: #7b1fa2;
         }
         </style>
     """

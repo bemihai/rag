@@ -12,7 +12,7 @@ def main():
 
     st.markdown(make_page_title(
         "Cellar",
-        "Your personal wine collection 🍾"
+        "Your personal wine collection"
     ), unsafe_allow_html=True)
     st.markdown("")
 
@@ -21,7 +21,10 @@ def main():
         show_cellar_metrics()
 
     # Tabs with content in containers
-    tab_1, tab_2 = st.tabs(["📦 Cellar Inventory", "🌟 Top Rated Consumed"])
+    tab_1, tab_2 = st.tabs([
+        "Cellar Inventory",
+        "Top Rated Consumed"
+    ])
 
     with tab_1:
         with st.container():
