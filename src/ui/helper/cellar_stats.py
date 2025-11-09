@@ -1,6 +1,9 @@
 """Helper functions to display cellar statistics and inventory in Streamlit UI."""
+from math import ceil
+
 import streamlit as st
 from src.database.repository import StatsRepository, BottleRepository
+from src.etl.utils import denormalize_rating, get_rating_description
 
 
 def show_cellar_metrics():
@@ -12,7 +15,7 @@ def show_cellar_metrics():
     value_stats = stats_repo.get_cellar_value()
 
     # Add a title for the metrics section
-    st.markdown("### 📊 Cellar Overview")
+    st.markdown("### Cellar Overview")
     st.markdown("")  # Add spacing
 
     col1, col2, col3, col4, col5 = st.columns(5)
@@ -265,10 +268,9 @@ def show_cellar_inventory():
         title_parts = [f"{producer_name} {wine_name} ({vintage or 'NV'})",
                        f"- {quantity} bottle{'s' if quantity > 1 else ''}"]
         if rating:
-            # TODO: convert following scale
-            stars = '⭐' * (rating // 20) if rating else ''
+            denorm_rating = denormalize_rating(rating)
+            stars = '⭐' * ceil(denorm_rating) if denorm_rating else ''
             title_parts.append(f" {stars}")
-
 
         with st.expander(" ".join(title_parts)):
             col1, col2, col3 = st.columns(3)
@@ -297,8 +299,11 @@ def show_cellar_inventory():
             with col3:
                 st.write("**Rating & Notes**")
                 if rating:
-                    stars = '⭐' * (rating // 20) if rating else ''
+                    denorm_rating = denormalize_rating(rating)
+                    stars = '⭐' * ceil(denorm_rating) if denorm_rating else ''
                     st.write(f"Rating: {rating}/100 {stars}")
+                    st.write(f"Category: {get_rating_description(rating)}")
+
                 else:
                     st.write("Rating: Not rated")
 
