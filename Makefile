@@ -64,7 +64,7 @@ db-up: check-env db-down
 	@echo "Starting ChromaDB container..."
 	@mkdir -p $(CHROMA_VOLUME)
 	@docker run --name $(CHROMA_NAME) \
-		-v $(CHROMA_VOLUME):/chroma/chroma \
+		-v $(CHROMA_VOLUME):/data \
 		-d \
 		-p $(CHROMA_PORT):8000 \
 		--restart unless-stopped \

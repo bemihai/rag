@@ -296,9 +296,3 @@ class StatsRepository:
             }
 
 
-if __name__ == "__main__":
-    repo = StatsRepository()
-    overview = repo.get_cellar_overview()
-    value = repo.get_cellar_value()
-
-    print("Cellar Overview:")
