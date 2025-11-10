@@ -327,8 +327,7 @@ def show_cellar_statistics():
     bottle_repo = BottleRepository()
 
     st.markdown("### <i class='fa-solid fa-chart-line fa-icon'></i>Cellar Statistics & Analytics", unsafe_allow_html=True)
-    st.markdown("*Visualize your wine collection trends and insights*")
-    st.markdown("")
+
 
     # Get data
     overview = stats_repo.get_cellar_overview()
@@ -336,35 +335,34 @@ def show_cellar_statistics():
     drinking_window_wines = stats_repo.get_drinking_window_wines()
 
     # Key Insights at the top
-    st.markdown("#### Key Insights")
-    insight_col1, insight_col2, insight_col3, insight_col4, insight_col5 = st.columns(5)
+    with st.container(border=True):
+        st.markdown("#### Key Insights")
+        insight_col1, insight_col2, insight_col3, insight_col4, insight_col5 = st.columns(5)
 
-    with insight_col1:
-        avg_vintage = sum(w.get('vintage', 0) * w.get('quantity', 0) for w in inventory if w.get('vintage')) / max(sum(w.get('quantity', 0) for w in inventory if w.get('vintage')), 1)
-        st.metric("Average Vintage", f"{int(avg_vintage)}")
+        with insight_col1:
+            avg_vintage = sum(w.get('vintage', 0) * w.get('quantity', 0) for w in inventory if w.get('vintage')) / max(sum(w.get('quantity', 0) for w in inventory if w.get('vintage')), 1)
+            st.metric("Average Vintage", f"{int(avg_vintage)}")
 
-    with insight_col2:
-        rated_wines = len([w for w in inventory if w.get('personal_rating')])
-        total_wines = len(inventory)
-        rating_pct = (rated_wines / total_wines * 100) if total_wines > 0 else 0
-        st.metric("Rated Wines", f"{rating_pct:.0f}%", f"{rated_wines}/{total_wines}")
+        with insight_col2:
+            rated_wines = len([w for w in inventory if w.get('personal_rating')])
+            total_wines = len(inventory)
+            rating_pct = (rated_wines / total_wines * 100) if total_wines > 0 else 0
+            st.metric("Rated Wines", f"{rating_pct:.0f}%", f"{rated_wines}/{total_wines}")
 
-    with insight_col3:
-        avg_rating = sum(w.get('personal_rating', 0) for w in inventory if w.get('personal_rating')) / max(len([w for w in inventory if w.get('personal_rating')]), 1)
-        st.metric("Average Rating", f"{avg_rating:.1f}/100")
+        with insight_col3:
+            avg_rating = sum(w.get('personal_rating', 0) for w in inventory if w.get('personal_rating')) / max(len([w for w in inventory if w.get('personal_rating')]), 1)
+            st.metric("Average Rating", f"{avg_rating:.1f}/100")
 
-    with insight_col4:
-        unique_producers = len(set(w.get('producer_name') for w in inventory if w.get('producer_name')))
-        st.metric("Unique Producers", f"{unique_producers}")
+        with insight_col4:
+            unique_producers = len(set(w.get('producer_name') for w in inventory if w.get('producer_name')))
+            st.metric("Unique Producers", f"{unique_producers}")
 
-    with insight_col5:
-        # Calculate collection value per bottle
-        total_value = sum(w.get('quantity', 0) * w.get('purchase_price', 0) for w in inventory if w.get('purchase_price'))
-        total_bottles = sum(w.get('quantity', 0) for w in inventory if w.get('purchase_price'))
-        avg_price = total_value / total_bottles if total_bottles > 0 else 0
-        st.metric("Avg. Price/Bottle", f"{int(avg_price)} RON")
-
-    st.markdown("---")
+        with insight_col5:
+            # Calculate collection value per bottle
+            total_value = sum(w.get('quantity', 0) * w.get('purchase_price', 0) for w in inventory if w.get('purchase_price'))
+            total_bottles = sum(w.get('quantity', 0) for w in inventory if w.get('purchase_price'))
+            avg_price = total_value / total_bottles if total_bottles > 0 else 0
+            st.metric("Avg. Price/Bottle", f"{int(avg_price)} RON")
 
     # Row 1: Wine Type Distribution, Country Distribution, Vintage Distribution
     col1, col2, col3 = st.columns(3)
@@ -463,8 +461,6 @@ def show_cellar_statistics():
                     margin=dict(t=10, b=10, l=10, r=10)
                 )
                 st.plotly_chart(fig, use_container_width=True)
-
-    st.markdown("---")
 
     # Row 2: Rating Distribution, Drinking Window Status, Wine Age Analysis
     col4, col5, col6 = st.columns(3)
