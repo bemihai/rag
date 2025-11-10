@@ -366,22 +366,177 @@ def show_cellar_statistics():
 
     st.markdown("---")
 
-    # Row 1: Wine Type Distribution & Country Distribution
-    col1, col2 = st.columns(2)
+    # Row 1: Wine Type Distribution, Country Distribution, Vintage Distribution
+    col1, col2, col3 = st.columns(3)
 
     with col1:
-        st.markdown("#### Wine Type Distribution")
-        if overview['by_type']:
+        with st.container(border=True):
+            st.markdown("#### Wine Type Distribution")
+            if overview['by_type']:
+                import plotly.graph_objects as go
+
+                labels = [wt['wine_type'] for wt in overview['by_type']]
+                values = [wt['bottles'] for wt in overview['by_type']]
+
+                wine_colors = {
+                    'Red': 'rgba(139, 26, 26, 0.85)',
+                    'White': 'rgba(244, 229, 161, 0.85)',
+                    'Rosé': 'rgba(255, 182, 193, 0.85)',
+                    'Sparkling': 'rgba(255, 215, 0, 0.85)',
+                    'Dessert': 'rgba(221, 161, 94, 0.85)',
+                    'Fortified': 'rgba(160, 82, 45, 0.85)'
+                }
+                colors = [wine_colors.get(label, 'rgba(123, 31, 162, 0.85)') for label in labels]
+
+                fig = go.Figure(data=[go.Pie(
+                    labels=labels,
+                    values=values,
+                    marker=dict(colors=colors),
+                    hole=0.4,
+                    textinfo='label+percent',
+                    textposition='auto'
+                )])
+                fig.update_layout(
+                    showlegend=True,
+                    height=280,
+                    margin=dict(t=10, b=10, l=10, r=10)
+                )
+                st.plotly_chart(fig, use_container_width=True)
+
+    with col2:
+        with st.container(border=True):
+            st.markdown("#### Country Distribution")
+            if overview['by_country']:
+                import plotly.graph_objects as go
+
+                countries = [c['country'] if c['country'] else 'Unknown' for c in overview['by_country'][:8]]
+                bottles = [c['bottles'] for c in overview['by_country'][:8]]
+
+                fig = go.Figure(data=[go.Bar(
+                    x=countries,
+                    y=bottles,
+                    marker_color='rgba(123, 31, 162, 0.85)',
+                    text=bottles,
+                    textposition='auto'
+                )])
+                fig.update_layout(
+                    xaxis_title="Country",
+                    yaxis_title="Bottles",
+                    showlegend=False,
+                    height=280,
+                    margin=dict(t=10, b=10, l=10, r=10)
+                )
+                st.plotly_chart(fig, use_container_width=True)
+
+    with col3:
+        with st.container(border=True):
+            st.markdown("#### Vintage Distribution")
+            from collections import Counter
+            vintage_counts = Counter()
+            for wine in inventory:
+                vintage = wine.get('vintage')
+                if vintage:
+                    vintage_counts[vintage] += wine.get('quantity', 0)
+
+            if vintage_counts:
+                import plotly.graph_objects as go
+
+                vintages = sorted(vintage_counts.keys())
+                counts = [vintage_counts[v] for v in vintages]
+
+                n_bars = len(vintages)
+                colors = [f'rgba({int(139 + i * (220-139)/max(n_bars-1, 1))}, {int(26 + i * (130-26)/max(n_bars-1, 1))}, {int(26 + i * (100-26)/max(n_bars-1, 1))}, 0.85)'
+                         for i in range(n_bars)]
+
+                fig = go.Figure(data=[go.Bar(
+                    x=vintages,
+                    y=counts,
+                    marker_color=colors,
+                    text=counts,
+                    textposition='auto'
+                )])
+                fig.update_layout(
+                    xaxis_title="Vintage Year",
+                    yaxis_title="Bottles",
+                    showlegend=False,
+                    height=280,
+                    margin=dict(t=10, b=10, l=10, r=10)
+                )
+                st.plotly_chart(fig, use_container_width=True)
+
+    st.markdown("---")
+
+    # Row 2: Rating Distribution, Drinking Window Status, Wine Age Analysis
+    col4, col5, col6 = st.columns(3)
+
+    with col4:
+        with st.container(border=True):
+            st.markdown("#### Rating Distribution")
+            ratings = [w.get('personal_rating') for w in inventory if w.get('personal_rating') is not None]
+
+            if ratings:
+                import plotly.graph_objects as go
+
+                rating_categories = {
+                    'Exceptional (98-100)': len([r for r in ratings if r >= 98]),
+                    'Outstanding (94-97)': len([r for r in ratings if 94 <= r < 98]),
+                    'Excellent (90-93)': len([r for r in ratings if 90 <= r < 94]),
+                    'Very Good (86-89)': len([r for r in ratings if 86 <= r < 90]),
+                    'Good (80-85)': len([r for r in ratings if 80 <= r < 86]),
+                    'Average (70-79)': len([r for r in ratings if 70 <= r < 80]),
+                }
+
+                categories = list(rating_categories.keys())
+                counts = list(rating_categories.values())
+                colors_map = [
+                    'rgba(46, 125, 50, 0.85)',
+                    'rgba(67, 160, 71, 0.85)',
+                    'rgba(124, 179, 66, 0.85)',
+                    'rgba(253, 216, 53, 0.85)',
+                    'rgba(255, 179, 0, 0.85)',
+                    'rgba(245, 124, 0, 0.85)'
+                ]
+
+                fig = go.Figure(data=[go.Bar(
+                    y=categories,
+                    x=counts,
+                    orientation='h',
+                    marker_color=colors_map,
+                    text=counts,
+                    textposition='auto'
+                )])
+                fig.update_layout(
+                    xaxis_title="Wines",
+                    yaxis_title="",
+                    showlegend=False,
+                    height=280,
+                    margin=dict(t=10, b=10, l=10, r=10)
+                )
+                st.plotly_chart(fig, use_container_width=True)
+
+    with col5:
+        with st.container(border=True):
+            st.markdown("#### Drinking Window Status")
+            window_wines = drinking_window_wines
+
             import plotly.graph_objects as go
 
-            labels = [wt['wine_type'] for wt in overview['by_type']]
-            values = [wt['bottles'] for wt in overview['by_type']]
-            colors = ['#667eea', '#f5576c', '#4facfe', '#fa709a', '#43e97b', '#feca57']
+            ready_count = sum(w['bottles'] for w in window_wines['ready_now'])
+            soon_count = sum(w['bottles'] for w in window_wines['drink_soon'])
+            aging_count = sum(w['bottles'] for w in window_wines['for_aging'])
+
+            labels = ['Ready Now', 'Drink Soon (1-2 yrs)', 'For Aging (3+ yrs)']
+            values = [ready_count, soon_count, aging_count]
+            colors = [
+                'rgba(67, 160, 71, 0.85)',
+                'rgba(255, 167, 38, 0.85)',
+                'rgba(139, 26, 26, 0.85)'
+            ]
 
             fig = go.Figure(data=[go.Pie(
                 labels=labels,
                 values=values,
-                marker=dict(colors=colors[:len(labels)]),
+                marker=dict(colors=colors),
                 hole=0.4,
                 textinfo='label+percent',
                 textposition='auto'
@@ -393,260 +548,60 @@ def show_cellar_statistics():
             )
             st.plotly_chart(fig, use_container_width=True)
 
-    with col2:
-        st.markdown("#### Country Distribution")
-        if overview['by_country']:
-            import plotly.graph_objects as go
+    with col6:
+        with st.container(border=True):
+            st.markdown("#### Wine Age Analysis")
+            current_year = 2025
 
-            countries = [c['country'] if c['country'] else 'Unknown' for c in overview['by_country'][:8]]
-            bottles = [c['bottles'] for c in overview['by_country'][:8]]
-
-            fig = go.Figure(data=[go.Bar(
-                x=countries,
-                y=bottles,
-                marker_color='#7b1fa2',
-                text=bottles,
-                textposition='auto'
-            )])
-            fig.update_layout(
-                xaxis_title="Country",
-                yaxis_title="Bottles",
-                showlegend=False,
-                height=280,
-                margin=dict(t=10, b=10, l=10, r=10)
-            )
-            st.plotly_chart(fig, use_container_width=True)
-
-    st.markdown("---")
-
-    # Row 2: Vintage Distribution & Rating Distribution
-    col3, col4 = st.columns(2)
-
-    with col3:
-        st.markdown("#### Vintage Distribution")
-        from collections import Counter
-        vintage_counts = Counter()
-        for wine in inventory:
-            vintage = wine.get('vintage')
-            if vintage:
-                vintage_counts[vintage] += wine.get('quantity', 0)
-
-        if vintage_counts:
-            import plotly.graph_objects as go
-
-            vintages = sorted(vintage_counts.keys())
-            counts = [vintage_counts[v] for v in vintages]
-
-            fig = go.Figure(data=[go.Scatter(
-                x=vintages,
-                y=counts,
-                mode='lines+markers',
-                line=dict(color='#667eea', width=2),
-                marker=dict(size=6, color='#667eea'),
-                fill='tozeroy',
-                fillcolor='rgba(102, 126, 234, 0.2)'
-            )])
-            fig.update_layout(
-                xaxis_title="Vintage Year",
-                yaxis_title="Bottles",
-                showlegend=False,
-                height=280,
-                margin=dict(t=10, b=10, l=10, r=10)
-            )
-            st.plotly_chart(fig, use_container_width=True)
-
-    with col4:
-        st.markdown("#### Rating Distribution")
-        ratings = [w.get('personal_rating') for w in inventory if w.get('personal_rating') is not None]
-
-        if ratings:
-            import plotly.graph_objects as go
-
-            rating_categories = {
-                'Exceptional (98-100)': len([r for r in ratings if r >= 98]),
-                'Outstanding (94-97)': len([r for r in ratings if 94 <= r < 98]),
-                'Excellent (90-93)': len([r for r in ratings if 90 <= r < 94]),
-                'Very Good (86-89)': len([r for r in ratings if 86 <= r < 90]),
-                'Good (80-85)': len([r for r in ratings if 80 <= r < 86]),
-                'Average (70-79)': len([r for r in ratings if 70 <= r < 80]),
+            age_ranges = {
+                '0-5 years': 0,
+                '6-10 years': 0,
+                '11-15 years': 0,
+                '16-20 years': 0,
+                '20+ years': 0
             }
 
-            categories = list(rating_categories.keys())
-            counts = list(rating_categories.values())
-            colors_map = ['#43e97b', '#4facfe', '#667eea', '#f5576c', '#fa709a', '#feca57']
+            for wine in inventory:
+                vintage = wine.get('vintage')
+                if vintage:
+                    age = current_year - vintage
+                    qty = wine.get('quantity', 0)
+                    if age <= 5:
+                        age_ranges['0-5 years'] += qty
+                    elif age <= 10:
+                        age_ranges['6-10 years'] += qty
+                    elif age <= 15:
+                        age_ranges['11-15 years'] += qty
+                    elif age <= 20:
+                        age_ranges['16-20 years'] += qty
+                    else:
+                        age_ranges['20+ years'] += qty
 
-            fig = go.Figure(data=[go.Bar(
-                y=categories,
-                x=counts,
-                orientation='h',
-                marker_color=colors_map,
-                text=counts,
-                textposition='auto'
-            )])
-            fig.update_layout(
-                xaxis_title="Wines",
-                yaxis_title="",
-                showlegend=False,
-                height=280,
-                margin=dict(t=10, b=10, l=10, r=10)
-            )
-            st.plotly_chart(fig, use_container_width=True)
+            if sum(age_ranges.values()) > 0:
+                import plotly.graph_objects as go
 
-    st.markdown("---")
+                labels = list(age_ranges.keys())
+                values = list(age_ranges.values())
+                colors = [
+                    'rgba(255, 224, 130, 0.85)',
+                    'rgba(255, 183, 77, 0.85)',
+                    'rgba(255, 152, 0, 0.85)',
+                    'rgba(245, 124, 0, 0.85)',
+                    'rgba(191, 54, 12, 0.85)'
+                ]
 
-    # Row 3: Drinking Window & Top Producers
-    col5, col6 = st.columns(2)
-
-    with col5:
-        st.markdown("#### Drinking Window Status")
-        window_wines = drinking_window_wines
-
-        import plotly.graph_objects as go
-
-        ready_count = sum(w['bottles'] for w in window_wines['ready_now'])
-        soon_count = sum(w['bottles'] for w in window_wines['drink_soon'])
-        aging_count = sum(w['bottles'] for w in window_wines['for_aging'])
-
-        labels = ['Ready Now', 'Drink Soon (1-2 yrs)', 'For Aging (3+ yrs)']
-        values = [ready_count, soon_count, aging_count]
-        colors = ['#43e97b', '#feca57', '#f5576c']
-
-        fig = go.Figure(data=[go.Pie(
-            labels=labels,
-            values=values,
-            marker=dict(colors=colors),
-            textinfo='label+value',
-            textposition='auto'
-        )])
-        fig.update_layout(
-            showlegend=True,
-            height=280,
-            margin=dict(t=10, b=10, l=10, r=10)
-        )
-        st.plotly_chart(fig, use_container_width=True)
-
-    with col6:
-        st.markdown("#### Top Producers by Bottles")
-        from collections import Counter
-        producer_counts = Counter()
-        for wine in inventory:
-            producer = wine.get('producer_name')
-            if producer:
-                producer_counts[producer] += wine.get('quantity', 0)
-
-        if producer_counts:
-            import plotly.graph_objects as go
-
-            # Get top 8 producers
-            top_producers = producer_counts.most_common(8)
-            producers = [p[0] for p in top_producers]
-            counts = [p[1] for p in top_producers]
-
-            fig = go.Figure(data=[go.Bar(
-                y=producers,
-                x=counts,
-                orientation='h',
-                marker_color='#7b1fa2',
-                text=counts,
-                textposition='auto'
-            )])
-            fig.update_layout(
-                xaxis_title="Bottles",
-                yaxis_title="",
-                showlegend=False,
-                height=280,
-                margin=dict(t=10, b=10, l=10, r=10)
-            )
-            st.plotly_chart(fig, use_container_width=True)
-
-    st.markdown("---")
-
-    # Row 4: Wine Age Analysis & Price Distribution
-    col7, col8 = st.columns(2)
-
-    with col7:
-        st.markdown("#### Wine Age Analysis")
-        from datetime import datetime
-        current_year = 2025
-
-        age_ranges = {
-            '0-5 years': 0,
-            '6-10 years': 0,
-            '11-15 years': 0,
-            '16-20 years': 0,
-            '20+ years': 0
-        }
-
-        for wine in inventory:
-            vintage = wine.get('vintage')
-            if vintage:
-                age = current_year - vintage
-                qty = wine.get('quantity', 0)
-                if age <= 5:
-                    age_ranges['0-5 years'] += qty
-                elif age <= 10:
-                    age_ranges['6-10 years'] += qty
-                elif age <= 15:
-                    age_ranges['11-15 years'] += qty
-                elif age <= 20:
-                    age_ranges['16-20 years'] += qty
-                else:
-                    age_ranges['20+ years'] += qty
-
-        if sum(age_ranges.values()) > 0:
-            import plotly.graph_objects as go
-
-            labels = list(age_ranges.keys())
-            values = list(age_ranges.values())
-            colors = ['#43e97b', '#4facfe', '#667eea', '#fa709a', '#f5576c']
-
-            fig = go.Figure(data=[go.Bar(
-                x=labels,
-                y=values,
-                marker_color=colors,
-                text=values,
-                textposition='auto'
-            )])
-            fig.update_layout(
-                xaxis_title="Age Range",
-                yaxis_title="Bottles",
-                showlegend=False,
-                height=280,
-                margin=dict(t=10, b=10, l=10, r=10)
-            )
-            st.plotly_chart(fig, use_container_width=True)
-
-    with col8:
-        st.markdown("#### Collection Value by Wine Type")
-        type_values = {}
-        for wine in inventory:
-            wine_type = wine.get('wine_type', 'Unknown')
-            price = wine.get('purchase_price', 0)
-            qty = wine.get('quantity', 0)
-            if price > 0:
-                if wine_type not in type_values:
-                    type_values[wine_type] = 0
-                type_values[wine_type] += price * qty
-
-        if type_values:
-            import plotly.graph_objects as go
-
-            types = list(type_values.keys())
-            values = list(type_values.values())
-            colors = ['#667eea', '#f5576c', '#4facfe', '#fa709a', '#43e97b', '#feca57']
-
-            fig = go.Figure(data=[go.Bar(
-                x=types,
-                y=values,
-                marker_color=colors[:len(types)],
-                text=[f"{int(v)} RON" for v in values],
-                textposition='auto'
-            )])
-            fig.update_layout(
-                xaxis_title="Wine Type",
-                yaxis_title="Total Value (RON)",
-                showlegend=False,
-                height=280,
-                margin=dict(t=10, b=10, l=10, r=10)
-            )
-            st.plotly_chart(fig, use_container_width=True)
+                fig = go.Figure(data=[go.Bar(
+                    x=labels,
+                    y=values,
+                    marker_color=colors,
+                    text=values,
+                    textposition='auto'
+                )])
+                fig.update_layout(
+                    xaxis_title="Age Range",
+                    yaxis_title="Bottles",
+                    showlegend=False,
+                    height=280,
+                    margin=dict(t=10, b=10, l=10, r=10)
+                )
+                st.plotly_chart(fig, use_container_width=True)

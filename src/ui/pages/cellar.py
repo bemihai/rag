@@ -1,8 +1,8 @@
 """Wine Cellar page UI."""
 import streamlit as st
 
-from src.ui.helper import (show_cellar_metrics, make_page_title, show_cellar_inventory,
-                           show_top_rated_consumed_wines, show_cellar_statistics, TABS_DISPLAY)
+from src.ui.helper import (show_cellar_metrics, make_compact_page_title, show_cellar_inventory,
+                           show_cellar_statistics, TABS_DISPLAY)
 
 
 def main():
@@ -10,32 +10,22 @@ def main():
     st.set_page_config(page_title="Wine Cellar", page_icon="🍷", layout="wide")
     st.markdown(TABS_DISPLAY, unsafe_allow_html=True)
 
-    st.markdown(make_page_title(
+    st.markdown(make_compact_page_title(
         "Cellar",
         "Your personal wine collection"
     ), unsafe_allow_html=True)
     st.markdown("")
 
-    # Cellar Metrics in a container with border
     with st.container(border=True):
         show_cellar_metrics()
 
-    # Tabs with content in containers
-    tab_1, tab_2, tab_3 = st.tabs([
-        "Cellar Inventory",
-        "Top Rated Consumed",
-        "Statistics & Charts"
-    ])
+    tab_1, tab_2 = st.tabs(["Cellar Inventory", "Statistics & Charts"])
 
     with tab_1:
         with st.container():
             show_cellar_inventory()
 
     with tab_2:
-        with st.container():
-            show_top_rated_consumed_wines()
-
-    with tab_3:
         with st.container():
             show_cellar_statistics()
 
