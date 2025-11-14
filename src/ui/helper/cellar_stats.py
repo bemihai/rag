@@ -231,7 +231,7 @@ def show_cellar_inventory():
 
     # Sort
     if sort_by == "Producer":
-        filtered_inventory.sort(key=lambda w: (w.get('producer_name', ''), w.get('vintage') or 0), reverse=True)
+        filtered_inventory.sort(key=lambda w: (w.get('producer_name', ''), w.get('vintage') or 0))
     elif sort_by == "Wine Name":
         filtered_inventory.sort(key=lambda w: w.get('wine_name', ''))
     elif sort_by == "Vintage (New→Old)":
@@ -271,7 +271,7 @@ def show_cellar_inventory():
         bottle_note = wine_data.get('bottle_note', '')
 
         # Create title with rating if available
-        title_parts = [f"{producer_name} {wine_name} ({vintage or 'NV'})"]
+        title_parts = [f"{producer_name}, {wine_name} ({vintage or 'NV'})"]
         if rating:
             title_parts.append(f"- {quantity} bottle{'s' if quantity > 1 else ''} - {rating}/100")
         else:
@@ -601,3 +601,74 @@ def show_cellar_statistics():
                     margin=dict(t=10, b=10, l=10, r=10)
                 )
                 st.plotly_chart(fig, use_container_width=True)
+
+    st.markdown("---")
+
+    col7, col8, col9 = st.columns(3)
+
+    # Row 3: Varietal/Grape Distribution
+    with col7:
+        with st.container(border=True):
+            st.markdown("#### Top 5 Varietals")
+            varietal_data = stats_repo.get_varietal_distribution(limit=5)
+
+            if varietal_data:
+                import plotly.graph_objects as go
+
+                varietals = [v['varietal'] for v in varietal_data]
+                bottles = [v['bottles'] for v in varietal_data]
+
+                # Use solid purple color
+                color = 'rgba(123, 31, 162, 0.85)'
+
+                fig = go.Figure(data=[go.Bar(
+                    y=varietals,
+                    x=bottles,
+                    orientation='h',
+                    marker_color=color,
+                    text=bottles,
+                    textposition='auto'
+                )])
+                fig.update_layout(
+                    xaxis_title="Bottles",
+                    yaxis_title="",
+                    showlegend=False,
+                    height=320,
+                    margin=dict(t=10, b=10, l=10, r=10)
+                )
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.info("No varietal information available for wines in your cellar.")
+
+    with col8:
+        with st.container(border=True):
+            st.markdown("#### Top 5 Regions")
+            region_data = stats_repo.get_region_distribution(limit=5)
+
+            if region_data:
+                import plotly.graph_objects as go
+
+                regions = [f"{r['region']}, {r['country']}" for r in region_data]
+                bottles = [r['bottles'] for r in region_data]
+
+                # Use solid green color (wine-growing regions)
+                color = 'rgba(67, 160, 71, 0.85)'
+
+                fig = go.Figure(data=[go.Bar(
+                    y=regions,
+                    x=bottles,
+                    orientation='h',
+                    marker_color=color,
+                    text=bottles,
+                    textposition='auto'
+                )])
+                fig.update_layout(
+                    xaxis_title="Bottles",
+                    yaxis_title="",
+                    showlegend=False,
+                    height=320,
+                    margin=dict(t=10, b=10, l=10, r=10)
+                )
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.info("No region information available for wines in your cellar.")

@@ -295,4 +295,64 @@ class StatsRepository:
                 'unknown': unknown
             }
 
+    def get_varietal_distribution(self, limit: int = 5) -> list[dict]:
+        """
+        Get distribution of wines by main grape/varietal.
 
+        Args:
+            limit: Maximum number of varietals to return
+
+        Returns:
+            List of dictionaries with varietal and bottle counts
+        """
+        with get_db_connection(self.db_path) as conn:
+            cursor = conn.cursor()
+
+            cursor.execute("""
+                SELECT 
+                    w.varietal,
+                    COUNT(DISTINCT w.id) as unique_wines,
+                    SUM(b.quantity) as bottles
+                FROM wines w
+                JOIN bottles b ON w.id = b.wine_id
+                WHERE b.status = 'in_cellar' 
+                  AND w.varietal IS NOT NULL 
+                  AND w.varietal != ''
+                GROUP BY w.varietal
+                ORDER BY bottles DESC
+                LIMIT ?
+            """, (limit,))
+
+            return [dict(row) for row in cursor.fetchall()]
+
+    def get_region_distribution(self, limit: int = 5) -> list[dict]:
+        """
+        Get distribution of wines by region.
+
+        Args:
+            limit: Maximum number of regions to return
+
+        Returns:
+            List of dictionaries with region and bottle counts
+        """
+        with get_db_connection(self.db_path) as conn:
+            cursor = conn.cursor()
+
+            cursor.execute("""
+                SELECT 
+                    r.name as region,
+                    r.country,
+                    COUNT(DISTINCT w.id) as unique_wines,
+                    SUM(b.quantity) as bottles
+                FROM wines w
+                JOIN bottles b ON w.id = b.wine_id
+                LEFT JOIN regions r ON w.region_id = r.id
+                WHERE b.status = 'in_cellar' 
+                  AND r.name IS NOT NULL 
+                  AND r.name != ''
+                GROUP BY r.name, r.country
+                ORDER BY bottles DESC
+                LIMIT ?
+            """, (limit,))
+
+            return [dict(row) for row in cursor.fetchall()]
