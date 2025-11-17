@@ -3,6 +3,41 @@ import streamlit as st
 import html
 
 
+TABS_DISPLAY = """
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+        <style>
+        /* Tab styling */
+        .stTabs [data-baseweb="tab-list"] {
+            gap: 10px;
+            background-color: transparent;
+            padding: 10px 0;
+        }
+        .stTabs [data-baseweb="tab"] {
+            height: 50px;
+            background-color: white;
+            border-radius: 8px;
+            padding: 0 24px;
+            font-weight: 500;
+            border: 1px solid #e0e0e0;
+        }
+        .stTabs [aria-selected="true"] {
+            background-color: #7b1fa2;
+            color: white;
+            border-color: #7b1fa2;
+        }
+        /* Better vertical spacing */
+        div[data-testid="stVerticalBlock"] > div {
+            gap: 1.5rem;
+        }
+        /* Font Awesome icon styling */
+        .fa-icon {
+            margin-right: 6px;
+            color: #7b1fa2;
+        }
+        </style>
+    """
+
+
 CONTENT_STYLE = """
 <style> 
 #input-container { 
@@ -82,7 +117,7 @@ CONTENT_STYLE = """
 
 def make_page_title(title: str, subtitle: str) -> str:
     """
-    Returns a styled HTML/CSS string for a custom page title and subtitle.
+    Returns a styled HTML/CSS string for a custom page title and subtitle (centered).
     Args:
         title (str): The main title text.
         subtitle (str): The subtitle text (smaller font).
@@ -117,6 +152,48 @@ def make_page_title(title: str, subtitle: str) -> str:
     </style>
     <div class="rag-title">{title}</div>
     <div class="rag-subtitle">{subtitle}</div>
+    """
+
+
+def make_compact_page_title(title: str, subtitle: str) -> str:
+    """
+    Returns a styled HTML/CSS string for a compact page title and subtitle (left-aligned).
+    Specifically designed for pages that need more space for content.
+
+    Args:
+        title (str): The main title text.
+        subtitle (str): The subtitle text (smaller font).
+    Returns:
+        str: HTML/CSS for the styled title and subtitle.
+    """
+    return f"""
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@700;900&display=swap');
+    .compact-title {{
+      font-family: 'Poppins', sans-serif;
+      font-weight: 700;
+      font-size: 2.5em;
+      background: linear-gradient(90deg, #7b1fa2 0%, #a4508b 50%, #5e3370 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      color: transparent;
+      margin: 0;
+      padding: 10px 0 5px 0;
+      text-align: left;
+    }}
+    .compact-subtitle {{
+      font-family: 'Poppins', sans-serif;
+      font-weight: 400;
+      font-size: 1.1em;
+      color: #5b8c2a;
+      margin: 0;
+      padding: 0 0 10px 0;
+      text-align: left;
+    }}
+    </style>
+    <div class="compact-title">{title}</div>
+    <div class="compact-subtitle">{subtitle}</div>
     """
 
 

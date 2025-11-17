@@ -1,0 +1,106 @@
+"""Producer repository."""
+from datetime import datetime
+
+from src.database import get_db_connection, build_update_query
+from src.database.models import Producer
+from src.utils import get_default_db_path, logger
+
+
+class ProducerRepository:
+    """Repository for producer-related database operations."""
+
+    def __init__(self, db_path: str | None = None):
+        """
+        Initialize producer repository.
+
+        Args:
+            db_path: Optional path to database file
+        """
+        self.db_path = db_path or get_default_db_path()
+
+    def get_by_id(self, producer_id: int) -> Producer | None:
+        """Get producer by ID."""
+        with get_db_connection(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM producers WHERE id = ?", (producer_id,))
+
+            row = cursor.fetchone()
+            if row:
+                return Producer(**dict(row))
+            return None
+
+    def get_by_name(self, name: str) -> Producer | None:
+        """Get producer by name (case-insensitive)."""
+        with get_db_connection(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT * FROM producers WHERE LOWER(name) = LOWER(?)",
+                (name,)
+            )
+
+            row = cursor.fetchone()
+            if row:
+                return Producer(**dict(row))
+            return None
+
+    def get_or_create(self, name: str, country: str | None = None, region: str | None = None) -> int:
+        """
+        Get an existing producer by name or create a new one if the name does not exist.
+
+        Args:
+            name: Producer name
+            country: Optional country
+            region: Optional region
+
+        Returns:
+            Producer ID
+        """
+        existing = self.get_by_name(name)
+        if existing:
+            return existing.id
+
+        with get_db_connection(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO producers (name, country, region, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?)
+            """, (name, country, region, datetime.now(), datetime.now()))
+
+            conn.commit()
+            producer_id = cursor.lastrowid
+            logger.debug(f"Created producer: {name} (ID: {producer_id})")
+            return producer_id
+
+    def update(self, producer: Producer) -> bool:
+        """
+        Update existing producer record.
+
+        Args:
+            producer: Producer model with updated data
+
+        Returns:
+            True if successful
+        """
+        if not producer.id:
+            raise ValueError("Producer ID is required for update")
+
+        update_query, params = build_update_query("producers", producer)
+        if not update_query:
+            logger.info(f"No fields to update for producer ID: {producer.id}")
+            return False
+
+        with get_db_connection(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute(update_query, params)
+            conn.commit()
+            logger.debug(f"Updated producer ID: {producer.id}")
+            return True
+
+    def get_all(self) -> list[Producer]:
+        """Get all producers."""
+        with get_db_connection(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM producers ORDER BY name")
+            return [Producer(**dict(row)) for row in cursor.fetchall()]
+
+

@@ -1,20 +1,29 @@
 """Taste Profile page"""
 import streamlit as st
 
-from src.ui.display import make_page_title
+from src.ui.helper.display import make_compact_page_title
+from src.ui.helper import show_top_rated_consumed_wines, TABS_DISPLAY
 
 
 def main():
     """Taste Profile page - main entry point."""
-    st.set_page_config(page_title="Taste Profile", page_icon="👅")
+    st.set_page_config(page_title="Taste Profile", page_icon="👅", layout="wide")
+    st.markdown(TABS_DISPLAY, unsafe_allow_html=True)
 
-    st.markdown(make_page_title(
+    st.markdown(make_compact_page_title(
         "Taste Profile",
         "Discover your wine preferences 🍇"
     ), unsafe_allow_html=True)
+    st.markdown("")
 
-    # Placeholder content
-    st.info("👷 This section is under construction")
+    # Top Rated Consumed Wines section
+    with st.container(border=True):
+        show_top_rated_consumed_wines()
+
+    st.markdown("---")
+
+    # Placeholder content for future features
+    st.info("👷 Additional taste profiling features are under construction")
 
     st.markdown("""
     ### Coming Soon

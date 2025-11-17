@@ -18,6 +18,17 @@ def find_project_root(marker="pyproject.toml"):
     raise FileNotFoundError(f"Project root with {marker} not found.")
 
 
+def get_project_root() -> Path:
+    """Returns the project root path."""
+    return Path(find_project_root())
+
+
+def get_default_db_path():
+    """Returns the default wine cellar database path."""
+    cfg = get_config()
+    return get_project_root() / cfg.cellar.db_path
+
+
 def get_config() -> DictConfig:
     """Returns the app config object."""
     return OmegaConf.load(Path(find_project_root()) / "app_config.yml")

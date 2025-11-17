@@ -1,7 +1,7 @@
 """Chatbot page"""
 import streamlit as st
 
-from src.ui.display import CONTENT_STYLE, display_message, make_page_title
+from src.ui.helper.display import CONTENT_STYLE, display_message, make_page_title
 from src.ui.resources import load_llm, load_chroma_client, load_retriever
 from src.ui.sidebar import render_sidebar
 from src.model.llm import process_user_prompt
