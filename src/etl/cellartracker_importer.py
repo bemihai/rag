@@ -271,7 +271,6 @@ class CellarTrackerImporter:
             wine.drink_from_year = drink_from_year or wine.drink_from_year
             wine.drink_to_year = drink_to_year or wine.drink_to_year
             self.wine_repo.update(wine)
-            self.wine_repo.update(wine)
 
         return wine.id
 
@@ -282,12 +281,12 @@ class CellarTrackerImporter:
         Create a Bottle object from an inventory record.
         """
         price = None
-        price_str = record.get("Price")
+        price_str = record.get("Price") or record.get("Valuation")
         if price_str:
             try:
                 price = float(price_str)
             except (ValueError, TypeError):
-                pass
+                logger.warning(f"Could not parse price '{price_str}' in record: {record}")
 
         return Bottle(
             wine_id=wine_id,
@@ -375,8 +374,8 @@ class CellarTrackerImporter:
                 new_rating = int(rating_str)
                 if existing_rating is None or new_rating > existing_rating:
                     rating = new_rating
-            except (ValueError, TypeError):
-                pass
+            except (ValueError, TypeError) as e:
+                logger.warning(f"Failed to convert rating '{rating_str}' to int: {e}")
 
         return rating
 
@@ -416,8 +415,8 @@ class CellarTrackerImporter:
                     tasting_date_obj = tasting_date
 
                 should_update_date = tasting_date_obj >= last_tasted_obj
-            except:
-                pass
+            except (ValueError, TypeError) as e:
+                logger.warning(f"Failed to parse or compare tasting dates: {e}")
 
         return should_update_date, tasting_date
 

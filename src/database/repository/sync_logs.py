@@ -48,7 +48,7 @@ class SyncLogRepository:
             """, (
                 datetime.now(),
                 status,
-                stats.get('wines_processed', 0)+ stats.get('bottles_processed', 0),
+                stats.get('wines_processed', 0) + stats.get('bottles_processed', 0),
                 stats.get('wines_imported', 0) + stats.get('bottles_imported', 0),
                 stats.get('wines_updated', 0) + stats.get('bottles_updated', 0),
                 stats.get('wines_skipped', 0) + stats.get('bottles_skipped', 0),

@@ -81,7 +81,7 @@ def parse_date(date_str: str) -> str | None:
     try:
         dt = parser.parse(date_str)
         return dt.strftime('%Y-%m-%d')
-    except:
+    except (ValueError, TypeError):
         return None
 
 
@@ -97,7 +97,7 @@ def parse_vintage(vintage_str: str) -> Optional[int]:
         if 1900 <= vintage <= datetime.now().year + 2:
             return vintage
         return None
-    except:
+    except (ValueError, TypeError):
         return None
 
 
@@ -135,7 +135,7 @@ def parse_drinking_window(window_str: str, end_str: str | None = None) -> tuple[
         elif len(parts) == 1:
             year = int(parts[0])
             return year, year
-    except:
+    except (ValueError, TypeError):
         pass
 
     return None, None
@@ -203,7 +203,7 @@ def normalize_rating(rating: float, source: str) -> int | None:
         elif source == 'cellar_tracker':
             # CellarTracker already uses 0-100
             return int(rating)
-    except:
+    except (ValueError, TypeError):
         return None
 
     return None
@@ -261,7 +261,7 @@ def denormalize_rating(normalized_rating: int) -> float | None:
 
         # Round to 1 decimal place (typical Vivino precision)
         return round(vivino_rating, 1)
-    except:
+    except (ValueError, TypeError):
         return None
 
 
@@ -303,7 +303,7 @@ def get_rating_description(rating: int | float | None) -> str:
             return "Outstanding"
         else:
             return "Exceptional"
-    except:
+    except (ValueError, TypeError):
         return "Not Rated"
 
 

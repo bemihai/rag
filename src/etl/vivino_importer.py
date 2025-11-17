@@ -91,7 +91,7 @@ class VivinoImporter:
                         try:
                             rating = float(row["Your rating"])
                             wines_data[key]["ratings"].append(rating)
-                        except:
+                        except (ValueError, TypeError):
                             pass
 
                     review = clean_text(row.get("Your review") or row.get("Personal Note"))
