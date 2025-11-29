@@ -276,8 +276,10 @@ class CellarTrackerImporter:
                         updated = True
 
                     # Update tasting date (keep most recent)
-                    tasting_date = parse_date(record.get("TastingDate"))
-                    if tasting_date:
+                    tasting_date_str = parse_date(record.get("TastingDate"))
+                    if tasting_date_str:
+                        from datetime import date as date_cls
+                        tasting_date = date_cls.fromisoformat(tasting_date_str)
                         if not existing_tasting.last_tasted_date or tasting_date > existing_tasting.last_tasted_date:
                             existing_tasting.last_tasted_date = tasting_date
                             updated = True
@@ -293,11 +295,15 @@ class CellarTrackerImporter:
                         logger.debug(f"Updated tasting for wine {iwine}")
                 else:
                     # Create new tasting
+                    from datetime import date as date_cls
+                    tasting_date_str = parse_date(record.get("TastingDate"))
+                    tasting_date = date_cls.fromisoformat(tasting_date_str) if tasting_date_str else None
+
                     tasting = Tasting(
                         wine_id=wine_id,
                         personal_rating=self._extract_rating_from_note(record),
                         tasting_notes=self._extract_tasting_notes_from_note(record, ""),
-                        last_tasted_date=parse_date(record.get("TastingDate")),
+                        last_tasted_date=tasting_date,
                         is_defective=record.get("IsDefective", False),
                         do_like=self._extract_do_like_from_note(record)
                     )
@@ -501,7 +507,9 @@ class CellarTrackerImporter:
         note_text = clean_text(record.get("TastingNotes"))
 
         if note_text:
-            date_str = tasting_date.strftime('%Y-%m-%d') if tasting_date else datetime.now().strftime('%Y-%m-%d')
+            # parse_date returns a string in YYYY-MM-DD format or None
+            date_str = tasting_date if tasting_date else datetime.now().strftime('%Y-%m-%d')
+
             if existing_notes:
                 return f"{existing_notes}\n\n[{date_str}] {note_text}"
             else:
