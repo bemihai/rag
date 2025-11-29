@@ -52,9 +52,9 @@ def initialize_database(db_path: str = DEFAULT_DB_PATH) -> bool:
             _create_producers_table(cursor)
             _create_regions_table(cursor)
             _create_wines_table(cursor)
+            _create_tastings_table(cursor)
             _create_bottles_table(cursor)
             _create_sync_log_table(cursor)
-            _create_schema_version_table(cursor)
             _create_views(cursor)
 
             conn.commit()
@@ -75,7 +75,7 @@ def _create_producers_table(cursor: sqlite3.Cursor):
             name                TEXT NOT NULL UNIQUE,
             country             TEXT,
             region              TEXT,
-            notes               TEXT,
+            description         TEXT,
             created_at          TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at          TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
@@ -90,15 +90,43 @@ def _create_regions_table(cursor: sqlite3.Cursor):
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS regions (
             id                  INTEGER PRIMARY KEY AUTOINCREMENT,
-            name                TEXT NOT NULL,
+            primary_name        TEXT NOT NULL,
+            secondary_name      TEXT,
             country             TEXT NOT NULL,
-            sub_region          TEXT,
+            description         TEXT,
             created_at          TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            UNIQUE(name, country)
+            UNIQUE(primary_name, secondary_name, country)
         )
     """)
 
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_regions_country ON regions(country)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_regions_primary ON regions(primary_name)")
+
+
+def _create_tastings_table(cursor: sqlite3.Cursor):
+    """Create tastings table."""
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS tastings (
+            id                      INTEGER PRIMARY KEY AUTOINCREMENT,
+            wine_id                 INTEGER NOT NULL REFERENCES wines(id) ON DELETE CASCADE,
+            is_defective            BOOLEAN NOT NULL DEFAULT 0,
+            personal_rating         INTEGER,
+            tasting_notes           TEXT,
+            do_like                 BOOLEAN NOT NULL DEFAULT 1,
+            community_rating        DECIMAL(5,2),
+            like_votes              INTEGER DEFAULT 0,
+            like_percentage         DECIMAL(5,2),
+            last_tasted_date        DATE,
+            created_at              TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at              TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            CHECK(personal_rating IS NULL OR (personal_rating >= 0 AND personal_rating <= 100)),
+            CHECK(community_rating IS NULL OR (community_rating >= 0 AND community_rating <= 100))
+        )
+    """)
+
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_tastings_wine ON tastings(wine_id)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_tastings_personal_rating ON tastings(personal_rating)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_tastings_last_tasted_date ON tastings(last_tasted_date)")
 
 
 def _create_wines_table(cursor: sqlite3.Cursor):
@@ -107,7 +135,7 @@ def _create_wines_table(cursor: sqlite3.Cursor):
         CREATE TABLE IF NOT EXISTS wines (
             id                      INTEGER PRIMARY KEY AUTOINCREMENT,
             source                  TEXT NOT NULL CHECK(source IN ('cellar_tracker', 'vivino', 'manual')),
-            external_id             TEXT NOT NULL,
+            external_id             TEXT,
             wine_name               TEXT NOT NULL,
             producer_id             INTEGER REFERENCES producers(id),
             vintage                 INTEGER,
@@ -116,13 +144,14 @@ def _create_wines_table(cursor: sqlite3.Cursor):
             designation             TEXT,
             region_id               INTEGER REFERENCES regions(id),
             appellation             TEXT,
+            vineyard                TEXT,
             bottle_size             TEXT DEFAULT '750ml',
-            personal_rating         INTEGER,
-            community_rating        DECIMAL(3,2),
-            tasting_notes           TEXT,
-            last_tasted_date        DATE,
             drink_from_year         INTEGER,
             drink_to_year           INTEGER,
+            drink_index             INTEGER,
+            q_purchased             INTEGER DEFAULT 0,
+            q_quantity              INTEGER DEFAULT 0,
+            q_consumed              INTEGER DEFAULT 0,
             created_at              TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at              TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             UNIQUE(source, external_id)
@@ -134,7 +163,7 @@ def _create_wines_table(cursor: sqlite3.Cursor):
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_wines_vintage ON wines(vintage)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_wines_type ON wines(wine_type)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_wines_name ON wines(wine_name)")
-    cursor.execute("CREATE INDEX IF NOT EXISTS idx_wines_rating ON wines(personal_rating)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_wines_external_id ON wines(source, external_id)")
 
 
 def _create_bottles_table(cursor: sqlite3.Cursor):
@@ -143,8 +172,9 @@ def _create_bottles_table(cursor: sqlite3.Cursor):
         CREATE TABLE IF NOT EXISTS bottles (
             id                      INTEGER PRIMARY KEY AUTOINCREMENT,
             wine_id                 INTEGER NOT NULL REFERENCES wines(id) ON DELETE CASCADE,
+            tasting_id              INTEGER REFERENCES tastings(id) ON DELETE SET NULL,
             source                  TEXT NOT NULL CHECK(source IN ('cellar_tracker', 'vivino', 'manual')),
-            external_bottle_id      TEXT NOT NULL,
+            external_bottle_id      TEXT,
             quantity                INTEGER NOT NULL DEFAULT 1,
             status                  TEXT NOT NULL DEFAULT 'in_cellar' 
                                     CHECK(status IN ('in_cellar', 'consumed', 'gifted', 'lost')),
@@ -152,6 +182,7 @@ def _create_bottles_table(cursor: sqlite3.Cursor):
             bin                     TEXT,
             purchase_date           DATE,
             purchase_price          DECIMAL(10,2),
+            valuation_price         DECIMAL(10,2),
             currency                TEXT DEFAULT 'RON',
             store_name              TEXT,
             consumed_date           DATE,
@@ -166,6 +197,7 @@ def _create_bottles_table(cursor: sqlite3.Cursor):
     """)
 
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_bottles_wine ON bottles(wine_id)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_bottles_tasting ON bottles(tasting_id)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_bottles_status ON bottles(status)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_bottles_location ON bottles(location)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_bottles_consumed_date ON bottles(consumed_date)")
@@ -198,21 +230,6 @@ def _create_sync_log_table(cursor: sqlite3.Cursor):
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_sync_log_date ON sync_log(sync_started_at)")
 
 
-def _create_schema_version_table(cursor: sqlite3.Cursor):
-    """Create schema_version table for tracking migrations."""
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS schema_version (
-            version         INTEGER PRIMARY KEY,
-            applied_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            description     TEXT
-        )
-    """)
-    cursor.execute("""
-        INSERT OR IGNORE INTO schema_version (version, description)
-        VALUES (1, 'Initial schema')
-    """)
-
-
 def _create_views(cursor: sqlite3.Cursor):
     """Create database views."""
 
@@ -226,19 +243,20 @@ def _create_views(cursor: sqlite3.Cursor):
             w.vintage,
             w.wine_type,
             r.country,
-            r.name as region,
+            COALESCE(r.primary_name || COALESCE(' - ' || r.secondary_name, ''), '') as region,
             b.location,
             b.bin,
             SUM(b.quantity) as total_bottles,
-            w.personal_rating,
-            w.community_rating,
+            t.personal_rating,
+            t.community_rating,
             w.drink_from_year,
             w.drink_to_year,
-            b.purchase_date as last_purchase_date
+            MAX(b.purchase_date) as last_purchase_date
         FROM wines w
         JOIN bottles b ON w.id = b.wine_id
         LEFT JOIN producers p ON w.producer_id = p.id
         LEFT JOIN regions r ON w.region_id = r.id
+        LEFT JOIN tastings t ON w.id = t.wine_id
         WHERE b.status = 'in_cellar'
         GROUP BY w.id, b.location, b.bin
         ORDER BY p.name, w.vintage DESC
@@ -253,16 +271,17 @@ def _create_views(cursor: sqlite3.Cursor):
             w.vintage,
             w.wine_type,
             r.country,
-            w.personal_rating,
-            w.community_rating,
+            t.personal_rating,
+            t.community_rating,
             COUNT(b.id) as bottles_owned
         FROM wines w
         LEFT JOIN producers p ON w.producer_id = p.id
         LEFT JOIN regions r ON w.region_id = r.id
+        LEFT JOIN tastings t ON w.id = t.wine_id
         LEFT JOIN bottles b ON w.id = b.wine_id AND b.status = 'in_cellar'
-        WHERE w.personal_rating IS NOT NULL
+        WHERE t.personal_rating IS NOT NULL
         GROUP BY w.id
-        ORDER BY w.personal_rating DESC, w.community_rating DESC
+        ORDER BY t.personal_rating DESC, t.community_rating DESC
     """)
 
     # Cellar Statistics View
@@ -273,11 +292,12 @@ def _create_views(cursor: sqlite3.Cursor):
             r.country,
             COUNT(DISTINCT w.id) as unique_wines,
             SUM(b.quantity) as total_bottles,
-            AVG(w.personal_rating) as avg_personal_rating,
-            AVG(w.community_rating) as avg_community_rating
+            AVG(t.personal_rating) as avg_personal_rating,
+            AVG(t.community_rating) as avg_community_rating
         FROM wines w
         JOIN bottles b ON w.id = b.wine_id
         LEFT JOIN regions r ON w.region_id = r.id
+        LEFT JOIN tastings t ON w.id = t.wine_id
         WHERE b.status = 'in_cellar'
         GROUP BY w.wine_type, r.country
         ORDER BY total_bottles DESC
@@ -303,10 +323,10 @@ def drop_all_tables(db_path: str = DEFAULT_DB_PATH) -> bool:
             cursor.execute("DROP VIEW IF EXISTS cellar_stats")
             cursor.execute("DROP TABLE IF EXISTS sync_log")
             cursor.execute("DROP TABLE IF EXISTS bottles")
+            cursor.execute("DROP TABLE IF EXISTS tastings")
             cursor.execute("DROP TABLE IF EXISTS wines")
             cursor.execute("DROP TABLE IF EXISTS regions")
             cursor.execute("DROP TABLE IF EXISTS producers")
-            cursor.execute("DROP TABLE IF EXISTS schema_version")
 
             conn.commit()
 
