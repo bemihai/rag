@@ -10,8 +10,8 @@ class Producer(BaseModel):
     id: int | None = Field(None, description="Unique identifier")
     name: str = Field("", description="Producer/winery name")
     country: str | None = Field(None, description="Country of origin")
-    region: str | None = Field(None, description="Primary wine region")
-    notes: str | None = Field(None, description="Additional notes about the producer")
+    region: str | None = Field(None, description="Full region name (primary + secondary)")
+    description: str | None = Field(None, description="Additional notes about the producer")
     created_at: datetime | None = Field(None, description="Record creation timestamp")
     updated_at: datetime | None = Field(None, description="Record last update timestamp")
 
@@ -21,58 +21,93 @@ class Region(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int | None = Field(None, description="Unique identifier")
-    name: str = Field("", description="Region name (e.g., Loire Valley, Bordeaux)")
+    primary_name: str = Field("", description="Primary region name (e.g., Loire Valley, Bordeaux)")
+    secondary_name: str | None = Field(None, description="Secondary region name (e.g., Médoc, Sancerre)")
     country: str = Field("", description="Country where region is located")
-    sub_region: str | None = Field(None, description="Sub-region or appellation")
+    description: str | None = Field(None, description="Additional notes about the region")
     created_at: datetime | None = Field(None, description="Record creation timestamp")
+
+
+class Tasting(BaseModel):
+    """Tasting notes and ratings model."""
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int | None = Field(None, description="Unique identifier")
+    wine_id: int = Field(0, description="Foreign key to wine table")
+    is_defective: bool = Field(False, description="Indicates if the bottle was defective")
+    personal_rating: int | None = Field(None, description="Personal rating on 0-100 scale")
+    tasting_notes: str | None = Field(None, description="Personal tasting notes and review")
+    do_like: bool = Field(True, description="Indicates if the taster liked the wine")
+    community_rating: float | None = Field(None, description="Community average rating on 0-100 scale")
+    like_votes: int = Field(0, description="Number of community 'like' votes")
+    like_percentage: float | None = Field(None, description="Percentage of community 'like' votes")
+    last_tasted_date: date | None = Field(None, description="Date of most recent tasting")
+    created_at: datetime | None = Field(None, description="Record creation timestamp")
+    updated_at: datetime | None = Field(None, description="Record last update timestamp")
 
 
 class Wine(BaseModel):
     """Wine catalog model."""
     model_config = ConfigDict(from_attributes=True)
 
-    id: int | None = Field(None, description="Unique identifier")
+    # Ids and foreign keys
+    id: int | None = Field(None, description="Unique wine identifier")
     source: str = Field("manual", description="Data source: 'cellar_tracker', 'vivino', or 'manual'")
     external_id: str | None = Field(None, description="External ID from source system (e.g., CellarTracker iWine)")
-    wine_name: str = Field("", description="Full wine name")
     producer_id: int | None = Field(None, description="Foreign key to producer table")
+    region_id: int | None = Field(None, description="Foreign key to region table")
+
+    # Wine details
+    wine_name: str = Field("", description="Full wine name (producer + designation)")
     vintage: int | None = Field(None, description="Vintage year (empty for non-vintage wines)")
     wine_type: str = Field("Red", description="Wine type: Red, White, Rosé, Sparkling, Dessert, Fortified")
     varietal: str | None = Field(None, description="Grape variety/varietal (e.g., Sauvignon Blanc, Merlot)")
     designation: str | None = Field(None, description="Special designation or cuvée name (e.g., Reserve, Grand Cru)")
-    region_id: int | None = Field(None, description="Foreign key to region table")
     appellation: str | None = Field(None, description="Specific appellation (e.g., Pouilly-Fumé)")
+    vineyard: str | None = Field(None, description="Vineyard name")
     bottle_size: str = Field("750ml", description="Bottle size (e.g., 750ml, 1.5L)")
-    personal_rating: int | None = Field(None, description="Personal rating on 0-100 scale")
-    community_rating: float | None = Field(None, description="Community average rating on 0-5 scale")
-    tasting_notes: str | None = Field(None, description="Personal tasting notes and review")
-    last_tasted_date: date | None = Field(None, description="Date of most recent tasting")
     drink_from_year: int | None = Field(None, description="Start of optimal drinking window")
     drink_to_year: int | None = Field(None, description="End of optimal drinking window")
+    drink_index: int | None = Field(None, description="Drinkability index score")
+
+    # Community inventory fields
+    q_purchased: int = Field(0, description="Quantity purchased (community data)")
+    q_quantity: int = Field(0, description="Quantity currently owned + pending (community data)")
+    q_consumed: int = Field(0, description="Quantity consumed (community data)")
+
+    # Producer and region fields (not in DB, populated via joins)
+    producer_name: str | None = Field(None, description="Producer name")
+    region_name: str | None = Field(None, description="Full region name (primary + secondary)")
+    country: str | None = Field(None, description="Country")
+
+    # Tasting fields (not in DB, populated via joins)
+    personal_rating: int | None = Field(None, description="Personal rating on 0-100 scale")
+    community_rating: float | None = Field(None, description="Community average rating on 0-100 scale")
+    tasting_notes: str | None = Field(None, description="Personal tasting notes and review")
+    last_tasted_date: date | None = Field(None, description="Date of most recent tasting")
+
     created_at: datetime | None = Field(None, description="Record creation timestamp")
     updated_at: datetime | None = Field(None, description="Record last update timestamp")
-
-    # Related objects (not in DB, populated via joins)
-    producer_name: str | None = Field(None, description="Producer name (populated via join)")
-    region_name: str | None = Field(None, description="Region name (populated via join)")
-    country: str | None = Field(None, description="Country (populated via join)")
-
 
 
 class Bottle(BaseModel):
     """Individual bottle inventory model."""
     model_config = ConfigDict(from_attributes=True)
 
+    # Ids and foreign keys
     id: int | None = Field(None, description="Unique identifier")
     wine_id: int = Field(0, description="Foreign key to wine table")
+    tasting_id: int | None = Field(None, description="Foreign key to tasting table")
     source: str = Field("manual", description="Data source: 'cellar_tracker', 'vivino', or 'manual'")
     external_bottle_id: str | None = Field(None, description="External bottle ID (e.g., CellarTracker barcode)")
+
     quantity: int = Field(1, description="Number of bottles in this record")
     status: str = Field("in_cellar", description="Status: 'in_cellar', 'consumed', 'gifted', 'lost'")
     location: str | None = Field(None, description="Storage location (e.g., Cellar, Wine rack)")
     bin: str | None = Field(None, description="Specific bin/rack position")
     purchase_date: date | None = Field(None, description="Date of purchase")
     purchase_price: float | None = Field(None, description="Purchase price per bottle")
+    valuation_price: float | None = Field(None, description="Current valuation price per bottle")
     currency: str = Field("RON", description="Currency code (e.g., RON, EUR, USD)")
     store_name: str | None = Field(None, description="Retailer/store name where purchased")
     consumed_date: date | None = Field(None, description="Date consumed (if status is 'consumed')")
@@ -83,6 +118,7 @@ class Bottle(BaseModel):
     # Related objects (not in DB, populated via joins)
     wine_name: str | None = Field(None, description="Wine name (populated via join)")
     producer_name: str | None = Field(None, description="Producer name (populated via join)")
+    region_name: str | None = Field(None, description="Region name (populated via join)")
     vintage: int | None = Field(None, description="Vintage year (populated via join)")
 
 
