@@ -32,10 +32,19 @@ class WineRepository:
         with get_db_connection(self.db_path) as conn:
             cursor = conn.cursor()
             cursor.execute("""
-                SELECT w.*, p.name as producer_name, r.name as region_name, r.country
+                SELECT 
+                    w.*, 
+                    p.name as producer_name, 
+                    COALESCE(r.primary_name || COALESCE(' - ' || r.secondary_name, ''), '') as region_name,
+                    r.country,
+                    t.personal_rating,
+                    t.community_rating,
+                    t.tasting_notes,
+                    t.last_tasted_date
                 FROM wines w
                 LEFT JOIN producers p ON w.producer_id = p.id
                 LEFT JOIN regions r ON w.region_id = r.id
+                LEFT JOIN tastings t ON w.id = t.wine_id
                 WHERE w.id = ?
             """, (wine_id,))
 
@@ -57,10 +66,19 @@ class WineRepository:
         with get_db_connection(self.db_path) as conn:
             cursor = conn.cursor()
             cursor.execute("""
-                SELECT w.*, p.name as producer_name, r.name as region_name, r.country
+                SELECT 
+                    w.*, 
+                    p.name as producer_name, 
+                    COALESCE(r.primary_name || COALESCE(' - ' || r.secondary_name, ''), '') as region_name,
+                    r.country,
+                    t.personal_rating,
+                    t.community_rating,
+                    t.tasting_notes,
+                    t.last_tasted_date
                 FROM wines w
                 LEFT JOIN producers p ON w.producer_id = p.id
                 LEFT JOIN regions r ON w.region_id = r.id
+                LEFT JOIN tastings t ON w.id = t.wine_id
                 WHERE w.external_id = ?
             """, (external_id,))
 
@@ -154,10 +172,19 @@ class WineRepository:
             cursor = conn.cursor()
 
             query = """
-                SELECT w.*, p.name as producer_name, r.name as region_name, r.country
+                SELECT 
+                    w.*, 
+                    p.name as producer_name, 
+                    COALESCE(r.primary_name || COALESCE(' - ' || r.secondary_name, ''), '') as region_name,
+                    r.country,
+                    t.personal_rating,
+                    t.community_rating,
+                    t.tasting_notes,
+                    t.last_tasted_date
                 FROM wines w
                 LEFT JOIN producers p ON w.producer_id = p.id
                 LEFT JOIN regions r ON w.region_id = r.id
+                LEFT JOIN tastings t ON w.id = t.wine_id
                 WHERE 1=1
             """
             params = []
@@ -171,7 +198,7 @@ class WineRepository:
                 params.append(country)
 
             if min_rating:
-                query += " AND w.personal_rating >= ?"
+                query += " AND t.personal_rating >= ?"
                 params.append(min_rating)
 
             if search:
@@ -205,16 +232,16 @@ class WineRepository:
                 INSERT INTO wines (
                     source, external_id, wine_name, producer_id, vintage,
                     wine_type, varietal, designation, region_id, appellation,
-                    bottle_size, personal_rating, community_rating, tasting_notes,
-                    last_tasted_date, drink_from_year, drink_to_year,
+                    vineyard, bottle_size, drink_from_year, drink_to_year, drink_index,
+                    q_purchased, q_quantity, q_consumed,
                     created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 wine.source, wine.external_id, wine.wine_name, wine.producer_id,
                 wine.vintage, wine.wine_type, wine.varietal, wine.designation,
-                wine.region_id, wine.appellation, wine.bottle_size,
-                wine.personal_rating, wine.community_rating, wine.tasting_notes,
-                wine.last_tasted_date, wine.drink_from_year, wine.drink_to_year,
+                wine.region_id, wine.appellation, wine.vineyard, wine.bottle_size,
+                wine.drink_from_year, wine.drink_to_year, wine.drink_index,
+                wine.q_purchased, wine.q_quantity, wine.q_consumed,
                 wine.created_at or datetime.now(), wine.updated_at or datetime.now()
             ))
 
@@ -239,7 +266,7 @@ class WineRepository:
         with get_db_connection(self.db_path) as conn:
             cursor = conn.cursor()
             update_query, params = build_update_query(
-                "wines", wine, "id", ["producer_name", "region_name", "country"]
+                "wines", wine, "id", ["producer_name", "region_name", "country", "personal_rating", "community_rating", "tasting_notes", "last_tasted_date"]
             )
             cursor.execute(update_query, params)
 

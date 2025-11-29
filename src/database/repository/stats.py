@@ -87,16 +87,17 @@ class StatsRepository:
                     w.id, w.wine_name, w.vintage, w.wine_type,
                     p.name as producer,
                     r.country,
-                    w.personal_rating,
-                    w.community_rating,
+                    t.personal_rating,
+                    t.community_rating,
                     COUNT(b.id) as bottles_owned
                 FROM wines w
                 LEFT JOIN producers p ON w.producer_id = p.id
                 LEFT JOIN regions r ON w.region_id = r.id
+                LEFT JOIN tastings t ON w.id = t.wine_id
                 LEFT JOIN bottles b ON w.id = b.wine_id AND b.status = 'in_cellar'
-                WHERE w.personal_rating IS NOT NULL
+                WHERE t.personal_rating IS NOT NULL
                 GROUP BY w.id
-                ORDER BY w.personal_rating DESC, w.community_rating DESC
+                ORDER BY t.personal_rating DESC, t.community_rating DESC
                 LIMIT ?
             """, (limit,))
 
@@ -184,14 +185,18 @@ class StatsRepository:
             query = """
                 SELECT 
                     b.*,
-                    w.wine_name, w.wine_type, w.vintage, w.personal_rating, w.tasting_notes,
+                    w.wine_name, w.wine_type, w.vintage,
                     p.name as producer_name,
-                    r.country, r.name as region_name
+                    r.country, 
+                    COALESCE(r.primary_name || COALESCE(' - ' || r.secondary_name, ''), '') as region_name,
+                    t.personal_rating,
+                    t.tasting_notes
                 FROM bottles b
                 JOIN wines w ON b.wine_id = w.id
                 LEFT JOIN producers p ON w.producer_id = p.id
                 LEFT JOIN regions r ON w.region_id = r.id
-                WHERE b.status = 'consumed' AND w.personal_rating IS NOT NULL
+                LEFT JOIN tastings t ON w.id = t.wine_id
+                WHERE b.status = 'consumed' AND t.personal_rating IS NOT NULL
             """
             params = []
 
@@ -199,8 +204,7 @@ class StatsRepository:
                 query += " AND w.wine_type = ?"
                 params.append(wine_type)
 
-            query += " ORDER BY w.personal_rating DESC, b.consumed_date DESC"
-
+            query += " ORDER BY t.personal_rating DESC, b.consumed_date DESC"
             if limit:
                 query += " LIMIT ?"
                 params.append(limit)
@@ -340,7 +344,7 @@ class StatsRepository:
 
             cursor.execute("""
                 SELECT 
-                    r.name as region,
+                    COALESCE(r.primary_name || COALESCE(' - ' || r.secondary_name, ''), '') as region,
                     r.country,
                     COUNT(DISTINCT w.id) as unique_wines,
                     SUM(b.quantity) as bottles
@@ -348,9 +352,9 @@ class StatsRepository:
                 JOIN bottles b ON w.id = b.wine_id
                 LEFT JOIN regions r ON w.region_id = r.id
                 WHERE b.status = 'in_cellar' 
-                  AND r.name IS NOT NULL 
-                  AND r.name != ''
-                GROUP BY r.name, r.country
+                  AND r.primary_name IS NOT NULL 
+                  AND r.primary_name != ''
+                GROUP BY r.id, r.country
                 ORDER BY bottles DESC
                 LIMIT ?
             """, (limit,))

@@ -43,7 +43,7 @@ class ProducerRepository:
                 return Producer(**dict(row))
             return None
 
-    def get_or_create(self, name: str, country: str | None = None, region: str | None = None) -> int:
+    def get_or_create(self, name: str, country: str | None = None, region: str | None = None, description: str | None = None) -> int:
         """
         Get an existing producer by name or create a new one if the name does not exist.
 
@@ -51,6 +51,7 @@ class ProducerRepository:
             name: Producer name
             country: Optional country
             region: Optional region
+            description: Optional description/notes
 
         Returns:
             Producer ID
@@ -62,9 +63,9 @@ class ProducerRepository:
         with get_db_connection(self.db_path) as conn:
             cursor = conn.cursor()
             cursor.execute("""
-                INSERT INTO producers (name, country, region, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?)
-            """, (name, country, region, datetime.now(), datetime.now()))
+                INSERT INTO producers (name, country, region, description, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """, (name, country, region, description, datetime.now(), datetime.now()))
 
             conn.commit()
             producer_id = cursor.lastrowid
