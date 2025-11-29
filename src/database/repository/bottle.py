@@ -180,7 +180,7 @@ class BottleRepository:
             cursor = conn.cursor()
 
             update_query, params = build_update_query(
-                "bottles", bottle, "id", exclude_fields=["wine_name", "producer_name", "vintage"]
+                "bottles", bottle, "id", exclude_fields=["wine_name", "producer_name", "region_name", "vintage"]
             )
             cursor.execute(update_query, params)
 
