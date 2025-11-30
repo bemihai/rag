@@ -185,8 +185,26 @@ class VivinoImporter:
         wine_type = normalize_wine_type(row["Wine type"])
         drink_from, drink_to = parse_drinking_window(row.get("Drinking Window", ""))
         external_id = generate_external_id(winery, wine_name, vintage)
+
+        # Create producer and track if new
+        existing_producer = self.producer_repository.get_by_name(winery)
         producer_id = self.producer_repository.get_or_create(winery, country, region)
-        region_id = self.region_repository.get_or_create(region, country)  # primary_name, country
+        if not existing_producer:
+            self.stats['producers_created'] += 1
+
+        # Split region into primary and secondary if it contains a separator
+        primary_region = region
+        secondary_region = None
+        if region and ' - ' in region:
+            parts = region.split(' - ', 1)
+            primary_region = parts[0].strip()
+            secondary_region = parts[1].strip() if len(parts) > 1 else None
+
+        # Create region and track if new
+        existing_region = self.region_repository.get_by_name_and_country(primary_region, country, secondary_region)
+        region_id = self.region_repository.get_or_create(primary_region, country, secondary_region)
+        if not existing_region:
+            self.stats['regions_created'] += 1
 
         return Wine(
             source="vivino",
@@ -216,11 +234,38 @@ class VivinoImporter:
         # Extract personal rating (convert from 0-5 to 0-100 scale)
         personal_rating = normalize_rating(max(data["ratings"]), "vivino") if data["ratings"] else None
 
-        # Merge tasting notes
-        tasting_notes = '\n\n'.join(data["reviews"]) if data["reviews"] else None
-
         # Get last tasted date
-        last_tasted = self._get_last_tasted_date(data)
+        last_tasted_str = self._get_last_tasted_date(data)
+        last_tasted = None
+        if last_tasted_str:
+            from datetime import date as date_cls
+            try:
+                last_tasted = date_cls.fromisoformat(last_tasted_str)
+            except (ValueError, TypeError):
+                logger.warning(f"Could not parse date: {last_tasted_str}")
+                last_tasted = None
+
+        # Merge tasting notes with date prefixes
+        tasting_notes = None
+        if data["reviews"]:
+            # Prefix each review with its scan date
+            dated_notes = []
+            for scan in data["scans"]:
+                review = clean_text(scan.get("Your review") or scan.get("Personal Note"))
+                if review:
+                    scan_date = parse_date(scan.get("Scan date"))
+                    date_str = scan_date if scan_date else "Unknown date"
+                    dated_notes.append(f"[{date_str}] {review}")
+
+            # Remove duplicates while preserving order
+            seen = set()
+            unique_notes = []
+            for note in dated_notes:
+                if note not in seen:
+                    seen.add(note)
+                    unique_notes.append(note)
+
+            tasting_notes = '\n\n'.join(unique_notes) if unique_notes else None
 
         # Extract community rating (convert from 0-5 to 0-100 scale if enough votes)
         community_rating = None
@@ -251,8 +296,15 @@ class VivinoImporter:
             # Merge tasting notes
             if tasting_notes:
                 if existing_tasting.tasting_notes:
-                    combined_notes = '\n\n'.join([existing_tasting.tasting_notes, tasting_notes])
-                    if combined_notes != existing_tasting.tasting_notes:
+                    # Check if the new notes are already present to avoid duplication
+                    new_notes_list = tasting_notes.split('\n\n')
+                    existing_notes_list = existing_tasting.tasting_notes.split('\n\n')
+
+                    # Add only notes that don't already exist
+                    notes_to_add = [note for note in new_notes_list if note not in existing_notes_list]
+
+                    if notes_to_add:
+                        combined_notes = existing_tasting.tasting_notes + '\n\n' + '\n\n'.join(notes_to_add)
                         existing_tasting.tasting_notes = combined_notes
                         updated = True
                 else:
