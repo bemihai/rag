@@ -439,6 +439,39 @@ class StatsRepository:
 
             return [dict(row) for row in cursor.fetchall()]
 
+    def get_region_preferences(self, limit: int = 10) -> list[dict]:
+        """
+        Get top region preferences based on consumed wines.
+
+        Args:
+            limit: Maximum number of regions to return
+
+        Returns:
+            List of dicts with region info and stats
+        """
+        with get_db_connection(self.db_path) as conn:
+            cursor = conn.cursor()
+
+            cursor.execute("""
+                SELECT 
+                    COALESCE(r.primary_name || COALESCE(' - ' || r.secondary_name, ''), 'Unknown') as region_name,
+                    r.country,
+                    COUNT(DISTINCT b.id) as wines_tasted,
+                    AVG(t.personal_rating) as avg_rating,
+                    MAX(t.personal_rating) as highest_rating
+                FROM bottles b
+                JOIN wines w ON b.wine_id = w.id
+                LEFT JOIN regions r ON w.region_id = r.id
+                LEFT JOIN tastings t ON w.id = t.wine_id
+                WHERE b.status = 'consumed' AND r.primary_name IS NOT NULL
+                GROUP BY r.id
+                HAVING COUNT(DISTINCT b.id) >= 1
+                ORDER BY wines_tasted DESC, avg_rating DESC
+                LIMIT ?
+            """, (limit,))
+
+            return [dict(row) for row in cursor.fetchall()]
+
     def get_rating_timeline(self) -> list[dict]:
         """
         Get rating trends over time (by month).
