@@ -182,7 +182,7 @@ def show_cellar_inventory():
             search_term = st.text_input("Search", placeholder="Wine name, varietal...")
 
         with filter_col8:
-            sort_by = st.selectbox("Sort By", ["Producer", "Wine Name", "Vintage (New→Old)", "Vintage (Old→New)", "Rating (High→Low)", "Rating (Low→High)", "Drink Index (High→Low)", "Drink Index (Low→High)"])
+            sort_by = st.selectbox("Sort By", ["Producer", "Wine Name", "Vintage (New→Old)", "Vintage (Old→New)", "Rating (High→Low)", "Rating (Low→High)", "Drink (Sooner->Later)", "Drink (Later->Sooner)"])
 
     # Apply filters
     filtered_inventory = all_inventory
@@ -243,9 +243,9 @@ def show_cellar_inventory():
         filtered_inventory.sort(key=lambda w: w.get('personal_rating') or 0, reverse=True)
     elif sort_by == "Rating (Low→High)":
         filtered_inventory.sort(key=lambda w: w.get('personal_rating') or 9999)
-    elif sort_by == "Drink Index (High→Low)":
+    elif sort_by == "Drink (Sooner->Later)":
         filtered_inventory.sort(key=lambda w: w.get('drink_index') or 0, reverse=True)
-    elif sort_by == "Drink Index (Low→High)":
+    elif sort_by == "Drink (Later->Sooner)":
         filtered_inventory.sort(key=lambda w: w.get('drink_index') or -9999)
 
     if not filtered_inventory:
