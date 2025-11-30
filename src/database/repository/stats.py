@@ -299,6 +299,264 @@ class StatsRepository:
                 'unknown': unknown
             }
 
+    def get_rating_statistics(self) -> dict:
+        """
+        Get comprehensive rating statistics for consumed wines.
+
+        Returns:
+            Dictionary with rating metrics (avg, min, max, count, distribution)
+        """
+        with get_db_connection(self.db_path) as conn:
+            cursor = conn.cursor()
+
+            # Overall rating stats
+            cursor.execute("""
+                SELECT 
+                    AVG(t.personal_rating) as avg_rating,
+                    MIN(t.personal_rating) as min_rating,
+                    MAX(t.personal_rating) as max_rating,
+                    COUNT(DISTINCT b.id) as wines_rated
+                FROM bottles b
+                JOIN wines w ON b.wine_id = w.id
+                LEFT JOIN tastings t ON w.id = t.wine_id
+                WHERE b.status = 'consumed' AND t.personal_rating IS NOT NULL
+            """)
+            overall = dict(cursor.fetchone())
+
+            # Rating distribution
+            cursor.execute("""
+                SELECT 
+                    CASE 
+                        WHEN t.personal_rating < 50 THEN '0-49'
+                        WHEN t.personal_rating < 70 THEN '50-69'
+                        WHEN t.personal_rating < 80 THEN '70-79'
+                        WHEN t.personal_rating < 90 THEN '80-89'
+                        ELSE '90-100'
+                    END as rating_range,
+                    COUNT(*) as count
+                FROM bottles b
+                JOIN wines w ON b.wine_id = w.id
+                LEFT JOIN tastings t ON w.id = t.wine_id
+                WHERE b.status = 'consumed' AND t.personal_rating IS NOT NULL
+                GROUP BY rating_range
+                ORDER BY rating_range
+            """)
+            distribution = [dict(row) for row in cursor.fetchall()]
+
+            return {
+                'overall': overall,
+                'distribution': distribution
+            }
+
+    def get_wine_type_stats(self) -> list[dict]:
+        """
+        Get statistics by wine type for consumed wines.
+
+        Returns:
+            List of dicts with type, count, avg_rating, highest_rated, most_recent
+        """
+        with get_db_connection(self.db_path) as conn:
+            cursor = conn.cursor()
+
+            cursor.execute("""
+                SELECT 
+                    w.wine_type,
+                    COUNT(DISTINCT b.id) as wines_tasted,
+                    AVG(t.personal_rating) as avg_rating,
+                    MAX(t.personal_rating) as highest_rating,
+                    MAX(b.consumed_date) as most_recent_date
+                FROM bottles b
+                JOIN wines w ON b.wine_id = w.id
+                LEFT JOIN tastings t ON w.id = t.wine_id
+                WHERE b.status = 'consumed'
+                GROUP BY w.wine_type
+                ORDER BY wines_tasted DESC
+            """)
+
+            return [dict(row) for row in cursor.fetchall()]
+
+    def get_varietal_preferences(self, limit: int = 10) -> list[dict]:
+        """
+        Get top varietal preferences based on consumed wines.
+
+        Args:
+            limit: Maximum number of varietals to return
+
+        Returns:
+            List of dicts with varietal, count, avg_rating
+        """
+        with get_db_connection(self.db_path) as conn:
+            cursor = conn.cursor()
+
+            cursor.execute("""
+                SELECT 
+                    w.varietal,
+                    COUNT(DISTINCT b.id) as wines_tasted,
+                    AVG(t.personal_rating) as avg_rating,
+                    MAX(t.personal_rating) as highest_rating
+                FROM bottles b
+                JOIN wines w ON b.wine_id = w.id
+                LEFT JOIN tastings t ON w.id = t.wine_id
+                WHERE b.status = 'consumed' AND w.varietal IS NOT NULL
+                GROUP BY w.varietal
+                HAVING COUNT(DISTINCT b.id) >= 1
+                ORDER BY wines_tasted DESC, avg_rating DESC
+                LIMIT ?
+            """, (limit,))
+
+            return [dict(row) for row in cursor.fetchall()]
+
+    def get_producer_preferences(self, limit: int = 10) -> list[dict]:
+        """
+        Get top producer preferences based on consumed wines.
+
+        Args:
+            limit: Maximum number of producers to return
+
+        Returns:
+            List of dicts with producer info and stats
+        """
+        with get_db_connection(self.db_path) as conn:
+            cursor = conn.cursor()
+
+            cursor.execute("""
+                SELECT 
+                    p.name as producer_name,
+                    p.country,
+                    COUNT(DISTINCT b.id) as wines_tasted,
+                    AVG(t.personal_rating) as avg_rating,
+                    MAX(t.personal_rating) as highest_rating
+                FROM bottles b
+                JOIN wines w ON b.wine_id = w.id
+                LEFT JOIN producers p ON w.producer_id = p.id
+                LEFT JOIN tastings t ON w.id = t.wine_id
+                WHERE b.status = 'consumed' AND p.name IS NOT NULL
+                GROUP BY p.id
+                HAVING COUNT(DISTINCT b.id) >= 1
+                ORDER BY wines_tasted DESC, avg_rating DESC
+                LIMIT ?
+            """, (limit,))
+
+            return [dict(row) for row in cursor.fetchall()]
+
+    def get_rating_timeline(self) -> list[dict]:
+        """
+        Get rating trends over time (by month).
+
+        Returns:
+            List of dicts with month, avg_rating, count
+        """
+        with get_db_connection(self.db_path) as conn:
+            cursor = conn.cursor()
+
+            cursor.execute("""
+                SELECT 
+                    strftime('%Y-%m', b.consumed_date) as month,
+                    AVG(t.personal_rating) as avg_rating,
+                    COUNT(DISTINCT b.id) as wines_count
+                FROM bottles b
+                JOIN wines w ON b.wine_id = w.id
+                LEFT JOIN tastings t ON w.id = t.wine_id
+                WHERE b.status = 'consumed' 
+                  AND b.consumed_date IS NOT NULL
+                  AND t.personal_rating IS NOT NULL
+                GROUP BY month
+                ORDER BY month
+            """)
+
+            return [dict(row) for row in cursor.fetchall()]
+
+    def get_tasting_streak_days(self) -> int:
+        """
+        Calculate the number of consecutive months with tastings.
+
+        Returns:
+            Number of consecutive months with wine tastings
+        """
+        with get_db_connection(self.db_path) as conn:
+            cursor = conn.cursor()
+
+            # Get months with tastings, ordered by date descending
+            cursor.execute("""
+                SELECT DISTINCT strftime('%Y-%m', b.consumed_date) as month
+                FROM bottles b
+                WHERE b.status = 'consumed' AND b.consumed_date IS NOT NULL
+                ORDER BY month DESC
+            """)
+
+            months = [row['month'] for row in cursor.fetchall()]
+
+            if not months:
+                return 0
+
+            # Count consecutive months from most recent
+            from datetime import datetime
+            streak = 1
+            current = datetime.strptime(months[0], '%Y-%m')
+
+            for i in range(1, len(months)):
+                prev = datetime.strptime(months[i], '%Y-%m')
+                # Check if months are consecutive
+                month_diff = (current.year - prev.year) * 12 + (current.month - prev.month)
+                if month_diff == 1:
+                    streak += 1
+                    current = prev
+                else:
+                    break
+
+            return streak
+
+    def get_drinking_window_stats(self) -> dict:
+        """
+        Get statistics about bottles by drinking window status.
+
+        Returns:
+            Dictionary with counts for ready, hold, and unknown categories
+        """
+        current_year = datetime.now().year
+
+        with get_db_connection(self.db_path) as conn:
+            cursor = conn.cursor()
+
+            # Bottles ready to drink
+            cursor.execute("""
+                SELECT SUM(b.quantity) as count
+                FROM bottles b
+                JOIN wines w ON b.wine_id = w.id
+                WHERE b.status = 'in_cellar'
+                  AND w.drink_from_year IS NOT NULL
+                  AND w.drink_from_year <= ?
+                  AND (w.drink_to_year >= ? OR w.drink_to_year IS NULL)
+            """, (current_year, current_year))
+            ready_to_drink = cursor.fetchone()['count'] or 0
+
+            # Bottles to hold (not yet in drinking window)
+            cursor.execute("""
+                SELECT SUM(b.quantity) as count
+                FROM bottles b
+                JOIN wines w ON b.wine_id = w.id
+                WHERE b.status = 'in_cellar'
+                  AND w.drink_from_year IS NOT NULL
+                  AND w.drink_from_year > ?
+            """, (current_year,))
+            to_hold = cursor.fetchone()['count'] or 0
+
+            # Bottles with unknown drinking window
+            cursor.execute("""
+                SELECT SUM(b.quantity) as count
+                FROM bottles b
+                JOIN wines w ON b.wine_id = w.id
+                WHERE b.status = 'in_cellar'
+                  AND w.drink_from_year IS NULL
+            """)
+            unknown = cursor.fetchone()['count'] or 0
+
+            return {
+                'ready_to_drink': ready_to_drink,
+                'to_hold': to_hold,
+                'unknown': unknown
+            }
+
     def get_varietal_distribution(self, limit: int = 5) -> list[dict]:
         """
         Get distribution of wines by main grape/varietal.
