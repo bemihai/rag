@@ -37,7 +37,7 @@ class Tasting(BaseModel):
     is_defective: bool = Field(False, description="Indicates if the bottle was defective")
     personal_rating: int | None = Field(None, description="Personal rating on 0-100 scale")
     tasting_notes: str | None = Field(None, description="Personal tasting notes and review")
-    do_like: bool = Field(True, description="Indicates if the taster liked the wine")
+    do_like: bool | None = Field(None, description="Indicates if the taster liked the wine")
     community_rating: float | None = Field(None, description="Community average rating on 0-100 scale")
     like_votes: int = Field(0, description="Number of community 'like' votes")
     like_percentage: float | None = Field(None, description="Percentage of community 'like' votes")
@@ -68,7 +68,7 @@ class Wine(BaseModel):
     bottle_size: str = Field("750ml", description="Bottle size (e.g., 750ml, 1.5L)")
     drink_from_year: int | None = Field(None, description="Start of optimal drinking window")
     drink_to_year: int | None = Field(None, description="End of optimal drinking window")
-    drink_index: int | None = Field(None, description="Drinkability index score")
+    drink_index: float | None = Field(None, description="Drinkability index score")
 
     # Community inventory fields
     q_purchased: int = Field(0, description="Quantity purchased (community data)")
@@ -97,7 +97,6 @@ class Bottle(BaseModel):
     # Ids and foreign keys
     id: int | None = Field(None, description="Unique identifier")
     wine_id: int = Field(0, description="Foreign key to wine table")
-    tasting_id: int | None = Field(None, description="Foreign key to tasting table")
     source: str = Field("manual", description="Data source: 'cellar_tracker', 'vivino', or 'manual'")
     external_bottle_id: str | None = Field(None, description="External bottle ID (e.g., CellarTracker barcode)")
 

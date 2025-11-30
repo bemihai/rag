@@ -145,13 +145,13 @@ class BottleRepository:
 
             cursor.execute("""
                 INSERT INTO bottles (
-                    wine_id, tasting_id, source, external_bottle_id, quantity, status,
+                    wine_id, source, external_bottle_id, quantity, status,
                     location, bin, purchase_date, purchase_price, valuation_price, currency,
                     store_name, consumed_date, bottle_note,
                     created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
-                bottle.wine_id, bottle.tasting_id, bottle.source, bottle.external_bottle_id,
+                bottle.wine_id, bottle.source, bottle.external_bottle_id,
                 bottle.quantity, bottle.status, bottle.location, bottle.bin,
                 bottle.purchase_date, bottle.purchase_price, bottle.valuation_price, bottle.currency,
                 bottle.store_name, bottle.consumed_date, bottle.bottle_note,

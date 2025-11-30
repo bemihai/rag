@@ -112,7 +112,7 @@ def _create_tastings_table(cursor: sqlite3.Cursor):
             is_defective            BOOLEAN NOT NULL DEFAULT 0,
             personal_rating         INTEGER,
             tasting_notes           TEXT,
-            do_like                 BOOLEAN NOT NULL DEFAULT 1,
+            do_like                 BOOLEAN,
             community_rating        DECIMAL(5,2),
             like_votes              INTEGER DEFAULT 0,
             like_percentage         DECIMAL(5,2),
@@ -148,7 +148,7 @@ def _create_wines_table(cursor: sqlite3.Cursor):
             bottle_size             TEXT DEFAULT '750ml',
             drink_from_year         INTEGER,
             drink_to_year           INTEGER,
-            drink_index             INTEGER,
+            drink_index             DECIMAL(5,2),
             q_purchased             INTEGER DEFAULT 0,
             q_quantity              INTEGER DEFAULT 0,
             q_consumed              INTEGER DEFAULT 0,
@@ -172,7 +172,6 @@ def _create_bottles_table(cursor: sqlite3.Cursor):
         CREATE TABLE IF NOT EXISTS bottles (
             id                      INTEGER PRIMARY KEY AUTOINCREMENT,
             wine_id                 INTEGER NOT NULL REFERENCES wines(id) ON DELETE CASCADE,
-            tasting_id              INTEGER REFERENCES tastings(id) ON DELETE SET NULL,
             source                  TEXT NOT NULL CHECK(source IN ('cellar_tracker', 'vivino', 'manual')),
             external_bottle_id      TEXT,
             quantity                INTEGER NOT NULL DEFAULT 1,
@@ -197,7 +196,6 @@ def _create_bottles_table(cursor: sqlite3.Cursor):
     """)
 
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_bottles_wine ON bottles(wine_id)")
-    cursor.execute("CREATE INDEX IF NOT EXISTS idx_bottles_tasting ON bottles(tasting_id)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_bottles_status ON bottles(status)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_bottles_location ON bottles(location)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_bottles_consumed_date ON bottles(consumed_date)")

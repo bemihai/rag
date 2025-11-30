@@ -315,3 +315,45 @@ def generate_external_id(winery: str, wine_name: str, vintage: int | None) -> st
     key = f"{winery}_{wine_name}_{vintage_str}".lower()
     md5_hash = hashlib.md5(key.encode()).hexdigest()
     return str(int(md5_hash, 16) % (2**32))
+
+
+def parse_float(value: str) -> Optional[float]:
+    """
+    Safely parse a float from string, returning None if invalid.
+    """
+    if not value or value.strip() == "":
+        return None
+
+    try:
+        return float(value.strip())
+    except (ValueError, TypeError):
+        return None
+
+
+def parse_int(value: str) -> Optional[int]:
+    """
+    Safely parse an integer from string, returning None if invalid.
+    """
+    if not value or value.strip() == "":
+        return None
+
+    try:
+        return int(value.strip())
+    except (ValueError, TypeError):
+        return None
+
+
+def parse_bool(value: str) -> Optional[bool]:
+    """
+    Safely parse a boolean from string, returning None if invalid.
+    Accepts 'true', 'false', '1', '0' (case-insensitive).
+    """
+    if not value or value.strip() == "":
+        return None
+
+    value_lower = value.strip().lower()
+    if value_lower in ['true', '1']:
+        return True
+    elif value_lower in ['false', '0']:
+        return False
+    return None
