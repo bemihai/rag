@@ -473,11 +473,17 @@ class CellarTrackerImporter:
 
         if note_text:
             date_str = tasting_date if tasting_date else datetime.now().strftime('%Y-%m-%d')
+            new_note_entry = f"[{date_str}] {note_text}"
+
+            # Check if this exact note already exists in existing_notes
+            if existing_notes and new_note_entry in existing_notes:
+                # Note already exists, don't duplicate
+                return existing_notes
 
             if existing_notes:
-                return f"{existing_notes}\n\n[{date_str}] {note_text}"
+                return f"{existing_notes}\n\n{new_note_entry}"
             else:
-                return f"[{date_str}] {note_text}"
+                return new_note_entry
 
         return existing_notes
 
