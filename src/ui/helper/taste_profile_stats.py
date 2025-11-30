@@ -374,11 +374,13 @@ def show_rating_trends():
         st.info("Not enough data to show rating trends. Keep tasting wines!")
         return
 
+    # Filter to show only the most recent 12 months
+    timeline_recent = timeline[-12:] if len(timeline) > 12 else timeline
 
     # Prepare data
-    months = [t['month'] for t in timeline]
-    ratings = [t['avg_rating'] for t in timeline]
-    counts = [t['wines_count'] for t in timeline]
+    months = [t['month'] for t in timeline_recent]
+    ratings = [t['avg_rating'] for t in timeline_recent]
+    counts = [t['wines_count'] for t in timeline_recent]
 
     # Create figure with secondary y-axis
     fig = go.Figure()
