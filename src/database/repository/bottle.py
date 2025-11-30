@@ -103,7 +103,8 @@ class BottleRepository:
             query = """
                 SELECT 
                     b.*,
-                    w.wine_name, w.wine_type, w.vintage, w.varietal,
+                    w.wine_name, w.wine_type, w.vintage, w.varietal, w.drink_index,
+                    w.drink_from_year, w.drink_to_year,
                     p.name as producer_name,
                     r.country, 
                     COALESCE(r.primary_name || COALESCE(' - ' || r.secondary_name, ''), '') as region_name,

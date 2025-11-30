@@ -4,6 +4,7 @@ import math
 import streamlit as st
 from src.database.repository import StatsRepository, BottleRepository
 from src.etl.utils import denormalize_rating, get_rating_description
+from src.ui.helper.display import render_drinking_index_bar
 
 
 def show_cellar_metrics():
@@ -181,7 +182,7 @@ def show_cellar_inventory():
             search_term = st.text_input("Search", placeholder="Wine name, varietal...")
 
         with filter_col8:
-            sort_by = st.selectbox("Sort By", ["Producer", "Wine Name", "Vintage (New→Old)", "Vintage (Old→New)", "Rating (High→Low)", "Rating (Low→High)"])
+            sort_by = st.selectbox("Sort By", ["Producer", "Wine Name", "Vintage (New→Old)", "Vintage (Old→New)", "Rating (High→Low)", "Rating (Low→High)", "Drink Index (High→Low)", "Drink Index (Low→High)"])
 
     # Apply filters
     filtered_inventory = all_inventory
@@ -242,6 +243,10 @@ def show_cellar_inventory():
         filtered_inventory.sort(key=lambda w: w.get('personal_rating') or 0, reverse=True)
     elif sort_by == "Rating (Low→High)":
         filtered_inventory.sort(key=lambda w: w.get('personal_rating') or 9999)
+    elif sort_by == "Drink Index (High→Low)":
+        filtered_inventory.sort(key=lambda w: w.get('drink_index') or 0, reverse=True)
+    elif sort_by == "Drink Index (Low→High)":
+        filtered_inventory.sort(key=lambda w: w.get('drink_index') or -9999)
 
     if not filtered_inventory:
         st.warning("No wines found matching the selected filters.")
@@ -300,6 +305,23 @@ def show_cellar_inventory():
                     st.write(f"Purchased: {purchase_date}")
                 if purchase_price:
                     st.write(f"Price: {purchase_price} {currency}")
+
+                # Display drinking window if available
+                drink_from = wine_data.get('drink_from_year')
+                drink_to = wine_data.get('drink_to_year')
+                if drink_from or drink_to:
+                    from_str = str(drink_from) if drink_from else "Now"
+                    to_str = str(drink_to) if drink_to else "∞"
+                    st.write(f"Drinking Window: {from_str} - {to_str}")
+
+                # Display drinking index if available with visual progress bar
+                drink_index = wine_data.get('drink_index')
+                if drink_index is not None:
+                    # Get global min/max for all wines in inventory
+                    all_indices = [w.get('drink_index') for w in filtered_inventory if w.get('drink_index') is not None]
+                    if all_indices:
+                        render_drinking_index_bar(drink_index, all_indices)
+
 
             with col3:
                 st.write("**Rating & Notes**")
