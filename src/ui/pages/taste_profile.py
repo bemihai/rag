@@ -2,7 +2,6 @@
 import streamlit as st
 
 from src.ui.helper.display import make_compact_page_title, TABS_DISPLAY
-from src.ui.helper import show_top_rated_consumed_wines, show_latest_consumed_wines
 from src.ui.helper.taste_profile_stats import (
     show_taste_profile_overview,
     show_rating_distribution,
@@ -12,7 +11,11 @@ from src.ui.helper.taste_profile_stats import (
     show_varietal_analysis,
     show_producer_loyalty,
     show_favorite_regions,
-    show_rating_trends
+    show_favorite_countries,
+    show_favorite_vintages,
+    show_favorite_appellations,
+    show_rating_trends,
+    show_consumed_wines_inventory
 )
 
 
@@ -36,7 +39,7 @@ def main():
     st.markdown("")
 
     # Tabs for different views
-    tab1, tab2 = st.tabs(["📊 Analytics & Trends", "📝 Tasting History"])
+    tab1, tab2, tab3 = st.tabs(["📊 Analytics & Trends", "📝 Tasting History", "⭐ Favorites"])
 
     with tab1:
         # Rating Distribution and Rating Trends (side by side)
@@ -81,19 +84,11 @@ def main():
                 show_varietal_analysis()
 
     with tab2:
-        # Consumed wines section
-        with st.container(border=True):
-            col1, col2 = st.columns(2)
+        # Consumed wines filter and display
+        show_consumed_wines_inventory()
 
-            with col1:
-                show_latest_consumed_wines(limit=5)
-
-            with col2:
-                show_top_rated_consumed_wines()
-
-        st.markdown("")
-
-        # Favorite Producers and Regions
+    with tab3:
+        # Row 1: Producers and Regions
         col1, col2 = st.columns(2)
 
         with col1:
@@ -103,6 +98,25 @@ def main():
         with col2:
             with st.container(border=True):
                 show_favorite_regions()
+
+        st.markdown("")
+
+        # Row 2: Countries and Vintages
+        col1, col2 = st.columns(2)
+
+        with col1:
+            with st.container(border=True):
+                show_favorite_countries()
+
+        with col2:
+            with st.container(border=True):
+                show_favorite_vintages()
+
+        st.markdown("")
+
+        # Row 3: Appellations (full width)
+        with st.container(border=True):
+            show_favorite_appellations()
 
 
 if __name__ == "__main__":
