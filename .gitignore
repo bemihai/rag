@@ -13,3 +13,8 @@ experimental/
 explore/
 backups/
 data/
+
+# Keep GitHub Copilot configuration
+!.github/
+!.github/copilot-instructions.md
+
