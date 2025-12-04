@@ -814,3 +814,53 @@ def show_cellar_statistics():
                 st.plotly_chart(fig, use_container_width=True)
             else:
                 st.info("No region information available for wines in your cellar.")
+
+    with col9:
+        with st.container(border=True):
+            st.markdown("#### Cellar Size Over Time")
+            size_data = stats_repo.get_cellar_size_over_time()
+
+            if size_data:
+                import plotly.graph_objects as go
+                from datetime import datetime
+
+                # Extract and format data for plotting
+                months = []
+                cumulative_bottles = []
+                for data in size_data:
+                    if data['month']:
+                        # Format to show just YYYY-MM for better readability
+                        month_display = data['month_display'] if data.get('month_display') else data['month'][:7]
+                        months.append(month_display)
+                        cumulative_bottles.append(data['cumulative_bottles'])
+
+                # Use wine red color for the bars
+                color = 'rgba(139, 69, 19, 0.85)'
+
+                fig = go.Figure(data=go.Bar(
+                    x=months,
+                    y=cumulative_bottles,
+                    marker_color=color,
+                    text=cumulative_bottles,
+                    textposition='auto',
+                    name='Total Bottles'
+                ))
+
+                fig.update_layout(
+                    xaxis_title="Month",
+                    yaxis_title="Bottles",
+                    showlegend=False,
+                    height=320,
+                    margin=dict(t=10, b=40, l=10, r=10),  # More bottom margin for rotated labels
+                    xaxis=dict(
+                        tickangle=45,
+                        tickmode='array',
+                        tickvals=months[::max(1, len(months)//6)],  # Show max 6 ticks to avoid crowding
+                        ticktext=[m for m in months[::max(1, len(months)//6)]],
+                        type='category'
+                    )
+                )
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.info("No CellarTracker bottle purchase data available for timeline chart.")
+

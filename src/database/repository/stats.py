@@ -539,56 +539,6 @@ class StatsRepository:
 
             return streak
 
-    def get_drinking_window_stats(self) -> dict:
-        """
-        Get statistics about bottles by drinking window status.
-
-        Returns:
-            Dictionary with counts for ready, hold, and unknown categories
-        """
-        current_year = datetime.now().year
-
-        with get_db_connection(self.db_path) as conn:
-            cursor = conn.cursor()
-
-            # Bottles ready to drink
-            cursor.execute("""
-                SELECT SUM(b.quantity) as count
-                FROM bottles b
-                JOIN wines w ON b.wine_id = w.id
-                WHERE b.status = 'in_cellar'
-                  AND w.drink_from_year IS NOT NULL
-                  AND w.drink_from_year <= ?
-                  AND (w.drink_to_year >= ? OR w.drink_to_year IS NULL)
-            """, (current_year, current_year))
-            ready_to_drink = cursor.fetchone()['count'] or 0
-
-            # Bottles to hold (not yet in drinking window)
-            cursor.execute("""
-                SELECT SUM(b.quantity) as count
-                FROM bottles b
-                JOIN wines w ON b.wine_id = w.id
-                WHERE b.status = 'in_cellar'
-                  AND w.drink_from_year IS NOT NULL
-                  AND w.drink_from_year > ?
-            """, (current_year,))
-            to_hold = cursor.fetchone()['count'] or 0
-
-            # Bottles with unknown drinking window
-            cursor.execute("""
-                SELECT SUM(b.quantity) as count
-                FROM bottles b
-                JOIN wines w ON b.wine_id = w.id
-                WHERE b.status = 'in_cellar'
-                  AND w.drink_from_year IS NULL
-            """)
-            unknown = cursor.fetchone()['count'] or 0
-
-            return {
-                'ready_to_drink': ready_to_drink,
-                'to_hold': to_hold,
-                'unknown': unknown
-            }
 
     def get_varietal_distribution(self, limit: int = 5) -> list[dict]:
         """
@@ -651,3 +601,68 @@ class StatsRepository:
             """, (limit,))
 
             return [dict(row) for row in cursor.fetchall()]
+
+    def get_cellar_size_over_time(self) -> list[dict]:
+        """
+        Get cellar size progression over time for CellarTracker bottles only.
+        Tracks cumulative bottle count by month based on purchase dates.
+
+        Returns:
+            List of dictionaries with month and cumulative bottle count
+        """
+        with get_db_connection(self.db_path) as conn:
+            cursor = conn.cursor()
+
+            # Get monthly cellar size progression for CellarTracker bottles only
+            cursor.execute("""
+                WITH monthly_purchases AS (
+                    SELECT 
+                        DATE(purchase_date, 'start of month') as month,
+                        SUM(quantity) as bottles_added
+                    FROM bottles b
+                    JOIN wines w ON b.wine_id = w.id
+                    WHERE b.source = 'cellar_tracker' 
+                      AND b.purchase_date IS NOT NULL
+                    GROUP BY DATE(purchase_date, 'start of month')
+                ),
+                monthly_consumption AS (
+                    SELECT 
+                        DATE(consumed_date, 'start of month') as month,
+                        SUM(quantity) as bottles_consumed
+                    FROM bottles b
+                    JOIN wines w ON b.wine_id = w.id
+                    WHERE b.source = 'cellar_tracker' 
+                      AND b.consumed_date IS NOT NULL
+                      AND b.status = 'consumed'
+                    GROUP BY DATE(consumed_date, 'start of month')
+                ),
+                all_months AS (
+                    SELECT month FROM monthly_purchases
+                    UNION 
+                    SELECT month FROM monthly_consumption
+                ),
+                monthly_net_change AS (
+                    SELECT 
+                        am.month,
+                        COALESCE(mp.bottles_added, 0) - COALESCE(mc.bottles_consumed, 0) as net_change
+                    FROM all_months am
+                    LEFT JOIN monthly_purchases mp ON am.month = mp.month
+                    LEFT JOIN monthly_consumption mc ON am.month = mc.month
+                )
+                SELECT 
+                    month,
+                    net_change,
+                    SUM(net_change) OVER (ORDER BY month) as cumulative_bottles
+                FROM monthly_net_change
+                ORDER BY month
+            """)
+
+            results = [dict(row) for row in cursor.fetchall()]
+
+            # Format month for better display
+            for result in results:
+                if result['month']:
+                    # Convert YYYY-MM-DD to YYYY-MM format for display
+                    result['month_display'] = result['month'][:7]
+
+            return results
