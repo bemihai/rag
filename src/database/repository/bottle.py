@@ -103,13 +103,17 @@ class BottleRepository:
             query = """
                 SELECT 
                     b.*,
-                    w.wine_name, w.wine_type, w.vintage, w.personal_rating,
+                    w.wine_name, w.wine_type, w.vintage, w.varietal, w.drink_index,
+                    w.drink_from_year, w.drink_to_year,
                     p.name as producer_name,
-                    r.country, r.name as region_name
+                    r.country, 
+                    COALESCE(r.primary_name || COALESCE(' - ' || r.secondary_name, ''), '') as region_name,
+                    t.personal_rating, t.community_rating, t.last_tasted_date
                 FROM bottles b
                 JOIN wines w ON b.wine_id = w.id
                 LEFT JOIN producers p ON w.producer_id = p.id
                 LEFT JOIN regions r ON w.region_id = r.id
+                LEFT JOIN tastings t ON w.id = t.wine_id
                 WHERE b.status = 'in_cellar'
             """
             params = []
@@ -143,14 +147,14 @@ class BottleRepository:
             cursor.execute("""
                 INSERT INTO bottles (
                     wine_id, source, external_bottle_id, quantity, status,
-                    location, bin, purchase_date, purchase_price, currency,
+                    location, bin, purchase_date, purchase_price, valuation_price, currency,
                     store_name, consumed_date, bottle_note,
                     created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 bottle.wine_id, bottle.source, bottle.external_bottle_id,
                 bottle.quantity, bottle.status, bottle.location, bottle.bin,
-                bottle.purchase_date, bottle.purchase_price, bottle.currency,
+                bottle.purchase_date, bottle.purchase_price, bottle.valuation_price, bottle.currency,
                 bottle.store_name, bottle.consumed_date, bottle.bottle_note,
                 bottle.created_at or datetime.now(), bottle.updated_at or datetime.now()
             ))
@@ -177,7 +181,7 @@ class BottleRepository:
             cursor = conn.cursor()
 
             update_query, params = build_update_query(
-                "bottles", bottle, "id", exclude_fields=["wine_name", "producer_name", "vintage"]
+                "bottles", bottle, "id", exclude_fields=["wine_name", "producer_name", "region_name", "vintage"]
             )
             cursor.execute(update_query, params)
 

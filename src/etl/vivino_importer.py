@@ -2,8 +2,10 @@
 import csv
 from pathlib import Path
 
-from src.database.models import Wine, Bottle
-from src.database.repository import ProducerRepository, RegionRepository, WineRepository, BottleRepository
+from src.database.models import Wine, Bottle, Tasting
+from src.database.repository import (
+    ProducerRepository, RegionRepository, WineRepository, BottleRepository, TastingRepository
+)
 from src.etl.utils import (
     normalize_wine_type,
     clean_text,
@@ -33,6 +35,7 @@ class VivinoImporter:
         self.region_repository = RegionRepository(self.db_path)
         self.wine_repository = WineRepository(self.db_path)
         self.bottle_repository = BottleRepository(self.db_path)
+        self.tasting_repository = TastingRepository(self.db_path)
 
         self.stats = {
             'wines_processed': 0,
@@ -128,22 +131,8 @@ class VivinoImporter:
         if wine_record := self.wine_repository.get_by_external_id(wine_import.external_id):
             wine_import.id = wine_record.id
             wine_id = wine_record.id
-
-            # use the best personal rating
-            wine_import.personal_rating = max(
-                wine_record.personal_rating or 0,
-                wine_import.personal_rating or 0
-            ) or None
-
-            # merge tasting notes
-            wine_import.tasting_notes = '\n\n'.join(filter(None, [
-                wine_record.tasting_notes,
-                wine_import.tasting_notes
-            ])) or None
-
             self.wine_repository.update(wine_import)
             self.stats["wines_updated"] += 1
-
         elif duplicates := self.wine_repository.find_duplicates(
             wine_import.wine_name,
             data["row"]["Winery"],
@@ -152,21 +141,23 @@ class VivinoImporter:
         ):
             self.stats["wines_skipped"] += 1
             logger.debug(f"Found duplicate wines for {wine_import.wine_name} ({wine_import.vintage}): {duplicates}")
-            # TODO: update missing data in existing records instead of skipping - average rating, rating, reviews, etc.
             return
-
         else:
             wine_id = self.wine_repository.create(wine_import)
             self.stats['wines_imported'] += 1
 
+        # Create or update tasting record
+        tasting_id = self._create_or_update_tasting(data, wine_id)
+
         # Create bottle record (quantity = 1 for full_wine_list as it tracks activity not inventory)
         bottle = Bottle(
             wine_id=wine_id,
+            tasting_id=tasting_id,
             source="vivino",
             external_bottle_id=wine_import.external_id,
             quantity=1,
             status="consumed",
-            consumed_date=wine_import.last_tasted_date or "2010-01-01",
+            consumed_date=self._get_last_tasted_date(data) or parse_date("2010-01-01"),
         )
 
         if existing_bottle := self.bottle_repository.get_by_wine_and_external_id(wine_id, bottle.external_bottle_id):
@@ -178,7 +169,7 @@ class VivinoImporter:
             self.stats["bottles_imported"] += 1
 
     def _create_wine_object_from_data(self, data: dict) -> Wine | None:
-        """Create Wine object from aggregated data."""
+        """Create Wine object from aggregated data (without tasting fields)."""
         row = data["row"]
         winery = clean_text(row["Winery"])
         wine_name = clean_text(row["Wine name"])
@@ -194,15 +185,26 @@ class VivinoImporter:
         wine_type = normalize_wine_type(row["Wine type"])
         drink_from, drink_to = parse_drinking_window(row.get("Drinking Window", ""))
         external_id = generate_external_id(winery, wine_name, vintage)
+
+        # Create producer and track if new
+        existing_producer = self.producer_repository.get_by_name(winery)
         producer_id = self.producer_repository.get_or_create(winery, country, region)
-        region_id = self.region_repository.get_or_create(region, country)
-        personal_rating = normalize_rating(max(data["ratings"]), "vivino") if data["ratings"] else None
-        tasting_notes = '\n\n'.join(data["reviews"]) if data["reviews"] else None
-        scan_dates = [parse_date(scan.get("Scan date")) for scan in data["scans"] if scan.get("Scan date")]
-        last_tasted = max(scan_dates) if scan_dates else None
-        community_rating = float(row["Average rating"]) \
-            if row.get("Average rating") and int(row.get("Wine ratings count", 0)) > 10 else None
-        community_rating = normalize_rating(community_rating, "vivino") if community_rating else None
+        if not existing_producer:
+            self.stats['producers_created'] += 1
+
+        # Split region into primary and secondary if it contains a separator
+        primary_region = region
+        secondary_region = None
+        if region and ' - ' in region:
+            parts = region.split(' - ', 1)
+            primary_region = parts[0].strip()
+            secondary_region = parts[1].strip() if len(parts) > 1 else None
+
+        # Create region and track if new
+        existing_region = self.region_repository.get_by_name_and_country(primary_region, country, secondary_region)
+        region_id = self.region_repository.get_or_create(primary_region, country, secondary_region)
+        if not existing_region:
+            self.stats['regions_created'] += 1
 
         return Wine(
             source="vivino",
@@ -214,11 +216,135 @@ class VivinoImporter:
             external_id=external_id,
             producer_id=producer_id,
             region_id=region_id,
-            personal_rating=personal_rating,
-            tasting_notes=tasting_notes,
-            last_tasted_date=last_tasted,
-            community_rating=community_rating,
         )
+
+    def _create_or_update_tasting(self, data: dict, wine_id: int) -> int | None:
+        """
+        Create or update tasting record from Vivino data.
+
+        Args:
+            data: Aggregated wine data with ratings and reviews
+            wine_id: Wine ID to associate tasting with
+
+        Returns:
+            Tasting ID if created/updated, None otherwise
+        """
+        row = data["row"]
+
+        # Extract personal rating (convert from 0-5 to 0-100 scale)
+        personal_rating = normalize_rating(max(data["ratings"]), "vivino") if data["ratings"] else None
+
+        # Get last tasted date
+        last_tasted_str = self._get_last_tasted_date(data)
+        last_tasted = None
+        if last_tasted_str:
+            from datetime import date as date_cls
+            try:
+                last_tasted = date_cls.fromisoformat(last_tasted_str)
+            except (ValueError, TypeError):
+                logger.warning(f"Could not parse date: {last_tasted_str}")
+                last_tasted = None
+
+        # Merge tasting notes with date prefixes
+        tasting_notes = None
+        if data["reviews"]:
+            # Prefix each review with its scan date
+            dated_notes = []
+            for scan in data["scans"]:
+                review = clean_text(scan.get("Your review") or scan.get("Personal Note"))
+                if review:
+                    scan_date = parse_date(scan.get("Scan date"))
+                    date_str = scan_date if scan_date else "Unknown date"
+                    dated_notes.append(f"[{date_str}] {review}")
+
+            # Remove duplicates while preserving order
+            seen = set()
+            unique_notes = []
+            for note in dated_notes:
+                if note not in seen:
+                    seen.add(note)
+                    unique_notes.append(note)
+
+            tasting_notes = '\n\n'.join(unique_notes) if unique_notes else None
+
+        # Extract community rating (convert from 0-5 to 0-100 scale if enough votes)
+        community_rating = None
+        if row.get("Average rating"):
+            try:
+                avg_rating = float(row["Average rating"])
+                # Only use community rating if there are enough votes (placeholder logic)
+                community_rating = normalize_rating(avg_rating, "vivino")
+            except (ValueError, TypeError):
+                pass
+
+        # Check if we have any tasting data
+        if not (personal_rating or tasting_notes or community_rating):
+            return None
+
+        # Get existing tasting or create new one
+        existing_tasting = self.tasting_repository.get_latest_by_wine(wine_id)
+
+        if existing_tasting:
+            # Update existing tasting
+            updated = False
+
+            # Merge ratings (keep highest personal rating)
+            if personal_rating and (not existing_tasting.personal_rating or personal_rating > existing_tasting.personal_rating):
+                existing_tasting.personal_rating = personal_rating
+                updated = True
+
+            # Merge tasting notes
+            if tasting_notes:
+                if existing_tasting.tasting_notes:
+                    # Check if the new notes are already present to avoid duplication
+                    new_notes_list = tasting_notes.split('\n\n')
+                    existing_notes_list = existing_tasting.tasting_notes.split('\n\n')
+
+                    # Add only notes that don't already exist
+                    notes_to_add = [note for note in new_notes_list if note not in existing_notes_list]
+
+                    if notes_to_add:
+                        combined_notes = existing_tasting.tasting_notes + '\n\n' + '\n\n'.join(notes_to_add)
+                        existing_tasting.tasting_notes = combined_notes
+                        updated = True
+                else:
+                    existing_tasting.tasting_notes = tasting_notes
+                    updated = True
+
+            # Update community rating (always use latest)
+            if community_rating and community_rating != existing_tasting.community_rating:
+                existing_tasting.community_rating = community_rating
+                updated = True
+
+            # Update tasting date (keep most recent)
+            if last_tasted and (not existing_tasting.last_tasted_date or last_tasted > existing_tasting.last_tasted_date):
+                existing_tasting.last_tasted_date = last_tasted
+                updated = True
+
+            if updated:
+                self.tasting_repository.update(existing_tasting)
+                logger.debug(f"Updated tasting for wine {wine_id}")
+
+            return existing_tasting.id
+        else:
+            # Create new tasting
+            tasting = Tasting(
+                wine_id=wine_id,
+                personal_rating=personal_rating,
+                tasting_notes=tasting_notes,
+                community_rating=community_rating,
+                last_tasted_date=last_tasted,
+                do_like=True if personal_rating and personal_rating >= 85 else False,
+                is_defective=False
+            )
+            tasting_id = self.tasting_repository.create(tasting)
+            logger.debug(f"Created tasting for wine {wine_id}")
+            return tasting_id
+
+    def _get_last_tasted_date(self, data: dict):
+        """Extract the most recent tasting date from scan dates."""
+        scan_dates = [parse_date(scan.get("Scan date")) for scan in data["scans"] if scan.get("Scan date")]
+        return max(scan_dates) if scan_dates else None
 
 
 

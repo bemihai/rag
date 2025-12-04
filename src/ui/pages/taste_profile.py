@@ -1,8 +1,22 @@
 """Taste Profile page"""
 import streamlit as st
 
-from src.ui.helper.display import make_compact_page_title
-from src.ui.helper import show_top_rated_consumed_wines, TABS_DISPLAY
+from src.ui.helper.display import make_compact_page_title, TABS_DISPLAY
+from src.ui.helper.taste_profile_stats import (
+    show_taste_profile_overview,
+    show_rating_distribution,
+    show_wine_type_distribution,
+    show_wine_type_performance,
+    show_top_varietals,
+    show_varietal_analysis,
+    show_producer_loyalty,
+    show_favorite_regions,
+    show_favorite_countries,
+    show_favorite_vintages,
+    show_favorite_appellations,
+    show_rating_trends,
+    show_consumed_wines_inventory
+)
 
 
 def main():
@@ -16,57 +30,93 @@ def main():
     ), unsafe_allow_html=True)
     st.markdown("")
 
-    # Top Rated Consumed Wines section
+    # Key Insights at the top
     with st.container(border=True):
-        show_top_rated_consumed_wines()
+        st.markdown("### <i class='fa-solid fa-lightbulb fa-icon'></i>Key Insights", unsafe_allow_html=True)
+        st.markdown("")
+        show_taste_profile_overview()
 
-    st.markdown("---")
+    st.markdown("")
 
-    # Placeholder content for future features
-    st.info("👷 Additional taste profiling features are under construction")
+    # Tabs for different views
+    tab1, tab2, tab3 = st.tabs(["📊 Analytics & Trends", "📝 Tasting History", "⭐ Favorites"])
 
-    st.markdown("""
-    ### Coming Soon
+    with tab1:
+        # Rating Distribution and Rating Trends (side by side)
+        col1, col2 = st.columns(2)
 
-    This section will help you:
-    - 🎯 Define your wine taste preferences
-    - 📊 Track your tasting history
-    - 🔍 Discover wines that match your profile
-    - 📈 See how your preferences evolve over time
-    - 🎨 Visualize your flavor preference map
-    - 💡 Get personalized wine recommendations
+        with col1:
+            with st.container(border=True):
+                st.markdown("### <i class='fa-solid fa-chart-pie fa-icon'></i>Rating Distribution", unsafe_allow_html=True)
+                st.markdown("")
+                show_rating_distribution()
 
-    ### Wine Taste Dimensions
+        with col2:
+            with st.container(border=True):
+                st.markdown("### <i class='fa-solid fa-chart-line fa-icon'></i>Rating Trends Over Time", unsafe_allow_html=True)
+                st.markdown("")
+                show_rating_trends()
 
-    Your profile will include preferences for:
-    - **Body**: Light, Medium, Full
-    - **Sweetness**: Dry, Off-Dry, Sweet
-    - **Acidity**: Low, Medium, High
-    - **Tannins**: Soft, Medium, Bold
-    - **Fruit Profile**: Red fruits, Dark fruits, Citrus, Tropical
-    - **Oak Influence**: None, Light, Medium, Heavy
-    """)
+        st.markdown("")
 
-    # Placeholder interactive element
-    st.markdown("---")
-    st.subheader("Quick Preference Survey (Preview)")
+        # Wine Type Distribution and Performance (side by side)
+        col1, col2 = st.columns(2)
 
-    col1, col2 = st.columns(2)
+        with col1:
+            with st.container(border=True):
+                show_wine_type_distribution()
 
-    with col1:
-        st.slider("Body Preference", 1, 5, 3, help="1 = Light, 5 = Full-bodied", disabled=True)
-        st.slider("Sweetness Preference", 1, 5, 2, help="1 = Bone Dry, 5 = Sweet", disabled=True)
-        st.slider("Acidity Preference", 1, 5, 3, help="1 = Low, 5 = High", disabled=True)
+        with col2:
+            with st.container(border=True):
+                show_wine_type_performance()
 
-    with col2:
-        st.slider("Tannin Preference", 1, 5, 3, help="1 = Soft, 5 = Bold", disabled=True)
-        st.slider("Oak Influence", 1, 5, 2, help="1 = None, 5 = Heavy", disabled=True)
-        st.slider("Alcohol Level", 1, 5, 3, help="1 = Low (<12%), 5 = High (>14%)", disabled=True)
+        st.markdown("")
 
-    st.button("Save Profile", disabled=True, help="Feature coming soon!")
+        # Top Varietals and Varietal Analysis (side by side)
+        col1, col2 = st.columns(2)
 
-    st.markdown("---")
-    st.caption("🔜 This feature is currently in development and will be available soon.")
+        with col1:
+            with st.container(border=True):
+                show_top_varietals()
+
+        with col2:
+            with st.container(border=True):
+                show_varietal_analysis()
+
+    with tab2:
+        # Consumed wines filter and display
+        show_consumed_wines_inventory()
+
+    with tab3:
+        # Row 1: Producers and Regions
+        col1, col2 = st.columns(2)
+
+        with col1:
+            with st.container(border=True):
+                show_producer_loyalty()
+
+        with col2:
+            with st.container(border=True):
+                show_favorite_regions()
+
+        st.markdown("")
+
+        # Row 2: Countries and Vintages
+        col1, col2 = st.columns(2)
+
+        with col1:
+            with st.container(border=True):
+                show_favorite_countries()
+
+        with col2:
+            with st.container(border=True):
+                show_favorite_vintages()
+
+        st.markdown("")
+
+        # Row 3: Appellations (full width)
+        with st.container(border=True):
+            show_favorite_appellations()
 
 
 if __name__ == "__main__":

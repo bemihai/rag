@@ -2,8 +2,10 @@
 import math
 
 import streamlit as st
+from src.database import get_db_connection
 from src.database.repository import StatsRepository, BottleRepository
 from src.etl.utils import denormalize_rating, get_rating_description
+from src.ui.helper.display import render_drinking_index_bar
 
 
 def show_cellar_metrics():
@@ -51,6 +53,125 @@ def show_cellar_metrics():
 
 
 def show_top_rated_consumed_wines():
+    """Display the top 5 rated wines consumed by the user."""
+    state_repo = StatsRepository()
+
+    # Get top 5 consumed bottles with ratings
+    top_wines = state_repo.get_consumed_with_ratings(limit=5)
+
+    if not top_wines:
+        st.warning("No consumed wines with ratings found yet.")
+        return
+
+    st.markdown("### <i class='fa-solid fa-star fa-icon'></i>Top 5 Rated Wines", unsafe_allow_html=True)
+    st.markdown("")
+
+    for idx, wine_data in enumerate(top_wines, 1):
+        rating = wine_data.get("personal_rating", 0)
+        wine_name = wine_data.get("wine_name", "Unknown")
+        producer_name = wine_data.get("producer_name", "Unknown Producer")
+        vintage = wine_data.get("vintage")
+        wine_type = wine_data.get("wine_type", "Unknown")
+        consumed_date = wine_data.get("consumed_date", "Unknown date")
+
+        # Create star rating display using Font Awesome
+        denorm_rating = denormalize_rating(rating)
+        stars_html = ""
+        if denorm_rating:
+            full_stars = int(denorm_rating)
+            stars_html = f"<i class='fa-solid fa-star' style='color: #FFD700;'></i> " * full_stars
+
+        with st.expander(f"{producer_name} {wine_name} ({vintage or 'NV'}) - {rating}/100"):
+            if stars_html:
+                st.markdown(f"**Rating:** {rating}/100 {stars_html}", unsafe_allow_html=True)
+
+            col1, col2 = st.columns(2)
+
+            with col1:
+                st.write(f"**Producer:** {producer_name}")
+                st.write(f"**Wine:** {wine_name}")
+                st.write(f"**Vintage:** {vintage or 'Non-Vintage'}")
+                st.write(f"**Type:** {wine_type}")
+
+            with col2:
+                st.write(f"**Consumed:** {consumed_date}")
+                tasting_notes = wine_data.get("tasting_notes", "")
+                if tasting_notes:
+                    st.write(f"**Notes:** {tasting_notes}")
+
+
+def show_latest_consumed_wines(limit: int = 5):
+    """Display the latest consumed wines by the user."""
+
+    # Get latest consumed bottles
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT 
+                b.*,
+                w.wine_name, w.wine_type, w.vintage,
+                p.name as producer_name,
+                r.country, 
+                COALESCE(r.primary_name || COALESCE(' - ' || r.secondary_name, ''), '') as region_name,
+                t.personal_rating,
+                t.tasting_notes
+            FROM bottles b
+            JOIN wines w ON b.wine_id = w.id
+            LEFT JOIN producers p ON w.producer_id = p.id
+            LEFT JOIN regions r ON w.region_id = r.id
+            LEFT JOIN tastings t ON w.id = t.wine_id
+            WHERE b.status = 'consumed'
+            ORDER BY b.consumed_date DESC
+            LIMIT ?
+        """, (limit,))
+        latest_wines = [dict(row) for row in cursor.fetchall()]
+
+    if not latest_wines:
+        st.warning("No consumed wines found yet.")
+        return
+
+    st.markdown("### <i class='fa-solid fa-clock fa-icon'></i>Latest 5 Consumed", unsafe_allow_html=True)
+    st.markdown("")
+
+    for idx, wine_data in enumerate(latest_wines, 1):
+        rating = wine_data.get("personal_rating")
+        wine_name = wine_data.get("wine_name", "Unknown")
+        producer_name = wine_data.get("producer_name", "Unknown Producer")
+        vintage = wine_data.get("vintage")
+        wine_type = wine_data.get("wine_type", "Unknown")
+        consumed_date = wine_data.get("consumed_date", "Unknown date")
+
+        # Create title with rating if available
+        if rating:
+            title = f"{producer_name} {wine_name} ({vintage or 'NV'}) - {rating}/100"
+        else:
+            title = f"{producer_name} {wine_name} ({vintage or 'NV'})"
+
+        with st.expander(f"{title}"):
+            col1, col2 = st.columns(2)
+
+            with col1:
+                st.write(f"**Producer:** {producer_name}")
+                st.write(f"**Wine:** {wine_name}")
+                st.write(f"**Vintage:** {vintage or 'Non-Vintage'}")
+                st.write(f"**Type:** {wine_type}")
+
+            with col2:
+                st.write(f"**Consumed:** {consumed_date}")
+                if rating:
+                    denorm_rating = denormalize_rating(rating)
+                    stars_html = ""
+                    if denorm_rating:
+                        full_stars = int(denorm_rating)
+                        stars_html = f"<i class='fa-solid fa-star' style='color: #FFD700;'></i> " * full_stars
+                    st.markdown(f"**Rating:** {rating}/100 {stars_html}", unsafe_allow_html=True)
+
+                tasting_notes = wine_data.get("tasting_notes", "")
+                if tasting_notes:
+                    st.write(f"**Notes:** {tasting_notes}")
+
+
+def show_top_rated_consumed_wines_old():
     """Display the top 5 rated wines consumed by the user."""
     state_repo = StatsRepository()
 
@@ -181,7 +302,7 @@ def show_cellar_inventory():
             search_term = st.text_input("Search", placeholder="Wine name, varietal...")
 
         with filter_col8:
-            sort_by = st.selectbox("Sort By", ["Producer", "Wine Name", "Vintage (New→Old)", "Vintage (Old→New)", "Rating (High→Low)", "Rating (Low→High)"])
+            sort_by = st.selectbox("Sort By", ["Producer", "Wine Name", "Vintage (New→Old)", "Vintage (Old→New)", "Rating (High→Low)", "Rating (Low→High)", "Drink (Sooner->Later)", "Drink (Later->Sooner)"])
 
     # Apply filters
     filtered_inventory = all_inventory
@@ -242,6 +363,10 @@ def show_cellar_inventory():
         filtered_inventory.sort(key=lambda w: w.get('personal_rating') or 0, reverse=True)
     elif sort_by == "Rating (Low→High)":
         filtered_inventory.sort(key=lambda w: w.get('personal_rating') or 9999)
+    elif sort_by == "Drink (Sooner->Later)":
+        filtered_inventory.sort(key=lambda w: w.get('drink_index') or 0, reverse=True)
+    elif sort_by == "Drink (Later->Sooner)":
+        filtered_inventory.sort(key=lambda w: w.get('drink_index') or -9999)
 
     if not filtered_inventory:
         st.warning("No wines found matching the selected filters.")
@@ -300,6 +425,23 @@ def show_cellar_inventory():
                     st.write(f"Purchased: {purchase_date}")
                 if purchase_price:
                     st.write(f"Price: {purchase_price} {currency}")
+
+                # Display drinking window if available
+                drink_from = wine_data.get('drink_from_year')
+                drink_to = wine_data.get('drink_to_year')
+                if drink_from or drink_to:
+                    from_str = str(drink_from) if drink_from else "Now"
+                    to_str = str(drink_to) if drink_to else "∞"
+                    st.write(f"Drinking Window: {from_str} - {to_str}")
+
+                # Display drinking index if available with visual progress bar
+                drink_index = wine_data.get('drink_index')
+                if drink_index is not None:
+                    # Get global min/max for all wines in inventory
+                    all_indices = [w.get('drink_index') for w in filtered_inventory if w.get('drink_index') is not None]
+                    if all_indices:
+                        render_drinking_index_bar(drink_index, all_indices)
+
 
             with col3:
                 st.write("**Rating & Notes**")
@@ -672,3 +814,53 @@ def show_cellar_statistics():
                 st.plotly_chart(fig, use_container_width=True)
             else:
                 st.info("No region information available for wines in your cellar.")
+
+    with col9:
+        with st.container(border=True):
+            st.markdown("#### Cellar Size Over Time")
+            size_data = stats_repo.get_cellar_size_over_time()
+
+            if size_data:
+                import plotly.graph_objects as go
+                from datetime import datetime
+
+                # Extract and format data for plotting
+                months = []
+                cumulative_bottles = []
+                for data in size_data:
+                    if data['month']:
+                        # Format to show just YYYY-MM for better readability
+                        month_display = data['month_display'] if data.get('month_display') else data['month'][:7]
+                        months.append(month_display)
+                        cumulative_bottles.append(data['cumulative_bottles'])
+
+                # Use wine red color for the bars
+                color = 'rgba(139, 69, 19, 0.85)'
+
+                fig = go.Figure(data=go.Bar(
+                    x=months,
+                    y=cumulative_bottles,
+                    marker_color=color,
+                    text=cumulative_bottles,
+                    textposition='auto',
+                    name='Total Bottles'
+                ))
+
+                fig.update_layout(
+                    xaxis_title="Month",
+                    yaxis_title="Bottles",
+                    showlegend=False,
+                    height=320,
+                    margin=dict(t=10, b=40, l=10, r=10),  # More bottom margin for rotated labels
+                    xaxis=dict(
+                        tickangle=45,
+                        tickmode='array',
+                        tickvals=months[::max(1, len(months)//6)],  # Show max 6 ticks to avoid crowding
+                        ticktext=[m for m in months[::max(1, len(months)//6)]],
+                        type='category'
+                    )
+                )
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.info("No CellarTracker bottle purchase data available for timeline chart.")
+

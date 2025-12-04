@@ -5,16 +5,16 @@ from typing import Dict, List, Optional
 from datetime import datetime, date
 from cellartracker import cellartracker
 
-from src.database import Wine, Bottle
+from src.database import Wine, Bottle, Tasting
 from src.database.repository import (
-    SyncLogRepository, WineRepository, BottleRepository, ProducerRepository, RegionRepository
+    SyncLogRepository, WineRepository, BottleRepository, ProducerRepository, RegionRepository, TastingRepository
 )
 from src.etl.utils import (
     normalize_wine_type,
     clean_text,
     parse_date,
     parse_vintage,
-    parse_drinking_window, parse_country
+    parse_drinking_window, parse_country, parse_float, parse_int, parse_bool
 )
 from src.utils import get_default_db_path
 from src.utils.logger import logger
@@ -52,6 +52,7 @@ class CellarTrackerImporter:
         self.bottle_repo = BottleRepository(self.db_path)
         self.producer_repo = ProducerRepository(self.db_path)
         self.region_repo = RegionRepository(self.db_path)
+        self.tasting_repo = TastingRepository(self.db_path)
 
     def import_all(self) -> Dict:
         """
@@ -69,9 +70,13 @@ class CellarTrackerImporter:
         sync_id = self.sync_log_repo.start_sync_log("full")
 
         try:
-            logger.info("Step 1/3: Fetching and importing inventory...")
+            logger.info("Step 1/4: Fetching and importing inventory...")
             inventory = self.client.get_inventory()
             self._process_inventory(inventory)
+
+            logger.info("Step 2/4: Fetching and importing availability data...")
+            available = self.client.get_availability()
+            self._process_availability(available)
 
             logger.info("Step 2/3: Fetching and importing bottles (complete history)...")
             bottles = self.client.get_bottles()
@@ -79,7 +84,7 @@ class CellarTrackerImporter:
 
             logger.info("Step 3/3: Fetching and importing tasting notes...")
             notes = self.client.get_notes()
-            self._process_notes(notes)
+            self._process_tasting_notes(notes)
 
             self.sync_log_repo.complete_sync_log(sync_id, self.stats, status="success")
             logger.info(f"✅ Import completed successfully!")
@@ -95,17 +100,16 @@ class CellarTrackerImporter:
 
     def _process_inventory(self, inventory: List[Dict]):
         """
-        Process inventory.json - Current cellar snapshot.
+        Process inventory - the current cellar snapshot.
 
         Creates:
         - Wine entities with catalog info (name, producer, vintage, type, etc.)
         - Bottle entities for current cellar (location, purchase info, status='in_cellar')
         """
-        logger.info(f"Processing {len(inventory)} bottles from inventory (current bottles in cellar)")
+        logger.info(f"Processing {len(inventory)} bottles from inventory")
 
         for record in inventory:
             try:
-                # Process Wine
                 self.stats["wines_processed"] += 1
                 iwine = record.get("iWine")
                 wine = self._get_wine_object_from_inventory_record(record)
@@ -120,21 +124,16 @@ class CellarTrackerImporter:
                     self.stats["wines_imported"] += 1
                     logger.debug(f"Imported wine: {wine.wine_name} ({wine.vintage})")
 
-                # Process Bottle
-                self.stats["bottles_processed"] += 1
                 bottle = self._get_bottle_object_from_inventory_record(record, wine_id)
                 barcode = record.get("Barcode")
                 if existing := self.bottle_repo.get_by_wine_and_external_id(wine_id, barcode):
                     bottle.id = existing.id
                     self.bottle_repo.update(bottle)
-                    self.stats["bottles_updated"] += 1
                     logger.debug(f"Updated bottle: {barcode}")
                 else:
                     bottle.quantity = 1
                     bottle.status = "in_cellar"
                     self.bottle_repo.create(bottle)
-
-                    self.stats["bottles_imported"] += 1
                     logger.debug(f"Imported bottle: {barcode}")
             except Exception as e:
                 error_msg = f"Error processing inventory record {record.get('iWine')}/{record.get('Barcode')}: {e}"
@@ -142,12 +141,46 @@ class CellarTrackerImporter:
                 self.stats["errors"].append(error_msg)
 
 
+    def _process_availability(self, available: List[Dict]):
+        """
+        Process availability data - Updates wine catalog with drinking index scores.
+
+        Updates Wine entities with:
+        - drink_index (availability score from Available column, converted to 0-100 scale)
+        """
+        logger.info(f"Processing {len(available)} wines from availability data")
+
+        for record in available:
+            try:
+                iwine = record.get("iWine")
+                wine = self.wine_repo.get_by_external_id(iwine)
+
+                if not wine:
+                    logger.debug(f"Wine {iwine} not found in availability processing, skipping")
+                    continue
+
+                drink_index = record.get("Available")
+                if drink_index:
+                    try:
+                        if drink_index != wine.drink_index:
+                            wine.drink_index = drink_index
+                            self.wine_repo.update(wine)
+                            logger.debug(f"Updated drink_index for wine {iwine}: {drink_index}")
+                    except (ValueError, TypeError):
+                        logger.warning(f"Could not parse available score '{drink_index}' for wine {iwine}")
+
+            except Exception as e:
+                error_msg = f"Error processing availability record for wine {record.get('iWine')}: {e}"
+                logger.error(error_msg)
+                self.stats["errors"].append(error_msg)
+
+
     def _process_bottles(self, bottles: List[Dict]):
         """
-        Process bottles.json - Complete bottle lifecycle.
-        Updates:
-        - Wine: drink_from_year, drink_to_year (drinking window)
-        - Bottle: Creates or updates complete lifecycle (active + consumed + gifted)
+        Process bottles - Complete bottle lifecycle.
+
+        Creates/Updates:
+        - Bottle: Complete lifecycle (in_cellar, consumed, gifted, lost)
         """
         logger.info(f"Processing {len(bottles)} bottles from complete lifecycle")
 
@@ -155,10 +188,21 @@ class CellarTrackerImporter:
             self.stats["bottles_processed"] += 1
 
             try:
-                wine_id = self._find_and_update_wine_from_bottles(record)
-                bottle = self._get_bottle_object_from_bottles_record(record, wine_id)
+                iwine = record.get("iWine")
+                wine = self.wine_repo.get_by_external_id(iwine)
 
+                if not wine:
+                    wine = self._get_wine_object_from_inventory_record(record)
+                    wine_id = self.wine_repo.create(wine)
+                    self.stats["wines_processed"] += 1
+                    self.stats["wines_imported"] += 1
+                    logger.debug(f"Created wine from bottles: {wine.wine_name}")
+                else:
+                    wine_id = wine.id
+
+                bottle = self._get_bottle_object_from_bottles_record(record, wine_id)
                 barcode = record.get("Barcode")
+
                 if existing := self.bottle_repo.get_by_wine_and_external_id(wine_id, barcode):
                     bottle.id = existing.id
                     self.bottle_repo.update(bottle)
@@ -175,13 +219,11 @@ class CellarTrackerImporter:
                 self.stats["errors"].append(error_msg)
 
 
-    def _process_notes(self, notes: List[Dict]):
+    def _process_tasting_notes(self, notes: List[Dict]):
         """
-        Process notes.json - Tasting notes and ratings.
-        Updates Wine with:
-        - personal_rating (0-100 scale, keep highest)
-        - tasting_notes (merge with date stamps)
-        - last_tasted_date (keep most recent)
+        Process notes - Tasting notes and ratings.
+
+        Creates/Updates Tasting entities linked to Wines.
         """
         logger.info(f"Processing {len(notes)} tasting notes")
 
@@ -195,19 +237,59 @@ class CellarTrackerImporter:
                     logger.warning(f"Wine {iwine} not found for note update")
                     continue
 
-                existing_rating = wine.personal_rating
-                existing_notes = wine.tasting_notes or ""
-                last_tasted = wine.last_tasted_date
+                wine_id = wine.id
+                existing_tasting = self.tasting_repo.get_latest_by_wine(wine_id)
 
-                wine.personal_rating = self._merge_ratings(existing_rating, record)
-                wine.tasting_notes = self._merge_tasting_notes(existing_notes, record)
+                if existing_tasting:
+                    updated = False
 
-                should_update_date, tasting_date = self._update_tasting_date(last_tasted, record)
-                if should_update_date and tasting_date:
-                    wine.last_tasted_date = tasting_date
+                    # Merge ratings (keep highest)
+                    new_rating = self._extract_rating_from_note(record)
+                    if new_rating and (not existing_tasting.personal_rating or new_rating > existing_tasting.personal_rating):
+                        existing_tasting.personal_rating = new_rating
+                        updated = True
 
-                self.wine_repo.update(wine)
-                logger.debug(f"Updated wine {iwine} with tasting note and rating)")
+                    # Merge tasting notes (append with date stamp)
+                    new_notes = self._extract_tasting_notes_from_note(record, existing_tasting.tasting_notes or "")
+                    if new_notes != existing_tasting.tasting_notes:
+                        existing_tasting.tasting_notes = new_notes
+                        updated = True
+
+                    # Update tasting date (keep most recent)
+                    tasting_date_str = parse_date(record.get("TastingDate"))
+                    if tasting_date_str:
+                        from datetime import date as date_cls
+                        tasting_date = date_cls.fromisoformat(tasting_date_str)
+                        if not existing_tasting.last_tasted_date or tasting_date > existing_tasting.last_tasted_date:
+                            existing_tasting.last_tasted_date = tasting_date
+                            updated = True
+
+                    is_defective = record.get("Defective", False)
+                    if is_defective and not existing_tasting.is_defective:
+                        existing_tasting.is_defective = True
+                        updated = True
+
+                    if updated:
+                        self.tasting_repo.update(existing_tasting)
+                        logger.debug(f"Updated tasting for wine {iwine}")
+                else:
+                    tasting_date_str = parse_date(record.get("TastingDate"))
+                    tasting_date = date.fromisoformat(tasting_date_str) if tasting_date_str else None
+
+                    tasting = Tasting(
+                        wine_id=wine_id,
+                        is_defective=parse_bool(record.get("Defective")),
+                        personal_rating=self._extract_rating_from_note(record),
+                        tasting_notes=self._extract_tasting_notes_from_note(record, ""),
+                        do_like=parse_bool(record.get("fLikeIt")),
+                        community_rating=parse_float(record.get("CScore")),
+                        like_votes= parse_int(record.get("LikeVotes")),
+                        like_percentage=parse_float(record.get("LikePercent")),
+                        last_tasted_date=tasting_date,
+
+                    )
+                    self.tasting_repo.create(tasting)
+                    logger.debug(f"Created tasting for wine {iwine}")
 
             except Exception as e:
                 error_msg = f"Error processing note {record.get('iNote')}: {e}"
@@ -230,10 +312,21 @@ class CellarTrackerImporter:
             clean_text(record.get("Locale")),
         )
 
+        region_primary = clean_text(record.get("Region"))
+        region_secondary = clean_text(record.get("SubRegion")) or clean_text(record.get("Appellation"))
         region_id = self.region_repo.get_or_create(
-            clean_text(record.get("Region")),
+            region_primary,
             parse_country(record.get("Country")),
-            clean_text(record.get("SubRegion") or record.get("Appellation")),
+            region_secondary,
+        )
+
+        q_purchased = int(record.get("PurchasedCommunity", 0) or 0)
+        q_quantity = int(record.get("QuantityCommunity", 0) or 0)
+        q_consumed = int(record.get("ConsumedCommunity", 0) or 0)
+
+        drink_from_year, drink_to_year = parse_drinking_window(
+            record.get("BeginConsume"),
+            record.get("EndConsume")
         )
 
         return Wine(
@@ -247,46 +340,39 @@ class CellarTrackerImporter:
             designation=clean_text(record.get("Designation")),
             region_id=region_id,
             appellation=clean_text(record.get("Appellation")),
-            bottle_size=record.get("Size", "750ml")
+            vineyard=clean_text(record.get("Vineyard")),
+            bottle_size=record.get("Size", "750ml"),
+            drink_from_year=drink_from_year,
+            drink_to_year=drink_to_year,
+            q_purchased=q_purchased,
+            q_quantity=q_quantity,
+            q_consumed=q_consumed
         )
-
-
-    def _find_and_update_wine_from_bottles(self, record: Dict) -> Optional[int]:
-        """
-        Find Wine and update drinking window from bottles.json record.
-        """
-        iwine = record.get("iWine")
-        wine = self.wine_repo.get_by_external_id(iwine)
-
-        if not wine:
-            wine = self._get_wine_object_from_inventory_record(record)
-            wine.id = self.wine_repo.create(wine)
-            self.stats["wines_processed"] += 1
-            self.stats["wines_imported"] += 1
-
-        begin_consume = record.get("BeginConsume")
-        end_consume = record.get("EndConsume")
-        if begin_consume or end_consume:
-            drink_from_year, drink_to_year = parse_drinking_window(begin_consume, end_consume)
-            wine.drink_from_year = drink_from_year or wine.drink_from_year
-            wine.drink_to_year = drink_to_year or wine.drink_to_year
-            self.wine_repo.update(wine)
-
-        return wine.id
-
 
     @staticmethod
     def _get_bottle_object_from_inventory_record(record: Dict, wine_id: int) -> Bottle:
         """
         Create a Bottle object from an inventory record.
+
+        Args:
+            record: Inventory CSV record
+            wine_id: Wine ID
         """
-        price = None
-        price_str = record.get("Price") or record.get("Valuation")
+        purchase_price = None
+        price_str = record.get("Price")
         if price_str:
             try:
-                price = float(price_str)
+                purchase_price = float(price_str)
             except (ValueError, TypeError):
-                logger.warning(f"Could not parse price '{price_str}' in record: {record}")
+                logger.warning(f"Could not parse price '{price_str}' in record: {record.get('Barcode')}")
+
+        valuation_price = None
+        valuation_str = record.get("Valuation")
+        if valuation_str:
+            try:
+                valuation_price = float(valuation_str)
+            except (ValueError, TypeError):
+                logger.warning(f"Could not parse valuation '{valuation_str}' in record: {record.get('Barcode')}")
 
         return Bottle(
             wine_id=wine_id,
@@ -296,7 +382,8 @@ class CellarTrackerImporter:
             bin=clean_text(record.get("Bin")),
             purchase_date=parse_date(record.get("PurchaseDate")),
             bottle_note=clean_text(record.get("BottleNote")),
-            purchase_price=price,
+            purchase_price=purchase_price,
+            valuation_price=valuation_price,
             currency=record.get("Currency", "RON"),
             store_name=clean_text(record.get("StoreName"))
         )
@@ -304,14 +391,18 @@ class CellarTrackerImporter:
 
     def _get_bottle_object_from_bottles_record(self, record: Dict, wine_id: int) -> Bottle:
         """
-        Create or update Bottle from bottles.json record.
+        Create or update Bottle from bottles.csv record.
+
+        Args:
+            record: Bottles CSV record
+            wine_id: Wine ID
         """
         barcode = record.get("Barcode")
         quantity = int(record.get("Quantity", 1))
-
-        bottle_state = record.get("BottleState", "0")
+        bottle_state = record.get("BottleState", "1")
         consumption_date = record.get("ConsumptionDate")
-        if bottle_state == "0" and not consumption_date:
+
+        if bottle_state == "1" or (bottle_state == "0" and not consumption_date):
             status = "in_cellar"
         elif consumption_date:
             short_type = record.get("ShortType", "").lower()
@@ -327,13 +418,13 @@ class CellarTrackerImporter:
         purchase_date = parse_date(record.get("PurchaseDate"))
         consumed_date = parse_date(consumption_date) if consumption_date else None
 
-        price = None
+        purchase_price = None
         price_str = record.get("BottleCost")
         if price_str:
             try:
-                price = float(price_str)
+                purchase_price = float(price_str)
             except (ValueError, TypeError):
-                pass
+                logger.warning(f"Could not parse bottle cost '{price_str}' for {barcode}")
 
         purchase_note = clean_text(record.get("PurchaseNote"))
         consumption_note = clean_text(record.get("ConsumptionNote"))
@@ -348,7 +439,7 @@ class CellarTrackerImporter:
             location=clean_text(record.get("Location")),
             bin=clean_text(record.get("Bin")),
             purchase_date=purchase_date,
-            purchase_price=price,
+            purchase_price=purchase_price,
             currency=record.get("BottleCostCurrency", "RON"),
             store_name=clean_text(record.get("Store")),
             consumed_date=consumed_date,
@@ -363,64 +454,37 @@ class CellarTrackerImporter:
             return f"{purchase_note}\n\nConsumed: {consumption_note}"
         return purchase_note or consumption_note
 
-
     @staticmethod
-    def _merge_ratings(existing_rating: int | None, record: Dict) -> int | None:
-        """Merge existing rating with new rating, keeping the highest."""
-        rating = existing_rating
+    def _extract_rating_from_note(record: Dict) -> Optional[int]:
+        """Extract personal rating from note record (0-100 scale)."""
         rating_str = record.get("Rating")
         if rating_str:
             try:
-                new_rating = int(rating_str)
-                if existing_rating is None or new_rating > existing_rating:
-                    rating = new_rating
+                return int(rating_str)
             except (ValueError, TypeError) as e:
                 logger.warning(f"Failed to convert rating '{rating_str}' to int: {e}")
-
-        return rating
-
+        return None
 
     @staticmethod
-    def _merge_tasting_notes(existing_notes: str, record: Dict) -> str:
-        """Merge existing tasting notes with new notes, adding date stamps."""
+    def _extract_tasting_notes_from_note(record: Dict, existing_notes: str) -> str:
+        """Extract and merge tasting notes from note record with date stamps."""
         tasting_date = parse_date(record.get("TastingDate"))
         note_text = clean_text(record.get("TastingNotes"))
+
         if note_text:
+            date_str = tasting_date if tasting_date else datetime.now().strftime('%Y-%m-%d')
+            new_note_entry = f"[{date_str}] {note_text}"
+
+            # Check if this exact note already exists in existing_notes
+            if existing_notes and new_note_entry in existing_notes:
+                # Note already exists, don't duplicate
+                return existing_notes
+
             if existing_notes:
-                date_str = tasting_date or datetime.now().strftime('%Y-%m-%d')
-                combined_notes = f"{existing_notes}\n\n[{date_str}] {note_text}"
+                return f"{existing_notes}\n\n{new_note_entry}"
             else:
-                date_str = tasting_date or datetime.now().strftime('%Y-%m-%d')
-                combined_notes = f"[{date_str}] {note_text}"
-        else:
-            combined_notes = existing_notes
+                return new_note_entry
 
-        return combined_notes
-
-
-    @staticmethod
-    def _update_tasting_date(last_tasted: str | date, record: Dict) -> tuple[bool, date | None]:
-        should_update_date = True
-        tasting_date = parse_date(record.get("TastingDate"))
-        if last_tasted and tasting_date:
-            try:
-                if isinstance(last_tasted, str):
-                    last_tasted_obj = datetime.strptime(last_tasted, '%Y-%m-%d').date()
-                else:
-                    last_tasted_obj = last_tasted
-
-                if isinstance(tasting_date, str):
-                    tasting_date_obj = datetime.strptime(tasting_date, '%Y-%m-%d').date()
-                else:
-                    tasting_date_obj = tasting_date
-
-                should_update_date = tasting_date_obj >= last_tasted_obj
-            except (ValueError, TypeError) as e:
-                logger.warning(f"Failed to parse or compare tasting dates: {e}")
-
-        return should_update_date, tasting_date
-
-
-
+        return existing_notes
 
 

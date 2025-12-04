@@ -8,6 +8,7 @@ from .bottle import BottleRepository
 from .producer import ProducerRepository
 from .region import RegionRepository
 from .stats import StatsRepository
+from .tasting import TastingRepository
 from .wine import WineRepository
 from .sync_logs import SyncLogRepository
 
@@ -16,6 +17,7 @@ __all__ = [
     "ProducerRepository",
     "RegionRepository",
     "StatsRepository",
+    "TastingRepository",
     "WineRepository",
     "SyncLogRepository",
 ]

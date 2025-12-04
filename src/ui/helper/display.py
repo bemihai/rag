@@ -3,6 +3,57 @@ import streamlit as st
 import html
 
 
+def render_drinking_index_bar(drink_index: float, all_indices: list[float]) -> None:
+    """
+    Render a visual progress bar for drinking index.
+
+    Args:
+        drink_index: The drinking index value for the current wine
+        all_indices: List of all drinking index values in the collection for normalization
+    """
+    if not all_indices:
+        return
+
+    min_index = min(all_indices)
+    max_index = max(all_indices)
+
+    # Normalize to 0-100 for progress bar
+    if max_index != min_index:
+        normalized = ((drink_index - min_index) / (max_index - min_index)) * 100
+    else:
+        normalized = 50
+
+    # Determine status, color, and text based on normalized value
+    if normalized >= 75:
+        status = "🟢 Peak Drinking"
+        color = "#4CAF50"
+        bar_text = "Drink Sooner"
+    elif normalized >= 50:
+        status = "🟡 Ready to Drink"
+        color = "#FFC107"
+        bar_text = "Drink Sooner"
+    elif normalized >= 25:
+        status = "🟠 Approaching Window"
+        color = "#FF9800"
+        bar_text = "Drink Later"
+    else:
+        status = "🔴 Hold for Aging"
+        color = "#F44336"
+        bar_text = "Drink Later"
+
+    st.write(f"Status: {status}")
+
+    # Create visual progress bar with text (60% width for more compact display)
+    st.markdown(f"""
+    <div style="background-color: #e0e0e0; border-radius: 10px; height: 22px; width: 60%; position: relative; margin-top: 5px;">
+        <div style="background-color: {color}; border-radius: 10px; height: 22px; width: {normalized}%; position: absolute; top: 0; left: 0;"></div>
+        <div style="position: absolute; top: 0; left: 0; width: 100%; text-align: center; line-height: 22px; font-size: 12px; font-weight: bold; color: #333;">
+            {bar_text}
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+
 TABS_DISPLAY = """
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
         <style>
