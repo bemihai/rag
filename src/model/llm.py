@@ -3,7 +3,7 @@ import streamlit as st
 from langchain_core.language_models import BaseChatModel
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_openai import ChatOpenAI
-from langchain.prompts import ChatPromptTemplate
+from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.callbacks import CallbackManager
 
 from src.utils import logger, get_langfuse_callback
@@ -34,7 +34,8 @@ def load_base_model(model_provider: str, model_name: str, **kwargs) -> BaseChatM
 
     Returns: An instance of the loaded chat model.
     """
-    callback_manager = CallbackManager([get_langfuse_callback()])
+    # TODO: fix langfuse with langchain v1
+    # callback_manager = CallbackManager([get_langfuse_callback()])
     match model_provider.lower():
         case "google":
             model = ChatGoogleGenerativeAI(
@@ -42,7 +43,7 @@ def load_base_model(model_provider: str, model_name: str, **kwargs) -> BaseChatM
                 temperature=0.0,
                 max_retries=2,
                 google_api_key=GOOGLE_API_KEY,
-                callback_manager=callback_manager,
+                # callback_manager=callback_manager,
                 **kwargs,
             )
             logger.info(f"Loaded Google model successfully: {model_name}")
@@ -56,7 +57,7 @@ def load_base_model(model_provider: str, model_name: str, **kwargs) -> BaseChatM
                 temperature=0.0,
                 max_retries=2,
                 api_key=api_key,
-                callback_manager=callback_manager,
+                # callback_manager=callback_manager,
                 **kwargs,
             )
             logger.info(f"Loaded OpenAI model successfully: {model_name}")

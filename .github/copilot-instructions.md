@@ -29,6 +29,13 @@ src/
 - **Formatting**: Black (120 chars), isort for imports
 - **Naming**: Use wine domain terms (vintage, appellation, not year, location)
 
+### Coding Requirements
+- Do not generate markdown files to explain the code generated unless explicitly requested. Markdown files
+  are only needed for project documentation and design, not code explanations.
+- Generated code must be less verbose, only use comments where necessary for clarity.
+- Avoid redundant code; use helper functions or classes to encapsulate repeated logic.
+- Avoid using a lot of print statements, only use logging where appropriate.
+
 ### Example Pattern
 ```python
 def calculate_drinking_window(
