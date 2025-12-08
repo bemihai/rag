@@ -5,7 +5,6 @@ This module provides tools for querying the wine knowledge base
 using the existing RAG pipeline (ChromaDB + LangChain).
 """
 
-from typing import Optional
 from langchain_core.tools import tool
 
 from src.rag.retriever import ChromaRetriever
@@ -13,20 +12,28 @@ from src.utils.context_builder import build_context_from_chunks
 from src.utils import initialize_chroma_client, get_config, logger
 
 
-def _get_rag_retriever(n_results: int = 5) -> ChromaRetriever:
+def _get_rag_retriever(n_results: int | None = None) -> ChromaRetriever | None:
     """Helper function to initialize RAG retriever."""
-    config = get_config()
-    client = initialize_chroma_client(
-        host=config.chroma.host,
-        port=config.chroma.port
-    )
+    try:
+        cfg = get_config()
+        chroma_cfg = cfg.chroma
+        collection_name = chroma_cfg.collections[0].name
 
-    return ChromaRetriever(
-        client=client,
-        collection_name="wine_books",
-        embedding_model="sentence-transformers/all-MiniLM-L6-v2",
-        n_results=n_results
-    )
+        client = initialize_chroma_client(
+            host=chroma_cfg.client.host,
+            port=chroma_cfg.client.port
+        )
+
+        return ChromaRetriever(
+            client=client,
+            collection_name=collection_name,
+            embedding_model=chroma_cfg.settings.embedder,
+            n_results=n_results or chroma_cfg.retrieval.n_results,
+            similarity_threshold=chroma_cfg.retrieval.similarity_threshold,
+        )
+    except Exception as e:
+        logger.error(f"Failed to initialize retriever: {e}")
+        return None
 
 
 @tool
@@ -38,19 +45,20 @@ def search_wine_knowledge(
     """Search wine knowledge base for general wine information.
 
     Retrieves relevant information from wine books and documents stored
-    in the ChromaDB vector store. Use this for general wine education,
-    wine region information, winemaking techniques, grape varieties, etc.
+    in the ChromaDB vector store.
+    Use this for general wine education, wine region information, winemaking techniques, grape varieties,
+    wine styles, buying guides, aging potential, food pairings, tasting notes, vintages, wine producers,
+    wine producting countries, etc.
 
     Args:
         query: Question or topic to search for. Examples:
               - "What makes Barolo special?"
               - "Difference between Burgundy and Bordeaux"
               - "How is Champagne made?"
-              - "Characteristics of Nebbiolo grape"
+              - "What are the best producers in Napa Valley?"
               - "Aging potential of Rioja Reserva"
         max_results: Maximum number of source chunks to retrieve (1-10).
-                    More results = more context but longer response.
-                    Default is 5.
+                    More results = more context but longer response. Default is 5.
         include_sources: Whether to include source citations in response.
                         If True, shows which wine books the information came from.
 
@@ -60,30 +68,21 @@ def search_wine_knowledge(
 
     Example:
         >>> info = search_wine_knowledge("What is malolactic fermentation?")
-        >>> info = search_wine_knowledge(
-        ...     "Barolo aging requirements",
-        ...     max_results=3
-        ... )
+        >>> info = search_wine_knowledge("Barolo aging requirements", max_results=3)
 
     Notes:
-        - Uses existing RAG pipeline (ChromaDB + sentence-transformers)
-        - Searches wine books: Wine Folly, World Atlas of Wine, etc.
-        - Completely free operation (local vector search)
         - Does NOT query user's personal cellar or taste data
         - Returns general wine knowledge, not personalized information
     """
     try:
-        # Validate max_results
         max_results = min(max(max_results, 1), 10)
 
-        # Get retriever and search
         retriever = _get_rag_retriever(n_results=max_results)
         retrieved_docs = retriever.retrieve(query)
 
         if not retrieved_docs:
             return "No relevant information found in the wine knowledge base for this query."
 
-        # Build context with sources
         context = build_context_from_chunks(
             retrieved_docs,
             include_metadata=include_sources,
@@ -126,30 +125,25 @@ def search_wine_region_info(region: str) -> str:
     Notes:
         - Optimized for region-specific queries
         - Uses semantic search with region-focused prompting
-        - Completely free operation (local vector search)
-        - Includes map references if available in source books
     """
     try:
-        # Format query for region-specific search
         formatted_query = (
             f"Tell me about the {region} wine region: "
             f"climate, terroir, grape varieties, wine styles, characteristics, "
             f"sub-regions, and notable producers"
         )
 
-        # Use higher n_results for comprehensive region info
-        retriever = _get_rag_retriever(n_results=7)
+        retriever = _get_rag_retriever(n_results=5)
         retrieved_docs = retriever.retrieve(formatted_query)
 
         if not retrieved_docs:
             return f"No information found about the {region} wine region."
 
-        # Build context with sources
         context = build_context_from_chunks(
             retrieved_docs,
             include_metadata=True,
             include_similarity=False,
-            max_chunks=7
+            max_chunks=5
         )
 
         logger.info(f"Retrieved {len(retrieved_docs)} documents for region: {region}")
@@ -186,12 +180,9 @@ def search_grape_variety_info(varietal: str) -> str:
 
     Notes:
         - Optimized for grape variety queries
-        - Includes both Old World and New World expressions
-        - Completely free operation (local vector search)
         - May include historical information if available
     """
     try:
-        # Format query for varietal-specific search
         formatted_query = (
             f"Tell me about the {varietal} grape variety: "
             f"characteristics, growing regions, climate preferences, "
@@ -199,8 +190,7 @@ def search_grape_variety_info(varietal: str) -> str:
             f"and notable wines"
         )
 
-        # Use higher n_results for comprehensive varietal info
-        retriever = _get_rag_retriever(n_results=6)
+        retriever = _get_rag_retriever(n_results=5)
         retrieved_docs = retriever.retrieve(formatted_query)
 
         if not retrieved_docs:
@@ -211,7 +201,7 @@ def search_grape_variety_info(varietal: str) -> str:
             retrieved_docs,
             include_metadata=True,
             include_similarity=False,
-            max_chunks=6
+            max_chunks=5
         )
 
         logger.info(f"Retrieved {len(retrieved_docs)} documents for varietal: {varietal}")
@@ -254,25 +244,22 @@ def search_wine_term_definition(term: str) -> str:
         - Explains both traditional and modern winemaking terms
     """
     try:
-        # Format query for definition search
         formatted_query = (
             f"What is {term}? Define and explain {term} in the context of wine, "
             f"including how it affects wine character and examples"
         )
 
-        # Use moderate n_results for focused definitions
-        retriever = _get_rag_retriever(n_results=4)
+        retriever = _get_rag_retriever(n_results=5)
         retrieved_docs = retriever.retrieve(formatted_query)
 
         if not retrieved_docs:
             return f"No definition found for '{term}' in the wine knowledge base."
 
-        # Build context with sources
         context = build_context_from_chunks(
             retrieved_docs,
             include_metadata=True,
             include_similarity=False,
-            max_chunks=4
+            max_chunks=5
         )
 
         logger.info(f"Retrieved {len(retrieved_docs)} documents for term: {term}")
@@ -282,3 +269,64 @@ def search_wine_term_definition(term: str) -> str:
         logger.error(f"Error searching term definition: {e}")
         return f"Error retrieving term definition: {str(e)}"
 
+
+@tool
+def search_wine_producer_info(producer: str) -> str:
+    """Search for detailed information about a wine producer/winery.
+
+    Specialized search focused on producer history, philosophy, vineyard holdings,
+    winemaking style, and notable wines.
+
+    Args:
+        producer: Producer/winery name. Examples:
+                 - "Domaine de la Romanée-Conti"
+                 - "Opus One"
+                 - "Château Margaux"
+                 - "Antinori"
+                 - "Ridge Vineyards"
+                 - "Gaja"
+                 Can include estate, château, or domaine prefix.
+
+    Returns:
+        String containing detailed producer information with source citations:
+        - Producer history and founding
+        - Vineyard locations and holdings
+        - Winemaking philosophy and techniques
+        - Notable wines and flagship bottlings
+        - Key vintages and ratings
+        - Regional significance
+
+    Example:
+        >>> info = search_wine_producer_info("Domaine Leflaive")
+        >>> info = search_wine_producer_info("Château Margaux")
+
+    Notes:
+        - Optimized for producer-specific queries
+        - Includes both historical and current information
+    """
+    try:
+        formatted_query = (
+            f"Tell me about {producer} wine producer: "
+            f"history, vineyard holdings, winemaking philosophy and techniques, "
+            f"notable wines, key vintages, and significance in the region"
+        )
+
+        retriever = _get_rag_retriever(n_results=5)
+        retrieved_docs = retriever.retrieve(formatted_query)
+
+        if not retrieved_docs:
+            return f"No information found about {producer} wine producer."
+
+        context = build_context_from_chunks(
+            retrieved_docs,
+            include_metadata=True,
+            include_similarity=False,
+            max_chunks=5
+        )
+
+        logger.info(f"Retrieved {len(retrieved_docs)} documents for producer: {producer}")
+        return context
+
+    except Exception as e:
+        logger.error(f"Error searching producer info: {e}")
+        return f"Error retrieving producer information: {str(e)}"

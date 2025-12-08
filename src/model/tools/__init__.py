@@ -37,6 +37,7 @@ from .rag_tools import (
     search_wine_region_info,
     search_grape_variety_info,
     search_wine_term_definition,
+    search_wine_producer_info,
 )
 
 
@@ -60,6 +61,7 @@ EXTENDED_TOOLS: List[BaseTool] = [
     search_wine_region_info,
     search_grape_variety_info,
     search_wine_term_definition,
+    search_wine_producer_info,
 ]
 
 ALL_TOOLS: List[BaseTool] = CORE_TOOLS + EXTENDED_TOOLS
@@ -100,6 +102,7 @@ __all__ = [
     "search_wine_region_info",
     "search_grape_variety_info",
     "search_wine_term_definition",
+    "search_wine_producer_info",
 
     # Tool collections
     "CORE_TOOLS",
