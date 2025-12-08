@@ -21,7 +21,6 @@ from .taste_profile_tools import (
     get_user_taste_profile,
     get_top_rated_wines,
     get_wine_recommendations_from_profile,
-    analyze_rating_trends,
     compare_wine_to_profile,
 )
 

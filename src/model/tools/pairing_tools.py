@@ -2,163 +2,16 @@
 Wine agent tools for food and wine pairing.
 
 This module provides tools for wine and food pairing recommendations
-using rule-based logic and user's cellar inventory.
+using pairing rules from the database and user's cellar inventory.
 """
 
 from typing import Dict, List, Optional
 from datetime import datetime
 from langchain_core.tools import tool
 
-from src.database.repository import WineRepository, BottleRepository
+from src.database.repository import WineRepository, BottleRepository, FoodPairingRepository
 from src.utils import get_default_db_path, logger
-
-
-# Pairing rules database
-FOOD_PAIRING_RULES = {
-    # Red meats
-    "steak": {
-        "wine_types": ["Red"],
-        "varietals": ["Cabernet Sauvignon", "Malbec", "Syrah", "Shiraz", "Tempranillo", "Nebbiolo"],
-        "characteristics": "Full-bodied reds with firm tannins",
-        "why": "Tannins cut through fat, bold flavors match rich meat"
-    },
-    "beef": {
-        "wine_types": ["Red"],
-        "varietals": ["Cabernet Sauvignon", "Malbec", "Syrah", "Merlot", "Zinfandel"],
-        "characteristics": "Full-bodied reds",
-        "why": "Rich flavors complement beef, tannins balance fat"
-    },
-    "lamb": {
-        "wine_types": ["Red"],
-        "varietals": ["Bordeaux Blend", "Syrah", "Rioja", "Chianti", "Barolo"],
-        "characteristics": "Medium to full-bodied reds with good structure",
-        "why": "Earthy notes complement lamb's gaminess"
-    },
-    "pork": {
-        "wine_types": ["Red", "White"],
-        "varietals": ["Pinot Noir", "Chardonnay", "Riesling", "Beaujolais"],
-        "characteristics": "Light to medium-bodied wines",
-        "why": "Lighter meats need softer wines"
-    },
-
-    # Poultry
-    "chicken": {
-        "wine_types": ["White", "Red"],
-        "varietals": ["Chardonnay", "Pinot Grigio", "Pinot Noir", "Beaujolais"],
-        "characteristics": "Light to medium-bodied wines",
-        "why": "Versatile pairing depends on preparation"
-    },
-    "duck": {
-        "wine_types": ["Red"],
-        "varietals": ["Pinot Noir", "Syrah", "Merlot", "Burgundy"],
-        "characteristics": "Medium-bodied reds with good acidity",
-        "why": "Rich duck meat needs wines with acidity and fruit"
-    },
-    "turkey": {
-        "wine_types": ["White", "Red"],
-        "varietals": ["Pinot Noir", "Chardonnay", "Riesling", "Beaujolais"],
-        "characteristics": "Medium-bodied wines with good acidity",
-        "why": "Versatile for various preparations"
-    },
-
-    # Seafood
-    "salmon": {
-        "wine_types": ["White", "Rosé", "Red"],
-        "varietals": ["Pinot Noir", "Chardonnay", "Rosé", "Burgundy"],
-        "characteristics": "Light reds or fuller whites",
-        "why": "Rich fish can handle light reds or oaked whites"
-    },
-    "tuna": {
-        "wine_types": ["White", "Rosé", "Red"],
-        "varietals": ["Pinot Noir", "Rosé", "Sauvignon Blanc"],
-        "characteristics": "Light reds or crisp whites",
-        "why": "Meaty fish pairs well with light reds"
-    },
-    "white fish": {
-        "wine_types": ["White"],
-        "varietals": ["Sauvignon Blanc", "Pinot Grigio", "Albariño", "Chablis"],
-        "characteristics": "Crisp, light-bodied whites",
-        "why": "Light flavors need delicate wines"
-    },
-    "fish": {
-        "wine_types": ["White"],
-        "varietals": ["Sauvignon Blanc", "Pinot Grigio", "Albariño", "Chablis"],
-        "characteristics": "Crisp, light-bodied whites",
-        "why": "Light flavors need delicate wines"
-    },
-    "shellfish": {
-        "wine_types": ["White", "Sparkling"],
-        "varietals": ["Champagne", "Chablis", "Muscadet", "Albariño"],
-        "characteristics": "High acidity, mineral whites",
-        "why": "Acidity and minerality complement briny shellfish"
-    },
-
-    # Italian
-    "pasta": {
-        "wine_types": ["Red", "White"],
-        "varietals": ["Chianti", "Sangiovese", "Pinot Grigio", "Barbera"],
-        "characteristics": "Medium-bodied Italian wines",
-        "why": "Match wine origin with food origin"
-    },
-    "pizza": {
-        "wine_types": ["Red"],
-        "varietals": ["Chianti", "Sangiovese", "Barbera", "Primitivo"],
-        "characteristics": "Medium-bodied Italian reds",
-        "why": "Acidity cuts through tomato sauce and cheese"
-    },
-    "risotto": {
-        "wine_types": ["White"],
-        "varietals": ["Pinot Grigio", "Soave", "Gavi", "Chardonnay"],
-        "characteristics": "Creamy whites with good acidity",
-        "why": "Match richness, acidity balances creaminess"
-    },
-
-    # Cheese
-    "soft cheese": {
-        "wine_types": ["White", "Sparkling"],
-        "varietals": ["Champagne", "Sauvignon Blanc", "Chardonnay"],
-        "characteristics": "Crisp whites or sparkling",
-        "why": "Acidity cuts through creamy texture"
-    },
-    "hard cheese": {
-        "wine_types": ["Red", "White"],
-        "varietals": ["Cabernet Sauvignon", "Chardonnay", "Rioja"],
-        "characteristics": "Full-bodied wines",
-        "why": "Strong flavors need bold wines"
-    },
-    "blue cheese": {
-        "wine_types": ["Dessert", "White"],
-        "varietals": ["Sauternes", "Port", "Riesling"],
-        "characteristics": "Sweet wines",
-        "why": "Sweetness balances saltiness and pungency"
-    },
-    "cheese": {
-        "wine_types": ["Red", "White"],
-        "varietals": ["Chardonnay", "Pinot Noir", "Cabernet Sauvignon"],
-        "characteristics": "Depends on cheese type",
-        "why": "Match intensity of wine to cheese"
-    },
-
-    # Other
-    "curry": {
-        "wine_types": ["White"],
-        "varietals": ["Riesling", "Gewürztraminer", "Chenin Blanc"],
-        "characteristics": "Off-dry aromatic whites",
-        "why": "Sweetness balances spice, aromatics complement flavors"
-    },
-    "sushi": {
-        "wine_types": ["White", "Sparkling"],
-        "varietals": ["Champagne", "Sake", "Riesling", "Pinot Grigio"],
-        "characteristics": "Delicate, high-acidity wines",
-        "why": "Subtle flavors need delicate wines"
-    },
-    "dessert": {
-        "wine_types": ["Dessert"],
-        "varietals": ["Port", "Sauternes", "Moscato", "Ice Wine"],
-        "characteristics": "Sweet wines",
-        "why": "Wine should be sweeter than dessert"
-    }
-}
+from src.model.tools.cellar_tools import get_drink_status
 
 
 @tool
@@ -208,15 +61,9 @@ def get_food_pairing_wines(
         # Normalize food input
         food_lower = food.lower().strip()
 
-        # Find pairing rules
-        pairing_rule = FOOD_PAIRING_RULES.get(food_lower)
-
-        if not pairing_rule:
-            # Try partial matching
-            for key in FOOD_PAIRING_RULES.keys():
-                if food_lower in key or key in food_lower:
-                    pairing_rule = FOOD_PAIRING_RULES[key]
-                    break
+        # Get pairing rule from database
+        pairing_repo = FoodPairingRepository(get_default_db_path())
+        pairing_rule = pairing_repo.find_matching_rule(food_lower)
 
         if not pairing_rule:
             return {
@@ -226,9 +73,9 @@ def get_food_pairing_wines(
                 "general_advice": "Match wine weight to food weight, acidity to richness"
             }
 
-        # Build recommendations
-        recommended_types = pairing_rule["wine_types"]
-        recommended_varietals = pairing_rule["varietals"]
+        # Build recommendations from database rule
+        recommended_types = pairing_rule.get_wine_types_list()
+        recommended_varietals = pairing_rule.get_varietals_list()
 
         # Filter by wine type preference
         if wine_type_preference:
@@ -241,7 +88,7 @@ def get_food_pairing_wines(
             "food_analyzed": food,
             "recommended_wine_types": recommended_types,
             "recommended_varietals": recommended_varietals,
-            "pairing_principles": pairing_rule["why"],
+            "pairing_principles": pairing_rule.pairing_explanation,
             "cellar_matches": []
         }
 
@@ -249,7 +96,6 @@ def get_food_pairing_wines(
         if from_cellar_only:
             wine_repo = WineRepository(get_default_db_path())
             bottle_repo = BottleRepository(get_default_db_path())
-            current_year = datetime.now().year
 
             cellar_matches = []
 
@@ -257,14 +103,15 @@ def get_food_pairing_wines(
                 wines = wine_repo.get_all(wine_type=wine_type, limit=100)
 
                 for wine in wines:
-                    if wine.q_quantity == 0:
+                    # Use get_owned_quantity to check if wine is in cellar
+                    n_bottles = bottle_repo.get_owned_quantity(wine.id)
+                    if n_bottles == 0:
                         continue
 
                     # Check if ready to drink
                     if ready_to_drink_only:
-                        if not wine.drink_from_year or not wine.drink_to_year:
-                            continue
-                        if not (wine.drink_from_year <= current_year <= wine.drink_to_year):
+                        drink_status = get_drink_status(wine.drink_from_year, wine.drink_to_year)
+                        if drink_status != "ready":
                             continue
 
                     # Calculate pairing score based on varietal match
@@ -280,15 +127,7 @@ def get_food_pairing_wines(
                         pairing_score = 50
 
                     # Determine drinking status
-                    if wine.drink_from_year and wine.drink_to_year:
-                        if current_year < wine.drink_from_year:
-                            drink_status = "aging"
-                        elif current_year > wine.drink_to_year:
-                            drink_status = "past_peak"
-                        else:
-                            drink_status = "ready"
-                    else:
-                        drink_status = "unknown"
+                    drink_status = get_drink_status(wine.drink_from_year, wine.drink_to_year)
 
                     # Get location
                     bottles = bottle_repo.get_by_wine(wine.id, status='in_cellar')
@@ -303,9 +142,9 @@ def get_food_pairing_wines(
                         "varietal": wine.varietal,
                         "region": wine.region_name,
                         "location": location,
-                        "quantity": wine.q_quantity,
+                        "quantity": n_bottles,
                         "pairing_score": pairing_score,
-                        "pairing_notes": f"Pairs well with {food} - {pairing_rule['characteristics']}",
+                        "pairing_notes": f"Pairs well with {food} - {pairing_rule.characteristics}",
                         "drinking_status": drink_status
                     })
 
@@ -520,13 +359,16 @@ def get_wine_and_cheese_pairings(
         # Find wines from cellar if requested
         if from_cellar_only:
             wine_repo = WineRepository(get_default_db_path())
+            bottle_repo = BottleRepository(get_default_db_path())
             suggestions = []
 
             for wine_type in wine_types:
                 wines = wine_repo.get_all(wine_type=wine_type, limit=50)
 
                 for wine in wines:
-                    if wine.q_quantity == 0:
+                    # Use get_owned_quantity
+                    n_bottles = bottle_repo.get_owned_quantity(wine.id)
+                    if n_bottles == 0:
                         continue
 
                     # Score based on varietal match
@@ -546,7 +388,7 @@ def get_wine_and_cheese_pairings(
                         "wine_type": wine.wine_type,
                         "varietal": wine.varietal,
                         "pairing_score": score,
-                        "quantity": wine.q_quantity
+                        "quantity": n_bottles
                     })
 
             suggestions.sort(key=lambda x: x["pairing_score"], reverse=True)

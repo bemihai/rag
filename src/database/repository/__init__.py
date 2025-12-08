@@ -11,6 +11,7 @@ from .stats import StatsRepository
 from .tasting import TastingRepository
 from .wine import WineRepository
 from .sync_logs import SyncLogRepository
+from .food_pairing import FoodPairingRepository
 
 __all__ = [
     "BottleRepository",
@@ -20,4 +21,5 @@ __all__ = [
     "TastingRepository",
     "WineRepository",
     "SyncLogRepository",
+    "FoodPairingRepository",
 ]
