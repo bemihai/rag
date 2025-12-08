@@ -86,6 +86,25 @@ class BottleRepository:
             cursor.execute(query, params)
             return [Bottle(**dict(row)) for row in cursor.fetchall()]
 
+    def get_owned_quantity(self, wine_id: int) -> int:
+        """
+        Get total quantity of owned bottles for a wine (in cellar).
+
+        Args:
+            wine_id: Wine ID
+
+        Returns:
+            Total number of bottles owned (in_cellar status)
+        """
+        with get_db_connection(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT SUM(quantity) as total FROM bottles WHERE wine_id = ? AND status = 'in_cellar'",
+                (wine_id,)
+            )
+            row = cursor.fetchone()
+            return row['total'] if row and row['total'] else 0
+
     def get_inventory(self, location : str | None = None, wine_type: str | None = None) -> list[dict]:
         """
         Get current inventory with wine details.
@@ -234,4 +253,3 @@ class BottleRepository:
 
             result = cursor.fetchone()
             return result['total'] or 0
-

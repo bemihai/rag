@@ -94,7 +94,6 @@ __all__ = [
     "get_cellar_statistics",
     "get_top_rated_wines",
     "get_wine_recommendations_from_profile",
-    "analyze_rating_trends",
     "compare_wine_to_profile",
     "get_pairing_for_wine",
     "get_wine_and_cheese_pairings",
