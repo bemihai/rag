@@ -151,22 +151,42 @@ class WineRepository:
 
 
     def get_all(
-        self, wine_type: str | None = None, country: str | None = None, min_rating: int | None = None,
-        search: str | None = None, limit: int | None = None, offset: int = 0
+        self,
+        # Optional exact match filters
+        vintage: int | None = None,
+        wine_type: str | None = None,
+        appellation: str | None = None,
+        country: str | None = None,
+        min_rating: int | None = None,
+        ready_to_drink: bool | None = None,
+        # Search filters (partial match)
+        producer_name: str | None = None,
+        region_name: str | None = None,
+        wine_name: str | None = None,
+        varietal: str | None = None,
+        # Pagination
+        limit: int | None = None,
+        offset: int = 0
     ) -> list[Wine]:
         """
         Get all wines with optional filters.
 
         Args:
-            wine_type: Filter by wine type
-            country: Filter by country
-            min_rating: Minimum personal rating
-            search: Search in wine name, producer, varietal
+            vintage: Exact vintage year filter
+            wine_type: Exact wine type filter (Red, White, Rosé, Sparkling, etc.)
+            appellation: Exact appellation filter
+            country: Exact country filter
+            min_rating: Minimum personal rating (0-100 scale)
+            ready_to_drink: If True, filter wines in drinking window; if False, exclude them; if None, no filter
+            producer_name: Search filter for producer name (partial match, case-insensitive)
+            region_name: Search filter for region name (partial match, case-insensitive)
+            wine_name: Search filter for wine name (partial match, case-insensitive)
+            varietal: Search filter for varietal/grape variety (partial match, case-insensitive)
             limit: Maximum number of results
             offset: Number of results to skip
 
         Returns:
-            List of Wine models
+            List of Wine models matching the filters
         """
         with get_db_connection(self.db_path) as conn:
             cursor = conn.cursor()
@@ -189,22 +209,57 @@ class WineRepository:
             """
             params = []
 
+            # Optional exact match filters
+            if vintage is not None:
+                query += " AND w.vintage = ?"
+                params.append(vintage)
+
             if wine_type:
                 query += " AND w.wine_type = ?"
                 params.append(wine_type)
+
+            if appellation:
+                query += " AND w.appellation = ?"
+                params.append(appellation)
 
             if country:
                 query += " AND r.country = ?"
                 params.append(country)
 
-            if min_rating:
+            if min_rating is not None:
                 query += " AND t.personal_rating >= ?"
                 params.append(min_rating)
 
-            if search:
-                query += " AND (w.wine_name LIKE ? OR p.name LIKE ? OR w.varietal LIKE ?)"
-                search_param = f'%{search}%'
-                params.extend([search_param, search_param, search_param])
+            if ready_to_drink is not None:
+                current_year = datetime.now().year
+                if ready_to_drink:
+                    # Wines in drinking window
+                    query += " AND w.drink_from_year IS NOT NULL AND w.drink_to_year IS NOT NULL"
+                    query += " AND w.drink_from_year <= ? AND w.drink_to_year >= ?"
+                    params.extend([current_year, current_year])
+                else:
+                    # Wines not in drinking window (aging or past peak)
+                    query += " AND (w.drink_from_year IS NULL OR w.drink_to_year IS NULL"
+                    query += " OR w.drink_from_year > ? OR w.drink_to_year < ?)"
+                    params.extend([current_year, current_year])
+
+            # Search filters (partial match)
+            if producer_name:
+                query += " AND p.name LIKE ?"
+                params.append(f'%{producer_name}%')
+
+            if region_name:
+                query += " AND (r.primary_name LIKE ? OR r.secondary_name LIKE ?)"
+                region_param = f'%{region_name}%'
+                params.extend([region_param, region_param])
+
+            if wine_name:
+                query += " AND w.wine_name LIKE ?"
+                params.append(f'%{wine_name}%')
+
+            if varietal:
+                query += " AND w.varietal LIKE ?"
+                params.append(f'%{varietal}%')
 
             query += " ORDER BY p.name, w.vintage DESC"
 

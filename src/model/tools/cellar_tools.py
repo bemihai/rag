@@ -1,49 +1,55 @@
 """
 Wine agent tools for cellar management.
-
 This module provides tools for querying and managing the user's wine cellar inventory.
-All tools operate on local SQLite database - completely free.
 """
 
-from typing import List, Dict, Optional
+from typing import List, Dict
 from datetime import datetime
 from langchain_core.tools import tool
 
 from src.database.repository import WineRepository, BottleRepository, StatsRepository
+from src.model.tools.utils import get_drink_status
 from src.utils import get_default_db_path, logger
 
 
 @tool
 def get_cellar_wines(
-    region: Optional[str] = None,
-    country: Optional[str] = None,
-    wine_type: Optional[str] = None,
-    varietal: Optional[str] = None,
-    vintage_min: Optional[int] = None,
-    vintage_max: Optional[int] = None,
+    region: str | None = None,
+    country: str | None = None,
+    producer: str | None = None,
+    wine_name: str | None = None,
+    wine_type: str | None = None,
+    varietal: str | None = None,
+    appellation: str | None = None,
+    vintage: int | None = None,
+    vintage_min: int | None = None,
+    vintage_max: int | None = None,
     ready_to_drink: bool = False,
-    producer: Optional[str] = None,
+    min_rating: int | None = None,
     limit: int = 50
 ) -> List[Dict]:
-    """Get wines from user's cellar with optional filters.
+    """Get wines from user's cellar with optional and search filters.
 
     Query the local wine cellar database to find wines matching specified criteria.
     All filters are optional and can be combined for precise searching.
 
     Args:
-        region: Filter by wine region/appellation (e.g., "Burgundy", "Piedmont", "Rioja").
+        region: Filter by wine region (e.g., "Burgundy", "Piedmont", "Rioja").
                 Supports partial matching (e.g., "Burg" matches "Burgundy").
-        country: Filter by country (e.g., "France", "Italy", "Spain", "USA").
-                Supports partial matching (e.g., "Fran" matches "France").
+        country: Filter by country (e.g., "France", "Italy", "Spain", "USA"). Exact match.
+        producer: Filter by producer/winery name. Supports partial matching.
+        wine_name: Filter by wine name. Supports partial matching.
         wine_type: Filter by wine type. Must be one of: "Red", "White", "Rosé",
-                  "Sparkling", "Dessert", "Fortified".
+                  "Sparkling", "Dessert", "Fortified". Exact match.
         varietal: Filter by grape variety (e.g., "Pinot Noir", "Cabernet Sauvignon").
                  Supports partial matching.
+        appellation: Filter by appellation (e.g., "Pauillac", "Barolo DOCG"). Exact match.
+        vintage: Filter by exact vintage year. Example: 2015
         vintage_min: Minimum vintage year (inclusive). Example: 2015
         vintage_max: Maximum vintage year (inclusive). Example: 2020
         ready_to_drink: If True, only return wines currently in their drinking window
                        (current year is between drink_from_year and drink_to_year).
-        producer: Filter by producer/winery name. Supports partial matching.
+        min_rating: Minimum personal rating (0-100 scale).
         limit: Maximum number of wines to return. Default 50, max 200.
 
     Returns:
@@ -69,71 +75,48 @@ def get_cellar_wines(
         >>> wines = get_cellar_wines(wine_type="Red", vintage_min=2015, vintage_max=2020)
         >>> wines = get_cellar_wines(producer="Domaine Leflaive")
         >>> wines = get_cellar_wines(country="France", wine_type="White")
+        >>> wines = get_cellar_wines(appellation="Barolo DOCG", ready_to_drink=True)
 
     Notes:
-        - Completely free operation (local SQLite query)
         - Returns empty list if no wines match criteria
-        - Results ordered by region, then vintage (descending)
+        - Results ordered by producer, then vintage (descending)
+        - Only returns wines with bottles in cellar (quantity > 0)
     """
-    print(f"get_cellar_wines called with region={region}, country={country}, wine_type={wine_type}, varietal={varietal}, "
-          f"vintage_min={vintage_min}, vintage_max={vintage_max}, ready_to_drink={ready_to_drink}, producer={producer}, "
-          f"limit={limit}")
     try:
         wine_repo = WineRepository(get_default_db_path())
         bottle_repo = BottleRepository(get_default_db_path())
+        vintage_filter = vintage if vintage is not None else None
 
-        # Get all wines with filters
         wines = wine_repo.get_all(
+            vintage=vintage_filter,
             wine_type=wine_type,
+            appellation=appellation,
             country=country,
-            # search=region,
-            limit=min(limit, 100)
+            min_rating=min_rating,
+            ready_to_drink=ready_to_drink if ready_to_drink else None,
+            producer_name=producer,
+            region_name=region,
+            wine_name=wine_name,
+            varietal=varietal
         )
 
         results = []
-        current_year = datetime.now().year
-
         for wine in wines:
-            # Apply additional filters
-            if region and region.lower() not in (wine.region_name or "").lower():
-                continue
-
-            if varietal and varietal.lower() not in (wine.varietal or "").lower():
-                continue
-
-            if vintage_min and wine.vintage and wine.vintage < vintage_min:
-                continue
-
-            if vintage_max and wine.vintage and wine.vintage > vintage_max:
-                continue
-
-            # Check drinking window
-            if ready_to_drink:
-                if not wine.drink_from_year or not wine.drink_to_year:
+            if vintage is None:
+                if vintage_min and wine.vintage and wine.vintage < vintage_min:
                     continue
-                if not (wine.drink_from_year <= current_year <= wine.drink_to_year):
+                if vintage_max and wine.vintage and wine.vintage > vintage_max:
                     continue
 
             # Get bottle information
-            bottles = bottle_repo.get_by_wine(wine.id, status='in_cellar')
+            bottles = bottle_repo.get_by_wine(wine.id, status="in_cellar")
             if not bottles:
-                continue  # Skip wines with no bottles in cellar
+                continue
 
             # Determine drink status
-            if wine.drink_from_year and wine.drink_to_year:
-                if current_year < wine.drink_from_year:
-                    drink_status = "aging"
-                elif current_year > wine.drink_to_year:
-                    drink_status = "past_peak"
-                else:
-                    drink_status = "ready"
-            else:
-                drink_status = "unknown"
+            drink_status = get_drink_status(wine.drink_from_year, wine.drink_to_year)
 
-            # Get location from first bottle
             location = bottles[0].location if bottles else None
-
-            # Calculate total quantity
             total_quantity = sum(b.quantity for b in bottles)
 
             results.append({
@@ -154,11 +137,8 @@ def get_cellar_wines(
                 "purchase_price": bottles[0].purchase_price if bottles else None
             })
 
-        # Sort by region, then vintage
-        results.sort(key=lambda x: (x["region"] or "", -(x["vintage"] or 0)))
-
         logger.info(f"Found {len(results)} wines matching criteria")
-        return results
+        return results[:min(limit, 200)]
 
     except Exception as e:
         logger.error(f"Error getting cellar wines: {e}")
@@ -167,9 +147,8 @@ def get_cellar_wines(
 
 @tool
 def get_wine_details(
-    wine_id: Optional[int] = None,
-    wine_name: Optional[str] = None,
-    vintage: Optional[int] = None
+    wine_name: str | None = None,
+    vintage: int | None = None
 ) -> Dict:
     """Get detailed information about a specific wine in the cellar.
 
@@ -177,7 +156,6 @@ def get_wine_details(
     tasting notes, ratings, and purchase information.
 
     Args:
-        wine_id: Unique wine identifier. Use this if you know the exact ID.
         wine_name: Wine name to search for. Supports partial matching.
                   Example: "Gevrey" will match "Gevrey-Chambertin"
         vintage: Vintage year to filter by (optional, use with wine_name).
@@ -185,7 +163,6 @@ def get_wine_details(
 
     Returns:
         Dictionary containing detailed wine information:
-        - wine_id: Unique identifier
         - name: Full wine name
         - producer: Producer/winery name with country
         - vintage: Vintage year
@@ -197,13 +174,11 @@ def get_wine_details(
         - region: Full region (primary + secondary)
         - country: Country of origin
         - bottle_size: Bottle size (e.g., "750ml", "1.5L")
-        - alcohol_content: ABV percentage
 
         Inventory details:
         - quantity_owned: Current number of bottles owned
         - quantity_consumed: Total bottles consumed
-        - quantity_purchased: Total bottles ever purchased
-        - location: Cellar location (e.g., "Rack A3, Shelf 2")
+        - location: Cellar location + bin  (e.g., "Cellar, Bin 2.1")
         - purchase_date: When purchased
         - purchase_price: Price paid per bottle
 
@@ -211,7 +186,7 @@ def get_wine_details(
         - drink_from_year: Start of optimal drinking period
         - drink_to_year: End of optimal drinking period
         - drink_status: Current status ("ready", "aging", "past_peak", "unknown")
-        - drink_index: Drinkability score (0-10)
+        - drink_index: Drinkability score
 
         Tasting information:
         - personal_rating: User's rating (0-100 scale)
@@ -234,48 +209,29 @@ def get_wine_details(
         - Completely free operation (local SQLite query)
     """
     try:
-        if not wine_id and not wine_name:
+        if not wine_name:
             return {"error": "Must provide either wine_id or wine_name"}
 
         wine_repo = WineRepository(get_default_db_path())
         bottle_repo = BottleRepository(get_default_db_path())
 
-        # Get wine
-        if wine_id:
-            wine = wine_repo.get_by_id(wine_id)
-        else:
-            # Search by name
-            wines = wine_repo.get_all(search=wine_name, limit=10)
-            if vintage:
-                wines = [w for w in wines if w.vintage == vintage]
-            wine = wines[0] if wines else None
+
+        wines = wine_repo.get_all(wine_name=wine_name, limit=10)
+        if vintage:
+            wines = [w for w in wines if w.vintage == vintage]
+        wine = wines[0] if wines else None
 
         if not wine:
             return {"error": "Wine not found"}
 
-        # Get bottles
         bottles = bottle_repo.get_by_wine(wine.id)
-        in_cellar_bottles = [b for b in bottles if b.status == 'in_cellar']
-        consumed_bottles = [b for b in bottles if b.status == 'consumed']
-
-        # Determine drink status
-        current_year = datetime.now().year
-        if wine.drink_from_year and wine.drink_to_year:
-            if current_year < wine.drink_from_year:
-                drink_status = "aging"
-            elif current_year > wine.drink_to_year:
-                drink_status = "past_peak"
-            else:
-                drink_status = "ready"
-        else:
-            drink_status = "unknown"
-
-        # Get locations (unique)
-        locations = list(set(b.location for b in in_cellar_bottles if b.location))
+        in_cellar_bottles = [b for b in bottles if b.status == "in_cellar"]
+        consumed_bottles = [b for b in bottles if b.status == "consumed"]
+        drink_status = get_drink_status(wine.drink_from_year, wine.drink_to_year)
+        locations = list(set(f"{b.location}-{b.bin}" for b in in_cellar_bottles if b.location))
 
         return {
             # Basic info
-            "wine_id": wine.id,
             "name": wine.wine_name,
             "producer": wine.producer_name,
             "vintage": wine.vintage,
@@ -290,8 +246,7 @@ def get_wine_details(
 
             # Inventory
             "quantity_owned": sum(b.quantity for b in in_cellar_bottles),
-            "quantity_consumed": wine.q_consumed,
-            "quantity_purchased": wine.q_purchased,
+            "quantity_consumed": sum(b.quantity for b in consumed_bottles),
             "location": ", ".join(locations) if locations else None,
             "purchase_date": in_cellar_bottles[0].purchase_date if in_cellar_bottles else None,
             "purchase_price": in_cellar_bottles[0].purchase_price if in_cellar_bottles else None,
@@ -371,10 +326,7 @@ def get_cellar_statistics() -> Dict:
         stats_repo = StatsRepository(get_default_db_path())
         wine_repo = WineRepository(get_default_db_path())
 
-        # Get basic overview
         overview = stats_repo.get_cellar_overview()
-
-        # Calculate drinking window stats
         wines = wine_repo.get_all()
         current_year = datetime.now().year
 
@@ -388,27 +340,20 @@ def get_cellar_statistics() -> Dict:
                      and w.q_quantity > 0)
 
         # Calculate type percentages
-        total = overview['total_bottles']
+        total = overview["total_bottles"]
         type_percentages = {}
         if total > 0:
-            for type_info in overview['by_type']:
-                type_percentages[type_info['wine_type']] = round(
-                    (type_info['bottles'] / total) * 100, 1
+            for type_info in overview["by_type"]:
+                type_percentages[type_info["wine_type"]] = round(
+                    (type_info["bottles"] / total) * 100, 1
                 )
 
         return {
-            # Overview
             "total_bottles": overview['total_bottles'],
             "unique_wines": overview['unique_wines'],
-
-            # By type
             "by_type": overview['by_type'],
             "type_percentages": type_percentages,
-
-            # By country
             "by_country": overview['by_country'],
-
-            # Drinking windows
             "ready_to_drink": ready,
             "still_aging": aging,
             "past_peak": past_peak,
@@ -418,87 +363,4 @@ def get_cellar_statistics() -> Dict:
     except Exception as e:
         logger.error(f"Error getting cellar statistics: {e}")
         return {"error": str(e)}
-
-
-@tool
-def find_wines_by_location(location: str) -> List[Dict]:
-    """Find all wines stored at a specific cellar location.
-
-    Useful for physical cellar management and inventory checks.
-
-    Args:
-        location: Cellar location identifier. Examples:
-                 - "Rack A3" (specific rack)
-                 - "A" (all locations starting with A)
-                 - "Shelf 2" (specific shelf)
-                 Supports partial matching.
-
-    Returns:
-        List of dictionaries containing:
-        - wine_id: Unique identifier
-        - name: Wine name
-        - producer: Producer name
-        - vintage: Vintage year
-        - wine_type: Type of wine
-        - quantity: Number of bottles at this location
-        - exact_location: Full location string
-        - drinking_window: Optimal drinking period
-        - drink_status: Current drinking status
-
-    Example:
-        >>> wines = find_wines_by_location("Rack A3")
-        >>> wines = find_wines_by_location("A")  # All A racks
-
-    Notes:
-        - Returns empty list if location not found
-        - Results ordered by wine name
-        - Completely free operation (local SQLite query)
-    """
-    try:
-        bottle_repo = BottleRepository(get_default_db_path())
-        wine_repo = WineRepository(get_default_db_path())
-
-        # Get inventory filtered by location
-        inventory = bottle_repo.get_inventory(location=location)
-
-        results = []
-        current_year = datetime.now().year
-
-        for item in inventory:
-            wine = wine_repo.get_by_id(item['wine_id'])
-            if not wine:
-                continue
-
-            # Determine drink status
-            if wine.drink_from_year and wine.drink_to_year:
-                if current_year < wine.drink_from_year:
-                    drink_status = "aging"
-                elif current_year > wine.drink_to_year:
-                    drink_status = "past_peak"
-                else:
-                    drink_status = "ready"
-            else:
-                drink_status = "unknown"
-
-            results.append({
-                "wine_id": wine.id,
-                "name": wine.wine_name,
-                "producer": wine.producer_name,
-                "vintage": wine.vintage,
-                "wine_type": wine.wine_type,
-                "quantity": item.get('quantity', 0),
-                "exact_location": item.get('location'),
-                "drinking_window": f"{wine.drink_from_year}-{wine.drink_to_year}" if wine.drink_from_year else None,
-                "drink_status": drink_status
-            })
-
-        # Sort by wine name
-        results.sort(key=lambda x: x["name"])
-
-        logger.info(f"Found {len(results)} wines at location '{location}'")
-        return results
-
-    except Exception as e:
-        logger.error(f"Error finding wines by location: {e}")
-        return []
 
