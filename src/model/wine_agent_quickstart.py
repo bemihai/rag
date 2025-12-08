@@ -11,9 +11,9 @@ from src.utils import logger
 def main():
     """Quick start example for wine agent."""
 
-    # Create agent with Phase 1 tools
-    print("Creating wine agent with Phase 1 tools...")
-    agent = create_wine_agent(phase=1, verbose=True)
+    # Create agent
+    print("Creating wine agent...")
+    agent = create_wine_agent(verbose=True)
     print(f"✓ Agent created with {len(agent.get_available_tools())} tools")
     print()
 

@@ -19,7 +19,7 @@ from langgraph.prebuilt import ToolNode
 from typing_extensions import TypedDict
 
 from src.model.llm import load_base_model
-from src.model.tools import get_tools_for_phase
+from src.model.tools import get_tools
 from src.utils import get_config, logger
 
 
@@ -51,13 +51,11 @@ class WineAgent:
         llm: The language model used for reasoning and generation
         tools: List of tools available to the agent
         agent: The compiled LangGraph agent
-        phase: Implementation phase (1 or 2)
     """
 
     def __init__(
         self,
         llm: Optional[BaseChatModel] = None,
-        phase: int = 1,
         verbose: bool = False
     ):
         """
@@ -65,13 +63,8 @@ class WineAgent:
 
         Args:
             llm: Language model instance. If None, loads default from config.
-            phase: Implementation phase (1=core tools, 2=all tools). Default 1.
             verbose: If True, shows agent reasoning steps. Default False.
-
-        Raises:
-            ValueError: If phase is not 1 or 2
         """
-        self.phase = phase
         self.verbose = verbose
 
         # Load LLM if not provided
@@ -86,9 +79,9 @@ class WineAgent:
             self.llm = llm
             logger.info(f"Using provided LLM: {type(llm).__name__}")
 
-        # Get tools for this phase
-        self.tools = get_tools_for_phase(phase)
-        logger.info(f"Loaded {len(self.tools)} tools for Phase {phase}")
+        # Get tools
+        self.tools = get_tools()
+        logger.info(f"Loaded {len(self.tools)} tools.")
 
         # Create agent
         self.agent = self._create_agent()
@@ -187,7 +180,7 @@ class WineAgent:
             - intermediate_steps: Agent reasoning steps (if verbose=True)
 
         Example:
-            >>> agent = WineAgent(phase=1)
+            >>> agent = WineAgent()
             >>> result = agent.invoke("What Burgundy wines do I own?")
             >>> print(result['final_answer'])
 
@@ -235,7 +228,7 @@ class WineAgent:
             Dictionary chunks with agent state updates
 
         Example:
-            >>> agent = WineAgent(phase=1)
+            >>> agent = WineAgent()
             >>> for chunk in agent.stream("What wines should I drink tonight?"):
             ...     print(chunk)
 
@@ -281,7 +274,7 @@ class WineAgent:
             List of tool names the agent can use
 
         Example:
-            >>> agent = WineAgent(phase=1)
+            >>> agent = WineAgent()
             >>> tools = agent.get_available_tools()
             >>> print(f"Agent has {len(tools)} tools available")
         """
@@ -298,7 +291,7 @@ class WineAgent:
             tools: List of additional tool instances to add
 
         Example:
-            >>> agent = WineAgent(phase=1)
+            >>> agent = WineAgent()
             >>> agent.add_tools([my_custom_tool])
 
         Notes:
@@ -311,7 +304,6 @@ class WineAgent:
 
 
 def create_wine_agent(
-    phase: int = 1,
     verbose: bool = False,
     config_override: Optional[dict] = None
 ) -> WineAgent:
@@ -321,7 +313,6 @@ def create_wine_agent(
     Convenience function that handles configuration and initialization.
 
     Args:
-        phase: Implementation phase (1=core tools, 2=all tools). Default 1.
         verbose: If True, agent shows reasoning steps. Default False.
         config_override: Optional dict to override default config settings.
                         Example: {"model": {"name": "gemini-2.0-flash-exp"}}
@@ -330,7 +321,7 @@ def create_wine_agent(
         Initialized WineAgent instance ready to process queries
 
     Example:
-        >>> agent = create_wine_agent(phase=1, verbose=True)
+        >>> agent = create_wine_agent(verbose=True)
         >>> result = agent.invoke("What wines do I own?")
 
     Notes:
@@ -347,11 +338,10 @@ def create_wine_agent(
 
     agent = WineAgent(
         llm=None,
-        phase=phase,
         verbose=verbose
     )
 
-    logger.info(f"Created wine agent (Phase {phase}, verbose={verbose})")
+    logger.info(f"Created wine agent (verbose={verbose})")
 
     return agent
 
