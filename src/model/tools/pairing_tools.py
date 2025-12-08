@@ -6,7 +6,6 @@ using pairing rules from the database and user's cellar inventory.
 """
 
 from typing import Dict, List, Optional
-from datetime import datetime
 from langchain_core.tools import tool
 
 from src.database.repository import WineRepository, BottleRepository, FoodPairingRepository
@@ -164,20 +163,20 @@ def get_food_pairing_wines(
 
 
 @tool
-def get_pairing_for_wine(wine_id: int) -> Dict:
+def get_pairing_for_wine(wine_name: str) -> Dict:
     """Get food pairing recommendations for a specific wine.
 
     Given a wine from the cellar, suggest foods that pair well with it.
     Useful when deciding what to cook based on a wine you want to drink.
 
     Args:
-        wine_id: Unique identifier of the wine
+        wine_name: The name of the wine to get pairings for.
 
     Returns:
         Dictionary containing food pairing recommendations.
 
     Example:
-        >>> pairing = get_pairing_for_wine(wine_id=42)
+        >>> pairing = get_pairing_for_wine(wine_name="Smerenie")
         >>> print(f"Primary pairings: {pairing['primary_pairings']}")
 
     Notes:
@@ -187,15 +186,10 @@ def get_pairing_for_wine(wine_id: int) -> Dict:
     """
     try:
         wine_repo = WineRepository(get_default_db_path())
-        wine = wine_repo.get_by_id(wine_id)
+        wine = wine_repo.get_by_name(wine_name)
 
         if not wine:
             return {"error": "Wine not found"}
-
-        # Determine pairings based on wine type and varietal
-        primary_pairings = []
-        secondary_pairings = []
-        proteins = []
 
         wine_type = wine.wine_type
         varietal = (wine.varietal or "").lower()

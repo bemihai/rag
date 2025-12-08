@@ -87,6 +87,51 @@ class WineRepository:
                 return Wine(**dict(row))
             return None
 
+    def get_by_name(self, wine_name: str, vintage: int | None = None) -> Wine | None:
+        """
+        Get wine by name using partial matching.
+
+        Args:
+            wine_name: Wine name to search for (partial match supported)
+            vintage: Optional vintage to narrow down results
+
+        Returns:
+            Wine model or None if not found. Returns first match if multiple wines found.
+        """
+        with get_db_connection(self.db_path) as conn:
+            cursor = conn.cursor()
+
+            query = """
+                SELECT 
+                    w.*, 
+                    p.name as producer_name, 
+                    COALESCE(r.primary_name || COALESCE(' - ' || r.secondary_name, ''), '') as region_name,
+                    r.country,
+                    t.personal_rating,
+                    t.community_rating,
+                    t.tasting_notes,
+                    t.last_tasted_date
+                FROM wines w
+                LEFT JOIN producers p ON w.producer_id = p.id
+                LEFT JOIN regions r ON w.region_id = r.id
+                LEFT JOIN tastings t ON w.id = t.wine_id
+                WHERE LOWER(w.wine_name) LIKE LOWER(?)
+            """
+            params = [f"%{wine_name}%"]
+
+            if vintage is not None:
+                query += " AND w.vintage = ?"
+                params.append(vintage)
+
+            query += " ORDER BY w.wine_name LIMIT 1"
+
+            cursor.execute(query, params)
+            row = cursor.fetchone()
+
+            if row:
+                return Wine(**dict(row))
+            return None
+
     def find_duplicates(
             self, wine_name: str, producer: str, wine_type: str, vintage: int | None, confidence: float = 0.85
     ) -> list[Wine] | None:
@@ -382,5 +427,3 @@ class WineRepository:
 
             cursor.execute(query, params)
             return cursor.fetchone()['count']
-
-
