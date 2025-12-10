@@ -162,6 +162,11 @@ test-connection: check-env
 	@echo "Testing ChromaDB connection..."
 	@python3 -c "import chromadb; client = chromadb.HttpClient(host='localhost', port=$(CHROMA_PORT)); print('✓ Connection successful'); print('Version:', client.get_version())" 2>/dev/null || echo "✗ Connection failed"
 
+.PHONY: db-load
+db-load: db-up install-deps
+	@echo "Loading external data into ChromaDB..."
+	@PYTHONPATH=$(shell pwd) python3 src/rag/load_data.py
+
 # Wine Cellar Database Commands
 CELLAR_DB_PATH ?= data/wine_cellar.db
 CELLAR_BACKUP_DIR ?= backups/wine_cellar
@@ -272,8 +277,3 @@ cellar-sync:
 	@echo ""
 	@echo "✅ All sources synced!"
 
-
-.PHONY: db-load
-db-load: db-up install-deps
-	@echo "Loading external data into ChromaDB..."
-	@PYTHONPATH=$(shell pwd) python3 src/data/load_data.py
