@@ -27,7 +27,7 @@ class WineRepository:
             wine_id: Wine ID
 
         Returns:
-            Wine model or None if not found
+            Wine agents or None if not found
         """
         with get_db_connection(self.db_path) as conn:
             cursor = conn.cursor()
@@ -61,7 +61,7 @@ class WineRepository:
             external_id: External ID from source system
 
         Returns:
-            Wine model or None if not found
+            Wine agents or None if not found
         """
         with get_db_connection(self.db_path) as conn:
             cursor = conn.cursor()
@@ -96,7 +96,7 @@ class WineRepository:
             vintage: Optional vintage to narrow down results
 
         Returns:
-            Wine model or None if not found. Returns first match if multiple wines found.
+            Wine agents or None if not found. Returns first match if multiple wines found.
         """
         with get_db_connection(self.db_path) as conn:
             cursor = conn.cursor()
@@ -320,7 +320,7 @@ class WineRepository:
         Create new wine record.
 
         Args:
-            wine: Wine model
+            wine: Wine agents
 
         Returns:
             ID of created wine
@@ -355,7 +355,7 @@ class WineRepository:
         Update existing wine record.
 
         Args:
-            wine: Wine model with updated data
+            wine: Wine agents with updated data
 
         Returns:
             True if successful

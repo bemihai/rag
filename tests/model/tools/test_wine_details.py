@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """Test script for get_wine_details tool."""
 
-from src.model.tools.cellar_tools import get_wine_details
+from src.agents.tools.cellar_tools import get_wine_details
 
 print('Testing get_wine_details tool...')
 print('=' * 60)

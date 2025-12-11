@@ -4,7 +4,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class Producer(BaseModel):
-    """Wine producer/winery model."""
+    """Wine producer/winery agents."""
     model_config = ConfigDict(from_attributes=True)
 
     id: int | None = Field(None, description="Unique identifier")
@@ -17,7 +17,7 @@ class Producer(BaseModel):
 
 
 class Region(BaseModel):
-    """Geographic wine region model."""
+    """Geographic wine region agents."""
     model_config = ConfigDict(from_attributes=True)
 
     id: int | None = Field(None, description="Unique identifier")
@@ -29,7 +29,7 @@ class Region(BaseModel):
 
 
 class Tasting(BaseModel):
-    """Tasting notes and ratings model."""
+    """Tasting notes and ratings agents."""
     model_config = ConfigDict(from_attributes=True)
 
     id: int | None = Field(None, description="Unique identifier")
@@ -47,7 +47,7 @@ class Tasting(BaseModel):
 
 
 class Wine(BaseModel):
-    """Wine catalog model."""
+    """Wine catalog agents."""
     model_config = ConfigDict(from_attributes=True)
 
     # Ids and foreign keys
@@ -91,7 +91,7 @@ class Wine(BaseModel):
 
 
 class Bottle(BaseModel):
-    """Individual bottle inventory model."""
+    """Individual bottle inventory agents."""
     model_config = ConfigDict(from_attributes=True)
 
     # Ids and foreign keys
@@ -122,7 +122,7 @@ class Bottle(BaseModel):
 
 
 class SyncLog(BaseModel):
-    """Sync operation log model."""
+    """Sync operation log agents."""
     model_config = ConfigDict(from_attributes=True)
 
     id: int | None = Field(None, description="Unique identifier")
@@ -142,7 +142,7 @@ class SyncLog(BaseModel):
 
 
 class FoodPairingRule(BaseModel):
-    """Food pairing rule model."""
+    """Food pairing rule agents."""
     model_config = ConfigDict(from_attributes=True)
 
     id: int | None = Field(None, description="Unique identifier")

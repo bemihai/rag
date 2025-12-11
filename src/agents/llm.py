@@ -19,20 +19,20 @@ class ModelInternalError(Exception):
 
     @property
     def default_message(self) -> str:
-        """Default answer when model raises this error."""
+        """Default answer when agents raises this error."""
         return "I can't answer your question due to an internal error, please try again later."
 
 
 def load_base_model(model_provider: str, model_name: str, **kwargs) -> BaseChatModel:
     """
-    Loads the base LLM model based on the provider.
+    Loads the base LLM agents based on the provider.
 
     Args:
-        model_provider (str): The model provider, e.g., "google", "openai".
-        model_name (str): The name of the model to load.
-        **kwargs: Additional keyword arguments to pass to the model constructor.
+        model_provider (str): The agents provider, e.g., "google", "openai".
+        model_name (str): The name of the agents to load.
+        **kwargs: Additional keyword arguments to pass to the agents constructor.
 
-    Returns: An instance of the loaded chat model.
+    Returns: An instance of the loaded chat agents.
     """
     # TODO: fix langfuse with langchain v1
     # callback_manager = CallbackManager([get_langfuse_callback()])
@@ -46,7 +46,7 @@ def load_base_model(model_provider: str, model_name: str, **kwargs) -> BaseChatM
                 # callback_manager=callback_manager,
                 **kwargs,
             )
-            logger.info(f"Loaded Google model successfully: {model_name}")
+            logger.info(f"Loaded Google agents successfully: {model_name}")
             return model
         case "openai":
             api_key = st.secrets["OPENAI_API_KEY"] if "OPENAI_API_KEY" in st.secrets else None
@@ -60,23 +60,23 @@ def load_base_model(model_provider: str, model_name: str, **kwargs) -> BaseChatM
                 # callback_manager=callback_manager,
                 **kwargs,
             )
-            logger.info(f"Loaded OpenAI model successfully: {model_name}")
+            logger.info(f"Loaded OpenAI agents successfully: {model_name}")
             return model
         case _:
-            raise ValueError(f"Unsupported model provider: {model_provider}")
+            raise ValueError(f"Unsupported agents provider: {model_provider}")
 
 
 def invoke_llm(question: str, context: str, model: BaseChatModel, message_history: list) -> str:
     """
-    Invoke the LLM model with the provided question, context, and full message history.
+    Invoke the LLM agents with the provided question, context, and full message history.
 
     Args:
-        question (str): The user's question to be answered by the model.
+        question (str): The user's question to be answered by the agents.
         context (str): The context retrieved by the RAG pipeline.
-        model (BaseChatModel): The loaded LLM model instance.
+        model (BaseChatModel): The loaded LLM agents instance.
         message_history (list): List of dicts with previous messages, each having 'role' and 'question'/'answer'.
 
-    Returns: The model's answer as a string.
+    Returns: The agents's answer as a string.
     """
     messages = [("system", SYSTEM_PROMPT)]
     for msg in message_history:

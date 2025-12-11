@@ -26,7 +26,7 @@ class BottleRepository:
             bottle_id: Bottle ID
 
         Returns:
-            Bottle model or None if not found
+            Bottle agents or None if not found
         """
         with get_db_connection(self.db_path) as conn:
             cursor = conn.cursor()
@@ -46,7 +46,7 @@ class BottleRepository:
             external_bottle_id: External bottle ID from source system
 
         Returns:
-            Bottle model or None if not found
+            Bottle agents or None if not found
         """
         with get_db_connection(self.db_path) as conn:
             cursor = conn.cursor()
@@ -155,7 +155,7 @@ class BottleRepository:
         Create new bottle record.
 
         Args:
-            bottle: Bottle model
+            bottle: Bottle agents
 
         Returns:
             ID of created bottle
@@ -188,7 +188,7 @@ class BottleRepository:
         Update existing bottle record.
 
         Args:
-            bottle: Bottle model with updated data
+            bottle: Bottle agents with updated data
 
         Returns:
             True if successful

@@ -5,14 +5,14 @@ from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_core.prompts import PromptTemplate
 from langchain.chains import RetrievalQA
 
-from src.model.llm import load_base_model
+from src.agents.llm import load_base_model
 from src.utils import get_config
 
 if __name__ == "__main__":
 
     config = get_config()
 
-    # load the embedding model
+    # load the embedding agents
     embeddings = HuggingFaceEmbeddings(
         model_name="sentence-transformers/all-MiniLM-L6-v2"
     )

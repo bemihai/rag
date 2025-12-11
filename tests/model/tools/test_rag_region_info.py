@@ -1,6 +1,6 @@
 """Test script for search_wine_region_info tool."""
 
-from src.model.tools.rag_tools import search_wine_region_info
+from src.agents.tools.rag_tools import search_wine_region_info
 
 print('Testing search_wine_region_info tool...')
 print('=' * 60)

@@ -18,8 +18,8 @@ from langgraph.graph.message import add_messages
 from langgraph.prebuilt import ToolNode
 from typing_extensions import TypedDict
 
-from src.model.llm import load_base_model
-from src.model.tools import get_tools
+from src.agents.llm import load_base_model
+from src.agents.tools import get_tools
 from src.utils import get_config, logger
 
 
@@ -48,7 +48,7 @@ class WineAgent:
     - Tool correction (if needed): 0-1 call
 
     Attributes:
-        llm: The language model used for reasoning and generation
+        llm: The language agents used for reasoning and generation
         tools: List of tools available to the agent
         agent: The compiled LangGraph agent
     """
@@ -62,7 +62,7 @@ class WineAgent:
         Initialize the wine agent.
 
         Args:
-            llm: Language model instance. If None, loads default from config.
+            llm: Language agents instance. If None, loads default from config.
             verbose: If True, shows agent reasoning steps. Default False.
         """
         self.verbose = verbose
@@ -315,7 +315,7 @@ def create_wine_agent(
     Args:
         verbose: If True, agent shows reasoning steps. Default False.
         config_override: Optional dict to override default config settings.
-                        Example: {"model": {"name": "gemini-2.0-flash-exp"}}
+                        Example: {"agents": {"name": "gemini-2.0-flash-exp"}}
 
     Returns:
         Initialized WineAgent instance ready to process queries

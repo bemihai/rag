@@ -26,7 +26,7 @@ class TastingRepository:
             tasting_id: Tasting ID
 
         Returns:
-            Tasting model or None if not found
+            Tasting agents or None if not found
         """
         with get_db_connection(self.db_path) as conn:
             cursor = conn.cursor()
@@ -64,7 +64,7 @@ class TastingRepository:
             wine_id: Wine ID
 
         Returns:
-            Tasting model or None if not found
+            Tasting agents or None if not found
         """
         with get_db_connection(self.db_path) as conn:
             cursor = conn.cursor()
@@ -185,7 +185,7 @@ class TastingRepository:
         Create new tasting record.
 
         Args:
-            tasting: Tasting model
+            tasting: Tasting agents
 
         Returns:
             ID of created tasting
@@ -216,7 +216,7 @@ class TastingRepository:
         Update existing tasting record.
 
         Args:
-            tasting: Tasting model with updated data
+            tasting: Tasting agents with updated data
 
         Returns:
             True if successful

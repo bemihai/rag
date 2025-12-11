@@ -18,8 +18,8 @@ from langgraph.graph import StateGraph, END
 from langgraph.graph.message import add_messages
 from typing_extensions import TypedDict
 
-from src.model.llm import load_base_model
-from src.model.tools import get_tools
+from src.agents.llm import load_base_model
+from src.agents.tools import get_tools
 from src.utils import get_config, logger
 
 
@@ -87,7 +87,7 @@ class KeywordWineAgent:
     LLM Usage: 1 call per query (final answer only)
 
     Attributes:
-        llm: The language model for final answer generation
+        llm: The language agents for final answer generation
         tools: Dictionary mapping tool names to tool instances
         agent: The compiled LangGraph agent
     """
@@ -102,7 +102,7 @@ class KeywordWineAgent:
         Initialize the keyword-based wine agent.
 
         Args:
-            llm: Language model instance. If None, loads default from config.
+            llm: Language agents instance. If None, loads default from config.
             phase: Implementation phase (1=core tools, 2=all tools). Default 1.
             verbose: If True, shows routing decisions. Default False.
         """

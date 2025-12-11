@@ -30,7 +30,7 @@ class ChunkMetadata:
 
 
 class SemanticChunk(BaseModel):
-    """Pydantic model for instructor-based semantic chunking."""
+    """Pydantic agents for instructor-based semantic chunking."""
     content: str
     topic: str
     category: str

@@ -1,6 +1,6 @@
 """Test script for get_user_taste_profile tool."""
 
-from src.model.tools.taste_profile_tools import get_user_taste_profile
+from src.agents.tools.taste_profile_tools import get_user_taste_profile
 
 print('Testing get_user_taste_profile tool...')
 print('=' * 60)

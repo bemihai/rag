@@ -13,7 +13,7 @@ chroma:
     use_deduplication: false            # enable semantic deduplication of retrieved chunks
   settings:
     batch_size: 2500
-    embedder: sentence-transformers/all-MiniLM-L6-v2  # embedding model for retrieval
+    embedder: sentence-transformers/all-MiniLM-L6-v2  # embedding agents for retrieval
   collections:
     - name: wine_books                  # primary collection name to query
       local_data_path: /Users/bemihai/Books/Wine
@@ -27,7 +27,7 @@ chroma:
 
 model:
   provider: google                      # LLM provider (google, openai)
-  name: gemini-2.5-flash                # model name
+  name: gemini-2.5-flash                # agents name
 
 initial_message:
   answer: "Hi there! Ask me anything about wine."

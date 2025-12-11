@@ -14,7 +14,7 @@ class ChromaRetriever:
     Args:
         client: ChromaDB client instance.
         collection_name: Name of the collection to query.
-        embedding_model: HuggingFace model name for embeddings.
+        embedding_model: HuggingFace agents name for embeddings.
         n_results: Number of results to retrieve (default: 5).
         similarity_threshold: Optional minimum similarity score to filter results (default: None).
     """

@@ -5,7 +5,7 @@ from pathlib import Path
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 
-from src.model.tools.rag_tools import search_wine_producer_info
+from src.agents.tools.rag_tools import search_wine_producer_info
 
 print('Testing search_wine_producer_info tool...')
 print('=' * 60)

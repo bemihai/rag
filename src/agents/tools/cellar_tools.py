@@ -8,7 +8,7 @@ from datetime import datetime
 from langchain_core.tools import tool
 
 from src.database.repository import WineRepository, BottleRepository, StatsRepository
-from src.model.tools.utils import get_drink_status
+from src.agents.tools.utils import get_drink_status
 from src.utils import get_default_db_path, logger
 
 

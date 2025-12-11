@@ -10,7 +10,7 @@ from langchain_core.tools import tool
 
 from src.database.repository import WineRepository, BottleRepository, FoodPairingRepository
 from src.utils import get_default_db_path, logger
-from src.model.tools.cellar_tools import get_drink_status
+from src.agents.tools.cellar_tools import get_drink_status
 
 
 @tool

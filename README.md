@@ -91,7 +91,7 @@ make db-load
 The retriever finds relevant documents for user queries:
 
 ```python
-# src/model/retriever.py
+# src/agents/retriever.py
 class ChromaRetriever:
     - Embeds user query using same model as documents
     - Queries ChromaDB for top-k most similar chunks

@@ -12,7 +12,7 @@ sys.path.insert(0, str(project_root))
 # Change to project root directory
 os.chdir(project_root)
 
-from src.model.tools.pairing_tools import (
+from src.agents.tools.pairing_tools import (
     get_food_pairing_wines,
     get_pairing_for_wine,
     get_wine_and_cheese_pairings,

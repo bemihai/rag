@@ -11,7 +11,7 @@ import statistics
 from langchain_core.tools import tool
 
 from src.database.repository import TastingRepository, WineRepository, BottleRepository
-from src.model.tools.utils import get_drink_status
+from src.agents.tools.utils import get_drink_status
 from src.utils import get_default_db_path, logger
 
 
@@ -19,7 +19,7 @@ from src.utils import get_default_db_path, logger
 def get_user_taste_profile() -> Dict:
     """Get comprehensive user wine taste profile based on tasting history.
 
-    Analyzes all consumed wines and ratings to build a detailed preference model.
+    Analyzes all consumed wines and ratings to build a detailed preference agents.
     Uses consumption data from the local database.
 
     Returns:

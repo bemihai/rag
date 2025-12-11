@@ -10,7 +10,7 @@ def build_update_query(
         table_name: str, model: BaseModel, id_field: str = "id", exclude_fields: list[str] | None = None
 ) -> tuple[str | None, list | None]:
     """
-    Build dynamic SQL update query based on provided model non-null fields.
+    Build dynamic SQL update query based on provided agents non-null fields.
 
     Args:
         table_name: Name of the database table.

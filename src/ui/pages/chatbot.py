@@ -4,7 +4,7 @@ import streamlit as st
 from src.ui.helper.display import CONTENT_STYLE, display_message, make_page_title
 from src.ui.resources import load_llm, load_chroma_client, load_retriever
 from src.ui.sidebar import render_sidebar
-from src.model.llm import process_user_prompt
+from src.agents.llm import process_user_prompt
 from src.utils import get_config, get_initial_message, build_semantic_context, format_sources_for_display, \
     build_context_from_chunks, logger
 

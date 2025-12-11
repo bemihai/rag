@@ -1,7 +1,7 @@
 """Test script for keyword-based wine agent."""
 import sys
 
-from src.model.keyword_agent import create_keyword_agent
+from src.agents.keyword_agent import create_keyword_agent
 
 def main():
     print('Testing Keyword-Based Wine Agent')

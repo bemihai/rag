@@ -77,7 +77,7 @@ class ProducerRepository:
         Update existing producer record.
 
         Args:
-            producer: Producer model with updated data
+            producer: Producer agents with updated data
 
         Returns:
             True if successful

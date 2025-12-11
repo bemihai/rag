@@ -26,7 +26,7 @@ class FoodPairingRepository:
             rule_id: Rule ID
 
         Returns:
-            FoodPairingRule model or None if not found
+            FoodPairingRule agents or None if not found
         """
         with get_db_connection(self.db_path) as conn:
             cursor = conn.cursor()
@@ -45,7 +45,7 @@ class FoodPairingRepository:
             food_name: Food name to search for
 
         Returns:
-            FoodPairingRule model or None if not found
+            FoodPairingRule agents or None if not found
         """
         with get_db_connection(self.db_path) as conn:
             cursor = conn.cursor()
@@ -130,7 +130,7 @@ class FoodPairingRepository:
         Create new pairing rule.
 
         Args:
-            rule: FoodPairingRule model
+            rule: FoodPairingRule agents
 
         Returns:
             ID of created rule
@@ -160,7 +160,7 @@ class FoodPairingRepository:
         Update existing pairing rule.
 
         Args:
-            rule: FoodPairingRule model with updated data
+            rule: FoodPairingRule agents with updated data
 
         Returns:
             True if successful
@@ -213,7 +213,7 @@ class FoodPairingRepository:
             food_input: User's food input (e.g., "steak", "grilled salmon")
 
         Returns:
-            FoodPairingRule model or None if not found
+            FoodPairingRule agents or None if not found
         """
         food_lower = food_input.lower().strip()
 
