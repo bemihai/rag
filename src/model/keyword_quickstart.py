@@ -22,9 +22,9 @@ def main():
     # Test queries
     test_queries = [
         ('What wines do I have in my cellar?', 'cellar'),
-        ('What are my wine preferences?', 'taste'),
-        ('What wine pairs with steak?', 'pairing'),
-        ('What is terroir?', 'knowledge')
+        ('What are my preferred white wines?', 'taste'),
+        ('What Romanian wine pairs with steak?', 'pairing'),
+        ('What is malolactic fermentation?', 'knowledge')
     ]
 
     for i, (query, expected_type) in enumerate(test_queries, 1):

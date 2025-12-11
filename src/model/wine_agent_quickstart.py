@@ -32,11 +32,11 @@ def main():
     # Example queries to test
     test_queries = [
         #"What is the best red wines from Bordeaux that I have in my cellar?",
-        # "What is my favorite red wine from Romania?",
-        #"Describe very shortly my taste profile.",
+        "What is my favorite red wine from Romania?",
+        # "Describe very shortly my taste profile.",
         #"What is malolactic fermentation?",
-        "Recommend a wine for grilled salmon",
-        # "Show me my Burgundy wines",
+        # "Recommend a wine for grilled salmon",
+        #"Show me my Burgundy wines",
     ]
 
     for i, query in enumerate(test_queries, 1):
