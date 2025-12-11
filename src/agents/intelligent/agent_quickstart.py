@@ -4,7 +4,7 @@ Wine Agent Quick Start Guide
 This example demonstrates how to use the wine agent once tools are implemented.
 Run this file to test the agent with your wine cellar data.
 """
-from src.agents.wine_agent import create_wine_agent
+from src.agents.intelligent.agent import create_wine_agent
 from src.utils import logger
 
 
@@ -22,10 +22,10 @@ def main():
     # graph_png = agent.agent.get_graph(xray=True).draw_mermaid_png()
     #
     # # Save to file
-    # with open("wine_agent_graph.png", "wb") as f:
+    # with open("graph.png", "wb") as f:
     #     f.write(graph_png)
     #
-    # print("✓ Agent graph saved to wine_agent_graph.png")
+    # print("✓ Agent graph saved to graph.png")
     # sys.exit()
 
 

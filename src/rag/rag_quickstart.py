@@ -1,3 +1,19 @@
+"""
+OBSOLETE FILE - NOT USED IN CURRENT IMPLEMENTATION
+
+This file contains the old RAG implementation using LangChain's RetrievalQA chain.
+It has been replaced by the new agent-based architecture:
+  - Intelligent Agent (agent.py)
+  - Keyword Agent (agent.py)
+  - RAG-Only mode (uses llm.py -> process_user_prompt)
+
+Status: NOT IMPORTED OR USED ANYWHERE IN CODEBASE
+Verified: December 11, 2025
+Safe to delete: YES
+
+For reference only - do not use in production.
+"""
+
 import chromadb
 from langchain_chroma import Chroma
 from langchain_google_genai import ChatGoogleGenerativeAI

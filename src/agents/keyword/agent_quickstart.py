@@ -1,7 +1,6 @@
 """Test script for keyword-based wine agent."""
-import sys
 
-from src.agents.keyword_agent import create_keyword_agent
+from src.agents.keyword.agent import create_keyword_agent
 
 def main():
     print('Testing Keyword-Based Wine Agent')
@@ -14,9 +13,9 @@ def main():
 
     # # Generate and save the agent graph visualization
     # graph_png = agent.agent.get_graph(xray=True).draw_mermaid_png()
-    # with open("keyword_agent_graph.png", "wb") as f:
+    # with open("graph.png", "wb") as f:
     #     f.write(graph_png)
-    # print("✓ Agent graph saved to wine_agent_graph.png")
+    # print("✓ Agent graph saved to graph.png")
     # sys.exit()
 
     # Test queries

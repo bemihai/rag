@@ -6,7 +6,7 @@ This module provides a simple keyword-routing agent that:
 - Executes tools locally (database queries, calculations - FREE)
 - Uses LLM only for final answer generation (1 LLM call per query)
 
-Compared to the intelligent agent (wine_agent.py):
+Compared to the intelligent agent (agent.py):
 - Intelligent agent: 2-3 LLM calls per query, handles complex queries
 - Keyword agent: 1 LLM call per query, simpler routing, better for testing
 """
@@ -307,6 +307,8 @@ class KeywordWineAgent:
 
         def generate_answer(state: KeywordAgentState):
             """Generate final answer using LLM (ONLY LLM CALL)."""
+            from pathlib import Path
+
             query = state["query"]
             tool_results = state.get("tool_results", {})
             query_type = state.get("query_type", "unknown")
@@ -323,17 +325,18 @@ class KeywordWineAgent:
 
             context = "\n".join(context_parts) if context_parts else "No data found"
 
-            # Create prompt for LLM
-            prompt = f"""You are a wine expert assistant. Answer the user's question based on the information provided.
+            # Load prompt template from file
+            prompt_path = Path(__file__).parent / "prompts" / "keyword_agent_generation_prompt.md"
+            try:
+                with open(prompt_path, 'r') as f:
+                    prompt_template = f.read().strip()
+            except FileNotFoundError:
+                logger.warning(f"Prompt file not found at {prompt_path}. Using default prompt.")
+                prompt_template = "You are a wine expert assistant. Answer based on: {context}"
 
-User Question: {query}
+            # Format the prompt with actual values
+            prompt = prompt_template.format(query=query, query_type=query_type, context=context)
 
-Query Type: {query_type}
-
-Information Retrieved:
-{context}
-
-Provide a natural, helpful answer based on this information. If the information shows no results or errors, acknowledge this politely and suggest alternatives."""
 
             # Call LLM
             response = self.llm.invoke([HumanMessage(content=prompt)])

@@ -8,7 +8,25 @@ from langchain_core.callbacks import CallbackManager
 
 from src.utils import logger, get_langfuse_callback
 from src.utils.env import GOOGLE_API_KEY
-from .prompts import SYSTEM_PROMPT, USER_PROMPT
+
+# Load prompts from markdown files
+from pathlib import Path
+
+_prompt_dir = Path(__file__).parent / "prompts"
+
+try:
+    with open(_prompt_dir / "rag_only_system_prompt.md", 'r') as f:
+        SYSTEM_PROMPT = f.read().strip()
+except FileNotFoundError:
+    logger.warning("RAG system prompt file not found. Using default.")
+    SYSTEM_PROMPT = "You are a helpful wine expert assistant."
+
+try:
+    with open(_prompt_dir / "rag_only_user_prompt.md", 'r') as f:
+        USER_PROMPT = f.read().strip()
+except FileNotFoundError:
+    logger.warning("RAG user prompt file not found. Using default.")
+    USER_PROMPT = "Context: {context}\n\nQuestion: {question}"
 
 
 class ModelInternalError(Exception):

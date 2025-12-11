@@ -105,6 +105,18 @@ class WineAgent:
             - Tools run locally (free, no LLM calls)
             - More control than prebuilt create_react_agent
         """
+        # Load system prompt from file
+        from pathlib import Path
+
+        prompt_path = Path(__file__).parent / "prompts" / "intelligent_agent_system_prompt.md"
+        try:
+            with open(prompt_path, 'r') as f:
+                system_prompt = f.read().strip()
+        except FileNotFoundError:
+            logger.warning(f"System prompt file not found at {prompt_path}. Using default prompt.")
+            system_prompt = "You are a helpful wine sommelier assistant with access to specialized tools."
+
+
         # Bind tools to LLM
         model_with_tools = self.llm.bind_tools(self.tools)
 
@@ -113,7 +125,14 @@ class WineAgent:
 
         def call_model(state: AgentState):
             """Call LLM to either select tools or generate final answer."""
+            from langchain_core.messages import SystemMessage
+
             messages = state["messages"]
+
+            # Inject system prompt at the beginning if not already present
+            if not messages or not isinstance(messages[0], SystemMessage):
+                messages = [SystemMessage(content=system_prompt)] + messages
+
             response = model_with_tools.invoke(messages)
             return {"messages": [response]}
 

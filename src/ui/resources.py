@@ -1,6 +1,7 @@
 """Cached resources for the Streamlit app."""
 import streamlit as st
 
+from src.agents import create_wine_agent, create_keyword_agent
 from src.agents.llm import load_base_model
 from src.rag import ChromaRetriever
 from src.utils import get_config, logger
@@ -12,6 +13,33 @@ def load_llm():
     """Load agents wrapper to allow caching."""
     cfg = get_config()
     return load_base_model(cfg.model.provider, cfg.model.name)
+
+
+@st.cache_resource
+def load_intelligent_agent():
+    """Load the intelligent wine agent with caching."""
+    try:
+
+        agent = create_wine_agent(verbose=False)
+        logger.info("Intelligent wine agent loaded successfully")
+        return agent
+    except Exception as e:
+        logger.error(f"Failed to load intelligent agent: {e}")
+        st.error(f"⚠️ Could not load intelligent agent: {str(e)}")
+        return None
+
+
+@st.cache_resource
+def load_keyword_agent():
+    """Load the keyword wine agent with caching."""
+    try:
+        agent = create_keyword_agent(verbose=False)
+        logger.info("Keyword wine agent loaded successfully")
+        return agent
+    except Exception as e:
+        logger.error(f"Failed to load keyword agent: {e}")
+        st.error(f"⚠️ Could not load keyword agent: {str(e)}")
+        return None
 
 
 @st.cache_resource
@@ -63,4 +91,3 @@ def load_retriever():
             "RAG features are unavailable. Answers will be based on general knowledge only."
         )
         return None
-

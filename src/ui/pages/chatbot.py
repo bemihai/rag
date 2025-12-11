@@ -2,7 +2,7 @@
 import streamlit as st
 
 from src.ui.helper.display import CONTENT_STYLE, display_message, make_page_title
-from src.ui.resources import load_llm, load_chroma_client, load_retriever
+from src.ui.resources import load_llm, load_chroma_client, load_retriever, load_intelligent_agent, load_keyword_agent
 from src.ui.sidebar import render_sidebar
 from src.agents.llm import process_user_prompt
 from src.utils import get_config, get_initial_message, build_semantic_context, format_sources_for_display, \
@@ -15,6 +15,10 @@ def main():
     model = load_llm()
     chroma_client = load_chroma_client()
     retriever = load_retriever()
+
+    # Load agents (cached)
+    intelligent_agent = load_intelligent_agent()
+    keyword_agent = load_keyword_agent()
 
     # Page title and description
     st.set_page_config(page_title="Pour Decisions", page_icon="🍷")
@@ -43,83 +47,188 @@ def main():
         display_message(user_message)
         st.session_state.messages.append(user_message)
 
-        # Pass the full message history (including both human and ai turns)
-        message_history = st.session_state.messages.copy()
+        # Get selected agent mode
+        agent_mode = st.session_state.get("agent_mode", "No Agent (RAG Only)")
 
         with st.spinner("Thinking...", show_time=True):
-            context = ""
-            retrieval_error = False
-
             try:
-                cfg = get_config()
-
-                # Check if RAG is enabled and retriever is available
-                if st.session_state.get("enable_rag", True) and retriever is not None:
+                # Use agents if selected
+                if agent_mode == "Intelligent Agent" and intelligent_agent:
                     try:
-                        # Get user-selected number of results or use default
-                        n_results = st.session_state.get("n_results", cfg.chroma.retrieval.n_results)
+                        import time
+                        start_time = time.time()
 
-                        # Retrieve relevant documents from ChromaDB
-                        retrieved_docs = retriever.retrieve(prompt, n_results=n_results)
+                        result = intelligent_agent.invoke(prompt)
+                        answer = result.get("final_answer", "")
 
-                        # Build context from retrieved chunks with optional deduplication
-                        if cfg.chroma.retrieval.use_deduplication:
-                            context = build_semantic_context(
-                                retrieved_docs,
-                                similarity_threshold=cfg.chroma.retrieval.deduplication_threshold,
-                                include_metadata=True,
-                                embedding_model=cfg.chroma.settings.embedder
-                            )
-                        else:
-                            context = build_context_from_chunks(
-                                retrieved_docs,
-                                include_metadata=True,
-                                include_similarity=False,
-                                max_chunks=None
-                            )
+                        processing_time = time.time() - start_time
 
-                        # Store retrieved docs in session state for sidebar display
-                        if retrieved_docs:
-                            st.session_state.last_sources = format_sources_for_display(retrieved_docs)
-                            st.session_state.last_retrieved_docs = retrieved_docs
-                        else:
+                        # Store debug information
+                        st.session_state.last_query_info = {
+                            "query": prompt,
+                            "tools_used": result.get("tools_used", []),
+                            "response_length": len(answer),
+                            "processing_time": processing_time
+                        }
+
+                        # Store tool results for display
+                        st.session_state.last_sources = []
+                        st.session_state.last_retrieved_docs = []
+
+                    except Exception as e:
+                        logger.error(f"Error using intelligent agent: {e}", exc_info=True)
+                        answer = "I apologize, but I encountered an error processing your request with the intelligent agent. Please try again or switch to a different agent mode."
+                        # Clear sources
+                        st.session_state.last_sources = []
+                        st.session_state.last_retrieved_docs = []
+
+                elif agent_mode == "Keyword Agent" and keyword_agent:
+                    try:
+                        import time
+                        start_time = time.time()
+
+                        result = keyword_agent.invoke(prompt)
+                        answer = result.get("final_answer", "")
+
+                        processing_time = time.time() - start_time
+
+                        # Store debug information
+                        st.session_state.last_query_info = {
+                            "query": prompt,
+                            "query_type": result.get("query_type", "unknown"),
+                            "tool_results": result.get("tool_results", {}),
+                            "response_length": len(answer),
+                            "processing_time": processing_time
+                        }
+
+                        # Store tool results for display
+                        st.session_state.last_sources = []
+                        st.session_state.last_retrieved_docs = []
+
+                    except Exception as e:
+                        logger.error(f"Error using keyword agent: {e}", exc_info=True)
+                        answer = "I apologize, but I encountered an error processing your request with the keyword agent. Please try again or switch to a different agent mode."
+                        # Clear sources
+                        st.session_state.last_sources = []
+                        st.session_state.last_retrieved_docs = []
+
+                else:
+                    # No Agent mode - use traditional RAG
+                    message_history = st.session_state.messages.copy()
+                    context = ""
+                    retrieval_error = False
+
+                    cfg = get_config()
+
+                    # Check if RAG is enabled and retriever is available
+                    if st.session_state.get("enable_rag", True) and retriever is not None:
+                        try:
+                            # Get user-selected number of results or use default
+                            n_results = st.session_state.get("n_results", cfg.chroma.retrieval.n_results)
+
+                            # Retrieve relevant documents from ChromaDB
+                            retrieved_docs = retriever.retrieve(prompt, n_results=n_results)
+
+                            # Build context from retrieved chunks with optional deduplication
+                            if cfg.chroma.retrieval.use_deduplication:
+                                context = build_semantic_context(
+                                    retrieved_docs,
+                                    similarity_threshold=cfg.chroma.retrieval.deduplication_threshold,
+                                    include_metadata=True,
+                                    embedding_model=cfg.chroma.settings.embedder
+                                )
+                            else:
+                                context = build_context_from_chunks(
+                                    retrieved_docs,
+                                    include_metadata=True,
+                                    include_similarity=False,
+                                    max_chunks=None
+                                )
+
+                            # Store retrieved docs in session state for sidebar display
+                            if retrieved_docs:
+                                st.session_state.last_sources = format_sources_for_display(retrieved_docs)
+                                st.session_state.last_retrieved_docs = retrieved_docs
+                            else:
+                                st.session_state.last_sources = []
+                                st.session_state.last_retrieved_docs = []
+
+                        except Exception as e:
+                            # Handle retrieval errors gracefully
+                            logger.error(f"Error during document retrieval: {e}")
+                            retrieval_error = True
+                            context = ""
                             st.session_state.last_sources = []
                             st.session_state.last_retrieved_docs = []
 
-                    except Exception as e:
-                        # Handle retrieval errors gracefully
-                        logger.error(f"Error during document retrieval: {e}")
-                        retrieval_error = True
+                            # Show user-friendly error message
+                            st.warning(
+                                "⚠️ Unable to retrieve documents from the knowledge base. "
+                                "Answering based on general knowledge instead."
+                            )
+                    else:
+                        # RAG is disabled or retriever unavailable - use empty context
                         context = ""
                         st.session_state.last_sources = []
                         st.session_state.last_retrieved_docs = []
 
-                        # Show user-friendly error message
-                        st.warning(
-                            "⚠️ Unable to retrieve documents from the knowledge base. "
-                            "Answering based on general knowledge instead."
-                        )
-                else:
-                    # RAG is disabled or retriever unavailable - use empty context
-                    context = ""
-                    st.session_state.last_sources = []
-                    st.session_state.last_retrieved_docs = []
+                    # Generate answer with available context (RAG-only mode)
+                    try:
+                        import time
+                        import re
+                        start_time = time.time()
 
-                # Generate answer with available context
-                try:
-                    answer = process_user_prompt(model, prompt, context, message_history)
-                except Exception as e:
-                    logger.error(f"Error generating answer: {e}")
-                    answer = "I apologize, but I encountered an error while generating a response. Please try again."
-                    st.error("❌ Failed to generate response. Please try asking your question again.")
+                        answer = process_user_prompt(model, prompt, context, message_history)
+
+                        processing_time = time.time() - start_time
+
+                        # Filter sources to only those cited in the answer
+                        if st.session_state.last_sources:
+                            cited_sources = []
+                            # Look for citation patterns like [1], [2], "According to [1]", etc.
+                            for idx, source in enumerate(st.session_state.last_sources, 1):
+                                # Check for various citation patterns
+                                citation_patterns = [
+                                    rf'\[{idx}\]',  # [1], [2], etc.
+                                    rf'According to \[{idx}\]',
+                                    rf'As mentioned in \[{idx}\]',
+                                    rf'source \[{idx}\]',
+                                    rf'\({idx}\)',  # (1), (2), etc.
+                                ]
+
+                                # Check if any citation pattern is found in the answer
+                                is_cited = any(re.search(pattern, answer, re.IGNORECASE) for pattern in citation_patterns)
+
+                                if is_cited:
+                                    cited_sources.append(source)
+
+                            # Update last_sources to only include cited sources
+                            st.session_state.last_sources = cited_sources
+
+                        # Store debug information for RAG-only mode
+                        st.session_state.last_query_info = {
+                            "query": prompt,
+                            "response_length": len(answer),
+                            "processing_time": processing_time,
+                            "rag_enabled": st.session_state.get("enable_rag", False),
+                            "docs_retrieved": len(st.session_state.get("last_retrieved_docs", []))
+                        }
+
+                    except Exception as e:
+                        logger.error(f"Error generating answer: {e}")
+                        answer = "I apologize, but I encountered an error while generating a response. Please try again."
+                        st.error("❌ Failed to generate response. Please try asking your question again.")
+                        # Clear sources on error
+                        st.session_state.last_sources = []
 
             except TimeoutError:
+                logger.warning("Request timed out")
                 answer = "I apologize, but the request timed out. Please try again."
-                st.error("⏱️ Request timed out. Please try again.")
+                st.session_state.last_sources = []
             except Exception as e:
-                logger.error(f"Unexpected error in processing: {e}")
-                answer = "I apologize, but an unexpected error occurred. Please try again."
-                st.error(f"❌ An unexpected error occurred: {str(e)}")
+                logger.error(f"Unexpected error in processing: {e}", exc_info=True)
+                answer = "I apologize, but an unexpected error occurred. Please try again or contact support if the issue persists."
+                st.session_state.last_sources = []
 
             sys_message = {"role": "ai", "answer": answer, "sources": st.session_state.last_sources}
         display_message(sys_message)

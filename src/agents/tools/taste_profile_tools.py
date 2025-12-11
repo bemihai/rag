@@ -342,52 +342,108 @@ def get_wine_recommendations_from_profile(price_max: Optional[float] = None) -> 
 def compare_wine_to_profile(wine_name: str) -> Dict:
     """Compare a specific wine to user's taste profile.
 
-    Analyzes how well a wine matches user's preferences.
+    Analyzes how well a wine matches user's preferences based on wine characteristics.
+    Works with any wine - doesn't need to be in your cellar.
 
     Args:
-        wine_name: Name of the wine to analyze
+        wine_name: Name of the wine to analyze (e.g., "Cremant de Jura", "Barolo", "Napa Cabernet")
 
     Returns:
         Dictionary with match scores, predicted rating, and recommendation.
 
     Example:
-        >>> comparison = compare_wine_to_profile(wine_name='Chateau Margaux')
+        >>> comparison = compare_wine_to_profile(wine_name='Cremant de Jura')
         >>> print(f"Match score: {comparison['overall_match_score']}/100")
 
     Notes:
-        - Useful for deciding whether to open a bottle
+        - Works with any wine, not just wines in cellar
+        - Extracts characteristics from wine name (region, type, varietal)
         - Requires some tasting history for accurate predictions
+        - For wines in cellar, provides more detailed analysis
     """
     try:
         wine_repo = WineRepository(get_default_db_path())
         profile = get_user_taste_profile.invoke({})
 
         if profile.get('total_wines_rated', 0) < 3:
-            return {'error': 'Insufficient tasting history for comparison'}
+            return {'error': 'Insufficient tasting history for comparison (need at least 3 rated wines)'}
 
-        wines = wine_repo.get_all(wine_name=wine_name)
-        if len(wines) > 0:
-            wine = wines[0] 
+        # First, try to find wine in cellar for detailed analysis
+        wine = None
+        wines = wine_repo.get_all(wine_name=wine_name, limit=1)
+        if wines:
+            wine = wines[0]
+
+        # Extract wine characteristics from name if not in cellar
+        wine_name_lower = wine_name.lower()
+
+        # Determine region from wine name
+        extracted_region = None
+        if wine:
+            extracted_region = wine.region_name
         else:
-            return {'error': 'Wine not found'}
+            # Try to extract region from name
+            known_regions = ["burgundy", "bordeaux", "champagne", "rioja", "tuscany", "piedmont",
+                           "barolo", "chianti", "napa", "sonoma", "rhone", "loire", "jura",
+                           "alsace", "mosel", "rheingau"]
+            for region in known_regions:
+                if region in wine_name_lower:
+                    extracted_region = region.title()
+                    break
 
+        # Determine wine type from name
+        extracted_type = None
+        if wine:
+            extracted_type = wine.wine_type
+        else:
+            # Try to extract type from name
+            if any(word in wine_name_lower for word in ["cremant", "champagne", "cava", "prosecco", "sparkling"]):
+                extracted_type = "Sparkling"
+            elif any(word in wine_name_lower for word in ["sauternes", "ice wine", "dessert"]):
+                extracted_type = "Dessert"
+            elif any(word in wine_name_lower for word in ["rose", "rosé"]):
+                extracted_type = "Rosé"
+            elif any(word in wine_name_lower for word in ["white", "chardonnay", "riesling", "sauvignon blanc",
+                                                           "pinot grigio", "albariño", "gewurztraminer"]):
+                extracted_type = "White"
+            elif any(word in wine_name_lower for word in ["red", "cabernet", "merlot", "pinot noir",
+                                                           "syrah", "shiraz", "malbec", "zinfandel",
+                                                           "barolo", "brunello", "chianti", "rioja"]):
+                extracted_type = "Red"
+
+        # Determine varietal from name
+        extracted_varietal = None
+        if wine:
+            extracted_varietal = wine.varietal
+        else:
+            known_varietals = ["chardonnay", "cabernet sauvignon", "pinot noir", "merlot",
+                             "sauvignon blanc", "riesling", "syrah", "malbec", "nebbiolo",
+                             "sangiovese", "tempranillo", "grenache", "zinfandel"]
+            for varietal in known_varietals:
+                if varietal in wine_name_lower:
+                    extracted_varietal = varietal.title()
+                    break
+
+        # Calculate match scores
         region_match = 0
         varietal_match = 0
         type_match = 0
 
         fav_regions = profile.get('favorite_regions', [])
-        for i, fav in enumerate(fav_regions[:5]):
-            if wine.region_name and fav['region'] in wine.region_name:
-                region_match = max(region_match, 100 - (i * 15))
+        if extracted_region:
+            for i, fav in enumerate(fav_regions[:5]):
+                if fav['region'].lower() in extracted_region.lower() or extracted_region.lower() in fav['region'].lower():
+                    region_match = max(region_match, 100 - (i * 15))
 
         fav_varietals = profile.get('favorite_varietals', [])
-        for i, fav in enumerate(fav_varietals[:5]):
-            if wine.varietal and fav['varietal'] in wine.varietal:
-                varietal_match = max(varietal_match, 100 - (i * 15))
+        if extracted_varietal:
+            for i, fav in enumerate(fav_varietals[:5]):
+                if fav['varietal'].lower() in extracted_varietal.lower() or extracted_varietal.lower() in fav['varietal'].lower():
+                    varietal_match = max(varietal_match, 100 - (i * 15))
 
         type_ratings = profile.get('type_ratings', {})
-        if wine.wine_type in type_ratings:
-            type_match = int((type_ratings[wine.wine_type] / profile['average_rating']) * 100)
+        if extracted_type and extracted_type in type_ratings:
+            type_match = int((type_ratings[extracted_type] / profile['average_rating']) * 100)
 
         overall_match = int((region_match * 0.4 + varietal_match * 0.3 + type_match * 0.3))
         predicted_rating = int(profile['average_rating'] * (0.7 + (overall_match / 100) * 0.3))
@@ -399,22 +455,25 @@ def compare_wine_to_profile(wine_name: str) -> Dict:
             recommendation = "Recommended"
             confidence = "medium"
         elif overall_match >= 40:
-            recommendation = "Try"
+            recommendation = "Worth Trying"
             confidence = "medium"
         else:
-            recommendation = "Not Recommended"
+            recommendation = "May Not Match Your Taste"
             confidence = "low"
 
         reasons = []
         if region_match > 50:
-            reasons.append(f"Matches your favorite regions")
+            reasons.append(f"From a region you enjoy")
         if varietal_match > 50:
-            reasons.append(f"Your preferred varietal")
+            reasons.append(f"Made with grapes you prefer")
         if type_match > 80:
             reasons.append(f"Wine type you highly rate")
+        if not reasons:
+            reasons.append("Based on general taste profile")
 
-        return {
-            "wine_name": wine.wine_name,
+        result = {
+            "wine_name": wine_name,
+            "in_cellar": wine is not None,
             "overall_match_score": overall_match,
             "predicted_rating": predicted_rating,
             "confidence_level": confidence,
@@ -422,8 +481,15 @@ def compare_wine_to_profile(wine_name: str) -> Dict:
             "varietal_match": varietal_match,
             "type_match": type_match,
             "recommendation": recommendation,
-            "reasons": reasons
+            "reasons": reasons,
+            "detected_characteristics": {
+                "type": extracted_type,
+                "region": extracted_region,
+                "varietal": extracted_varietal
+            }
         }
+
+        return result
 
     except Exception as e:
         logger.error(f"Error comparing wine to profile: {e}")
