@@ -66,7 +66,7 @@ EXTENDED_TOOLS: List[BaseTool] = [
 ALL_TOOLS: List[BaseTool] = CORE_TOOLS + EXTENDED_TOOLS
 
 
-def get_tools(extended: str = True) -> List[BaseTool]:
+def get_tools(extended: bool = True) -> List[BaseTool]:
     """Get tools for specific implementation phase.
 
     Args:
