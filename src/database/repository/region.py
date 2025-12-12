@@ -39,7 +39,7 @@ class RegionRepository:
             secondary_name: Optional secondary region name
 
         Returns:
-            Region model or None if not found
+            Region agents or None if not found
         """
         with get_db_connection(self.db_path) as conn:
             cursor = conn.cursor()

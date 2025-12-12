@@ -19,10 +19,10 @@ class CollectionDataLoader:
         collection_metadata: Optional metadata for the collection.
         chroma_host: Host for ChromaDB.
         chroma_port: Port for ChromaDB.
-        embedding_model: HuggingFace model name for embeddings.
+        embedding_model: HuggingFace agents name for embeddings.
         batch_size: Number of documents to process in each batch.
         use_instructor: Whether to use semantic chunking with Instructor.
-        gemini_model: Optional, model name for Google Gemini if using Instructor. Should be
+        gemini_model: Optional, agents name for Google Gemini if using Instructor. Should be
             a string like 'google/gemini-2.5-flash'.
         gemini_api_key: Optional, the API key for Google Gemini if using Instructor.
     """

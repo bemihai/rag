@@ -3,12 +3,30 @@ import streamlit as st
 from langchain_core.language_models import BaseChatModel
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_openai import ChatOpenAI
-from langchain.prompts import ChatPromptTemplate
+from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.callbacks import CallbackManager
 
 from src.utils import logger, get_langfuse_callback
 from src.utils.env import GOOGLE_API_KEY
-from .prompts import SYSTEM_PROMPT, USER_PROMPT
+
+# Load prompts from markdown files
+from pathlib import Path
+
+_prompt_dir = Path(__file__).parent / "prompts"
+
+try:
+    with open(_prompt_dir / "rag_only_system_prompt.md", 'r') as f:
+        SYSTEM_PROMPT = f.read().strip()
+except FileNotFoundError:
+    logger.warning("RAG system prompt file not found. Using default.")
+    SYSTEM_PROMPT = "You are a helpful wine expert assistant."
+
+try:
+    with open(_prompt_dir / "rag_only_user_prompt.md", 'r') as f:
+        USER_PROMPT = f.read().strip()
+except FileNotFoundError:
+    logger.warning("RAG user prompt file not found. Using default.")
+    USER_PROMPT = "Context: {context}\n\nQuestion: {question}"
 
 
 class ModelInternalError(Exception):
@@ -19,22 +37,23 @@ class ModelInternalError(Exception):
 
     @property
     def default_message(self) -> str:
-        """Default answer when model raises this error."""
+        """Default answer when agents raises this error."""
         return "I can't answer your question due to an internal error, please try again later."
 
 
 def load_base_model(model_provider: str, model_name: str, **kwargs) -> BaseChatModel:
     """
-    Loads the base LLM model based on the provider.
+    Loads the base LLM agents based on the provider.
 
     Args:
-        model_provider (str): The model provider, e.g., "google", "openai".
-        model_name (str): The name of the model to load.
-        **kwargs: Additional keyword arguments to pass to the model constructor.
+        model_provider (str): The agents provider, e.g., "google", "openai".
+        model_name (str): The name of the agents to load.
+        **kwargs: Additional keyword arguments to pass to the agents constructor.
 
-    Returns: An instance of the loaded chat model.
+    Returns: An instance of the loaded chat agents.
     """
-    callback_manager = CallbackManager([get_langfuse_callback()])
+    # TODO: fix langfuse with langchain v1
+    # callback_manager = CallbackManager([get_langfuse_callback()])
     match model_provider.lower():
         case "google":
             model = ChatGoogleGenerativeAI(
@@ -42,10 +61,10 @@ def load_base_model(model_provider: str, model_name: str, **kwargs) -> BaseChatM
                 temperature=0.0,
                 max_retries=2,
                 google_api_key=GOOGLE_API_KEY,
-                callback_manager=callback_manager,
+                # callback_manager=callback_manager,
                 **kwargs,
             )
-            logger.info(f"Loaded Google model successfully: {model_name}")
+            logger.info(f"Loaded Google agents successfully: {model_name}")
             return model
         case "openai":
             api_key = st.secrets["OPENAI_API_KEY"] if "OPENAI_API_KEY" in st.secrets else None
@@ -56,26 +75,26 @@ def load_base_model(model_provider: str, model_name: str, **kwargs) -> BaseChatM
                 temperature=0.0,
                 max_retries=2,
                 api_key=api_key,
-                callback_manager=callback_manager,
+                # callback_manager=callback_manager,
                 **kwargs,
             )
-            logger.info(f"Loaded OpenAI model successfully: {model_name}")
+            logger.info(f"Loaded OpenAI agents successfully: {model_name}")
             return model
         case _:
-            raise ValueError(f"Unsupported model provider: {model_provider}")
+            raise ValueError(f"Unsupported agents provider: {model_provider}")
 
 
 def invoke_llm(question: str, context: str, model: BaseChatModel, message_history: list) -> str:
     """
-    Invoke the LLM model with the provided question, context, and full message history.
+    Invoke the LLM agents with the provided question, context, and full message history.
 
     Args:
-        question (str): The user's question to be answered by the model.
+        question (str): The user's question to be answered by the agents.
         context (str): The context retrieved by the RAG pipeline.
-        model (BaseChatModel): The loaded LLM model instance.
+        model (BaseChatModel): The loaded LLM agents instance.
         message_history (list): List of dicts with previous messages, each having 'role' and 'question'/'answer'.
 
-    Returns: The model's answer as a string.
+    Returns: The agents's answer as a string.
     """
     messages = [("system", SYSTEM_PROMPT)]
     for msg in message_history:
