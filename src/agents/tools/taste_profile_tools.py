@@ -19,7 +19,7 @@ from src.utils import get_default_db_path, logger
 def get_user_taste_profile() -> Dict:
     """Get comprehensive user wine taste profile based on tasting history.
 
-    Analyzes all consumed wines and ratings to build a detailed preference agents.
+    Analyzes all consumed wines and ratings to build a detailed preference model.
     Uses consumption data from the local database.
 
     Returns:
