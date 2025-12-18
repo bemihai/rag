@@ -17,6 +17,17 @@ CHROMA_VOLUME ?= ./chroma-data
 
 .PHONY: help
 help:
+	@echo "🍷 Pour Decisions Wine RAG - Available Commands"
+	@echo ""
+	@echo "Docker Compose Commands (Recommended):"
+	@echo "  docker-up       - Start all services (app + ChromaDB)"
+	@echo "  docker-down     - Stop all services"
+	@echo "  docker-restart  - Restart all services"
+	@echo "  docker-logs     - View all service logs"
+	@echo "  docker-status   - Check service status"
+	@echo "  docker-build    - Rebuild Docker images"
+	@echo "  docker-clean    - Remove all containers and volumes"
+	@echo ""
 	@echo "ChromaDB Management Commands:"
 	@echo "  db-up           - Start the ChromaDB Docker container"
 	@echo "  db-down         - Stop the ChromaDB Docker container"
@@ -53,6 +64,102 @@ check-env:
 	@if [ -z "$(CHROMA_VOLUME)" ]; then \
 		echo "Error: CHROMA_VOLUME not set"; exit 1; \
 	fi
+
+# ============================================================================
+# Docker Compose Commands
+# ============================================================================
+
+.PHONY: docker-up
+docker-up:
+	@echo "🚀 Starting all services with Docker Compose..."
+	@if [ ! -f .env ]; then \
+		echo "⚠️  .env file not found. Copying from .env.example..."; \
+		cp .env.example .env; \
+		echo "📝 Please edit .env and add your GOOGLE_API_KEY"; \
+		exit 1; \
+	fi
+	@docker-compose up -d
+	@echo "✅ Services started!"
+	@echo "📍 Access app at: http://localhost:8501"
+
+.PHONY: docker-down
+docker-down:
+	@echo "🛑 Stopping all services..."
+	@docker-compose down
+	@echo "✅ Services stopped"
+
+.PHONY: docker-restart
+docker-restart:
+	@echo "🔄 Restarting all services..."
+	@docker-compose restart
+	@echo "✅ Services restarted"
+
+.PHONY: docker-logs
+docker-logs:
+	@echo "📋 Viewing logs (Ctrl+C to exit)..."
+	@docker-compose logs -f --tail=100
+
+.PHONY: docker-logs-app
+docker-logs-app:
+	@echo "📋 Viewing app logs (Ctrl+C to exit)..."
+	@docker-compose logs -f --tail=100 app
+
+.PHONY: docker-logs-chroma
+docker-logs-chroma:
+	@echo "📋 Viewing ChromaDB logs (Ctrl+C to exit)..."
+	@docker-compose logs -f --tail=100 chromadb
+
+.PHONY: docker-status
+docker-status:
+	@echo "📊 Service Status:"
+	@docker-compose ps
+
+.PHONY: docker-build
+docker-build:
+	@echo "🔨 Building Docker images..."
+	@docker-compose build --no-cache
+	@echo "✅ Build complete"
+
+.PHONY: docker-rebuild
+docker-rebuild: docker-down docker-build docker-up
+
+.PHONY: docker-clean
+docker-clean:
+	@echo "⚠️  WARNING: This will remove all containers and volumes!"
+	@read -p "Are you sure? Type 'yes' to continue: " confirm; \
+	if [ "$$confirm" = "yes" ]; then \
+		docker-compose down -v; \
+		echo "✅ Cleaned up all containers and volumes"; \
+	else \
+		echo "❌ Operation cancelled"; \
+	fi
+
+.PHONY: docker-shell-app
+docker-shell-app:
+	@echo "🐚 Accessing app container shell..."
+	@docker-compose exec app /bin/bash
+
+.PHONY: docker-shell-chroma
+docker-shell-chroma:
+	@echo "🐚 Accessing ChromaDB container shell..."
+	@docker-compose exec chromadb /bin/bash
+
+.PHONY: docker-prod-up
+docker-prod-up:
+	@echo "🚀 Starting in production mode..."
+	@docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+	@echo "✅ Production services started!"
+
+.PHONY: docker-prod-down
+docker-prod-down:
+	@echo "🛑 Stopping production services..."
+	@docker-compose -f docker-compose.yml -f docker-compose.prod.yml down
+	@echo "✅ Production services stopped"
+
+# ============================================================================
+# ChromaDB Management Commands
+# ============================================================================
+
 
 .PHONY: db-pull
 db-pull:

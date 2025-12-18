@@ -1,7 +1,7 @@
 chroma:
   client:
-    host: localhost                     # ChromaDB server host
-    port: 8000                          # ChromaDB server port
+    host: ${CHROMA_HOST:localhost}      # ChromaDB server host (env var or default)
+    port: ${CHROMA_PORT:8000}           # ChromaDB server port (env var or default)
   chunking:
     strategy: by_title                  # basic, by_title, semantic
     chunk_size: 1024
