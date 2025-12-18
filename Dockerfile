@@ -6,8 +6,7 @@ ENV PYTHONBUFFERED=1
 # set working directory
 WORKDIR /app
 
-# install dependencies
-COPY pyproject.toml uv.lock ./
+# install system dependencies
 RUN apt-get update && apt-get -y install \
     g++ \
     curl \
@@ -15,9 +14,10 @@ RUN apt-get update && apt-get -y install \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
+# install dependencies
+COPY pyproject.toml ./
 RUN pip install --upgrade pip \
-    && pip install --no-cache-dir uv  \
-    && uv pip install --system --group ui
+    && pip install --no-cache-dir .
 
 # copy app files
 COPY src/ ./src/

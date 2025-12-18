@@ -1,7 +1,9 @@
 [project]
-name = "wine-rag"
-version = "0.1.0"
-description = "Ask anything about wine"
+name = "pour-decisions"
+version = "0.2.0"
+description = "Wine knowledge chatbot, cellar management, and taste profile analysis using LLMs."
+readme = "README.md"
+authors = [{ name = "Mihai Berbec", email = "berbec.mihaita@gmail.com" }]
 requires-python = ">=3.11"
 dependencies = [
     "chromadb>=1.0.5",

@@ -71,7 +71,7 @@ Pour Decisions is an intelligent wine assistant that combines the power of LLMs 
 Wine books are processed and stored in ChromaDB:
 
 ```python
-# src/rag/load_data.py
+# src/pour-decisions/load_data.py
 - Splits documents into chunks (configurable size and overlap)
 - Supports multiple chunking strategies:
   - Basic: Fixed-size chunks
@@ -187,7 +187,7 @@ The easiest way to run Pour Decisions is with Docker Compose:
 ```bash
 # 1. Clone the repository
 git clone <your-repo-url>
-cd rag
+cd pour-decisions
 
 # 2. Copy environment file and add your Google API key
 cp .env.example .env
@@ -225,7 +225,7 @@ For local development without Docker:
 
 ```bash
 git clone <your-repo-url>
-cd rag
+cd pour-decisions
 ```
 
 ### 2. Install Dependencies
@@ -275,7 +275,7 @@ chroma run --path ./chroma-data
 Place your PDF/text files in the configured directory and run:
 
 ```bash
-python src/rag/load_data.py
+python src/pour-decisions/load_data.py
 ```
 
 This will:
@@ -435,9 +435,9 @@ make db-down        # Stop ChromaDB
 make db-restart     # Restart ChromaDB
 make db-status      # Check status
 make db-logs        # View logs
-make db-clean       # Delete all rag (destructive!)
+make db-clean       # Delete all pour-decisions (destructive!)
 make db-backup      # Create backup
-make db-load        # Load rag into ChromaDB
+make db-load        # Load pour-decisions into ChromaDB
 
 # Testing
 make test-connection  # Test ChromaDB connection
@@ -509,7 +509,7 @@ The app integrates with Langfuse for observability:
 
 **Solution:** Run from project root with correct PYTHONPATH:
 ```bash
-PYTHONPATH=$(pwd) python3 src/rag/load_data.py
+PYTHONPATH=$(pwd) python3 src/pour-decisions/load_data.py
 # or use
 make db-load
 ```
