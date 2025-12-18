@@ -1,7 +1,7 @@
 FROM python:3.11-slim
 
-ENV PYTHONWRITEBYTECODE=1
-ENV PYTHONBUFFERED=1
+ENV PYTHONWRITEBYTECODE=0
+ENV PYTHONUNBUFFERED=1
 
 # set working directory
 WORKDIR /app
@@ -10,14 +10,15 @@ WORKDIR /app
 RUN apt-get update && apt-get -y install \
     g++ \
     curl \
-    netcat-openbsd \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# install dependencies
+# install uv for fast Python package management
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+
+# install Python dependencies using uv
 COPY pyproject.toml ./
-RUN pip install --upgrade pip \
-    && pip install --no-cache-dir .
+RUN uv pip install --system --no-cache .
 
 # copy app files
 COPY src/ ./src/
