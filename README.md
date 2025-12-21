@@ -509,7 +509,7 @@ The app integrates with Langfuse for observability:
 
 **Solution:** Run from project root with correct PYTHONPATH:
 ```bash
-PYTHONPATH=$(pwd) python3 src/pour-decisions/load_data.py
+PYTHONPATH=$(pwd) python3 src/rag/load_data.py
 # or use
 make db-load
 ```
