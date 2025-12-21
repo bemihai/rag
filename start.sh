@@ -46,7 +46,7 @@ echo "⏳ Waiting for services to be healthy..."
 sleep 5
 
 # Check ChromaDB health
-if docker-compose exec -T chromadb curl -f http://localhost:8000/api/v1/heartbeat > /dev/null 2>&1; then
+if docker-compose exec -T chromadb curl -f --max-time 5 http://localhost:8000/api/v1/heartbeat > /dev/null 2>&1; then
     echo "✅ ChromaDB is healthy"
 else
     echo "⚠️  ChromaDB may still be starting up..."
