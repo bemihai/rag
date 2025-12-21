@@ -71,7 +71,7 @@ Pour Decisions is an intelligent wine assistant that combines the power of LLMs 
 Wine books are processed and stored in ChromaDB:
 
 ```python
-# src/pour-decisions/load_data.py
+# src/rag/load_data.py
 - Splits documents into chunks (configurable size and overlap)
 - Supports multiple chunking strategies:
   - Basic: Fixed-size chunks
