@@ -17,7 +17,7 @@ RUN apt-get update && apt-get -y install \
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
 # install Python dependencies using uv
-COPY pyproject.toml ./
+COPY pyproject.toml uv.lock ./
 RUN uv pip install --system --no-cache .
 
 # copy app files
