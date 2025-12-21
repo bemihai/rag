@@ -275,7 +275,7 @@ chroma run --path ./chroma-data
 Place your PDF/text files in the configured directory and run:
 
 ```bash
-python src/pour-decisions/load_data.py
+python src/rag/load_data.py
 ```
 
 This will:
