@@ -18,7 +18,7 @@ def render_sidebar(retriever=None, chroma_client=None):
         st.write(
             """
             Pour Decisions uses Retrieval-Augmented Generation (RAG) and LLMs 
-            to answer your wine-related questions using both curated knowledge and external pour-decisions. 🍇
+            to answer your wine-related questions using both curated knowledge and external wine data. 🍇
             """
         )
         st.markdown("---")
