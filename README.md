@@ -435,7 +435,7 @@ make db-down        # Stop ChromaDB
 make db-restart     # Restart ChromaDB
 make db-status      # Check status
 make db-logs        # View logs
-make db-clean       # Delete all pour-decisions (destructive!)
+make db-clean       # Delete all ChromaDB data (destructive!)
 make db-backup      # Create backup
 make db-load        # Load pour-decisions into ChromaDB
 
