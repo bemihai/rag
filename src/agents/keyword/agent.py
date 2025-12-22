@@ -20,7 +20,7 @@ from typing_extensions import TypedDict
 
 from src.agents.llm import load_base_model
 from src.agents.tools import get_tools
-from src.utils import get_config, logger
+from src.utils import get_config, logger, find_project_root
 
 
 class KeywordAgentState(TypedDict):
@@ -313,20 +313,38 @@ class KeywordWineAgent:
             tool_results = state.get("tool_results", {})
             query_type = state.get("query_type", "unknown")
 
-            # Build context from tool results
+            # Build context from tool results with explicit empty handling
             context_parts = []
+            has_data = False
+
             for key, value in tool_results.items():
                 if isinstance(value, dict):
-                    context_parts.append(f"{key}: {value}")
+                    if value:  # Non-empty dict
+                        context_parts.append(f"{key}: {value}")
+                        has_data = True
+                    else:
+                        context_parts.append(f"{key}: No data returned")
                 elif isinstance(value, list):
-                    context_parts.append(f"{key}: {len(value)} items")
-                else:
+                    if value:  # Non-empty list
+                        context_parts.append(f"{key}: {len(value)} items - {value}")
+                        has_data = True
+                    else:
+                        context_parts.append(f"{key}: No matching items found")
+                elif value:  # Non-empty value
                     context_parts.append(f"{key}: {value}")
+                    has_data = True
+                else:
+                    context_parts.append(f"{key}: No data returned")
 
-            context = "\n".join(context_parts) if context_parts else "No cellar-data found"
+            if not context_parts:
+                context = "No tools were executed for this query. No specific data available from cellar or knowledge base."
+            elif not has_data:
+                context = "\n".join(context_parts) + "\n\nNote: Tools were executed but returned no matching data."
+            else:
+                context = "\n".join(context_parts)
 
             # Load prompt template from file
-            prompt_path = Path(__file__).parent / "prompts" / "keyword_agent_generation_prompt.md"
+            prompt_path = Path(find_project_root()) / "src/agents/prompts/keyword_agent_generation_prompt.md"
             try:
                 with open(prompt_path, 'r') as f:
                     prompt_template = f.read().strip()

@@ -20,7 +20,7 @@ from typing_extensions import TypedDict
 
 from src.agents.llm import load_base_model
 from src.agents.tools import get_tools
-from src.utils import get_config, logger
+from src.utils import get_config, logger, find_project_root
 
 
 class AgentState(TypedDict):
@@ -108,7 +108,7 @@ class WineAgent:
         # Load system prompt from file
         from pathlib import Path
 
-        prompt_path = Path(__file__).parent / "prompts" / "intelligent_agent_system_prompt.md"
+        prompt_path = Path(find_project_root()) / "src/agents/prompts/intelligent_agent_system_prompt.md"
         try:
             with open(prompt_path, 'r') as f:
                 system_prompt = f.read().strip()
