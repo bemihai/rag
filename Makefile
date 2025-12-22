@@ -33,9 +33,12 @@ help:
 	@echo ""
 	@echo "Development Commands:"
 	@echo "  install         - Install Python dependencies with uv"
+	@echo "  run             - Run app locally with ChromaDB (PYTHONPATH configured)"
 	@echo "  populate-chroma - Populate ChromaDB with wine knowledge"
 	@echo "  chroma-up       - Start only ChromaDB (for local development)"
 	@echo "  chroma-down     - Stop ChromaDB container"
+	@echo "  chroma-health   - Check ChromaDB container health status"
+	@echo "  chroma-reset    - Reset ChromaDB (stop, remove container, clear data)"
 	@echo "  chroma-backup   - Backup ChromaDB data directory"
 	@echo "  chroma-restore  - Restore ChromaDB from backup (BACKUP_FILE=path/to/backup.tar.gz)"
 	@echo ""
@@ -126,6 +129,25 @@ install:
 	@uv sync
 	@echo "Dependencies installed"
 
+.PHONY: run
+run:
+	@echo "Starting app locally..."
+	@if ! docker ps --filter "name=pour_decisions_chromadb" --filter "status=running" --filter "health=healthy" | grep -q chromadb; then \
+		echo "ChromaDB container not healthy. Starting/restarting..."; \
+		$(MAKE) chroma-up; \
+		echo "Waiting for ChromaDB to be healthy..."; \
+		for i in 1 2 3 4 5 6 7 8 9 10; do \
+			if docker ps --filter "name=pour_decisions_chromadb" --filter "health=healthy" | grep -q chromadb; then \
+				echo "ChromaDB is healthy and ready!"; \
+				break; \
+			fi; \
+			echo "Waiting for ChromaDB... ($$i/10)"; \
+			sleep 2; \
+		done; \
+	fi
+	@echo "Starting Streamlit app..."
+	@PYTHONPATH=$(shell pwd) streamlit run src/ui/app.py
+
 .PHONY: populate-chroma
 populate-chroma:
 	@echo "Populating ChromaDB with wine knowledge..."
@@ -135,15 +157,49 @@ populate-chroma:
 .PHONY: chroma-up
 chroma-up:
 	@echo "Starting ChromaDB container for local development..."
-	@docker compose up chromadb -d
-	@echo "ChromaDB started on http://localhost:8000"
-	@echo "Run your app locally with: streamlit run src/ui/app.py"
+	@docker compose up chromadb -d --remove-orphans
+	@echo "ChromaDB starting on http://localhost:8000"
+	@echo "Waiting for health check..."
+	@sleep 3
 
 .PHONY: chroma-down
 chroma-down:
 	@echo "Stopping ChromaDB container..."
 	@docker compose stop chromadb
 	@echo "ChromaDB stopped"
+
+.PHONY: chroma-health
+chroma-health:
+	@echo "Checking ChromaDB health status..."
+	@if docker ps -a --filter "name=pour_decisions_chromadb" --format "{{.Names}}" | grep -q chromadb; then \
+		echo "Container Status:"; \
+		docker ps -a --filter "name=pour_decisions_chromadb" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"; \
+		echo ""; \
+		if docker ps --filter "name=pour_decisions_chromadb" --filter "status=running" | grep -q chromadb; then \
+			echo "Health Status: Running"; \
+			echo "Testing connection to http://localhost:8000..."; \
+			curl -s http://localhost:8000/api/v2/heartbeat > /dev/null && echo "Connection: OK" || echo "Connection: FAILED"; \
+		else \
+			echo "Health Status: Not Running"; \
+		fi; \
+	else \
+		echo "ChromaDB container does not exist"; \
+		echo "Run 'make chroma-up' to start it"; \
+	fi
+
+.PHONY: chroma-reset
+chroma-reset:
+	@echo "WARNING: This will completely reset ChromaDB (stop, remove container, clear data)"
+	@read -p "Type 'yes' to continue: " confirm && [ "$$confirm" = "yes" ] || (echo "Reset cancelled" && exit 1)
+	@echo "Stopping and removing ChromaDB container..."
+	@docker compose stop chromadb 2>/dev/null || true
+	@docker compose rm -f chromadb 2>/dev/null || true
+	@echo "Clearing ChromaDB data..."
+	@rm -rf chroma-data
+	@mkdir -p chroma-data
+	@echo "ChromaDB reset complete!"
+	@echo "To restore from backup: make chroma-restore BACKUP_FILE=backups/chroma/chroma-backup-YYYYMMDD-HHMMSS.tar.gz"
+	@echo "To populate fresh data: make populate-chroma"
 
 .PHONY: chroma-backup
 chroma-backup:
@@ -158,29 +214,30 @@ chroma-backup:
 
 .PHONY: chroma-restore
 chroma-restore:
-	@echo "Available ChromaDB backups:"
-	@ls -lht backups/chroma/ 2>/dev/null || (echo "No backups found in backups/chroma/" && exit 1)
-	@echo ""
-	@echo "Usage: make chroma-restore BACKUP_FILE=backups/chroma/chroma-backup-YYYYMMDD-HHMMSS.tar.gz"
-	@if [ -n "$(BACKUP_FILE)" ]; then \
-		if [ ! -f "$(BACKUP_FILE)" ]; then \
-			echo "Error: Backup file not found: $(BACKUP_FILE)"; exit 1; \
-		fi; \
-		echo "WARNING: This will overwrite existing ChromaDB data!"; \
-		read -p "Are you sure? Type 'yes' to continue: " confirm; \
-		if [ "$$confirm" = "yes" ]; then \
-			echo "Stopping ChromaDB container..."; \
-			docker compose stop chromadb 2>/dev/null || true; \
-			echo "Clearing existing data..."; \
-			rm -rf chroma-data/*; \
-			echo "Restoring from $(BACKUP_FILE)..."; \
-			tar -xzf $(BACKUP_FILE) -C chroma-data; \
-			echo "ChromaDB data restored from backup"; \
-			echo "Run 'make chroma-up' to start ChromaDB with restored data"; \
-		else \
-			echo "Restore cancelled"; \
-		fi; \
+	@if [ -z "$(BACKUP_FILE)" ]; then \
+		echo "Available ChromaDB backups:"; \
+		ls -lht backups/chroma/ 2>/dev/null || (echo "No backups found in backups/chroma/" && exit 1); \
+		echo ""; \
+		echo "Usage: make chroma-restore BACKUP_FILE=backups/chroma/chroma-backup-YYYYMMDD-HHMMSS.tar.gz"; \
+		exit 0; \
 	fi
+	@if [ ! -f "$(BACKUP_FILE)" ]; then \
+		echo "Error: Backup file not found: $(BACKUP_FILE)"; \
+		exit 1; \
+	fi
+	@echo "WARNING: This will overwrite existing ChromaDB data!"
+	@echo "Backup file: $(BACKUP_FILE)"
+	@read -p "Type 'yes' to continue: " confirm && [ "$$confirm" = "yes" ] || (echo "Restore cancelled" && exit 1)
+	@echo "Stopping ChromaDB container..."
+	@docker compose stop chromadb 2>/dev/null || true
+	@docker compose rm -f chromadb 2>/dev/null || true
+	@echo "Clearing existing data..."
+	@rm -rf chroma-data
+	@mkdir -p chroma-data
+	@echo "Restoring from $(BACKUP_FILE)..."
+	@tar -xzf $(BACKUP_FILE) -C chroma-data
+	@echo "ChromaDB data restored successfully!"
+	@echo "Run 'make chroma-up' to start ChromaDB with restored data"
 
 # ============================================================================
 # Wine Cellar Database Commands

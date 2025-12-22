@@ -16,6 +16,7 @@ dependencies = [
     "langchain-openai>=1.1.6",
     "langgraph>=1.0.5",
     "omegaconf>=2.3.0",
+    "plotly>=6.5.0",
     "sentence-transformers>=5.2.0",
     "streamlit>=1.52.2",
     "torch==2.2.2; sys_platform == 'darwin'",

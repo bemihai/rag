@@ -33,7 +33,7 @@ services:
     image: chromadb/chroma:latest
     container_name: pour_decisions_chromadb
     volumes:
-      - ./chroma_data:/data
+      - ./chroma-data:/data
     environment:
       - IS_PERSISTENT=TRUE
       - ANONYMIZED_TELEMETRY=False
@@ -48,5 +48,5 @@ services:
       retries: 3
 
 volumes:
-  chroma_data:
+  chroma-data:
     driver: local
