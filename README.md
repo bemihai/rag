@@ -437,7 +437,7 @@ make db-status      # Check status
 make db-logs        # View logs
 make db-clean       # Delete all ChromaDB data (destructive!)
 make db-backup      # Create backup
-make db-load        # Load pour-decisions into ChromaDB
+make db-load        # Load data into ChromaDB
 
 # Testing
 make test-connection  # Test ChromaDB connection
