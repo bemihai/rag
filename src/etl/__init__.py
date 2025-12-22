@@ -1,4 +1,4 @@
-"""ETL package for wine data import."""
+"""ETL package for wine cellar-data import."""
 
 from .vivino_importer import VivinoImporter
 from .cellartracker_importer import CellarTrackerImporter

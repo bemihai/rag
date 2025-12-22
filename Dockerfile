@@ -3,7 +3,6 @@ FROM python:3.11-slim
 ENV PYTHONWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
-# set working directory
 WORKDIR /app
 
 # install system dependencies
@@ -13,23 +12,20 @@ RUN apt-get update && apt-get -y install \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# install uv for fast Python package management
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
-
 # install Python dependencies using uv
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 COPY pyproject.toml uv.lock ./
-RUN uv pip install --system --no-cache .
+RUN uv pip install -r pyproject.toml --system
 
 # copy app files
 COPY src/ ./src/
 COPY app_config.yml ./
 
-# create data directory for volumes
-RUN mkdir -p /app/data
+# create cellar-data directory for volumes
+RUN mkdir -p /app/cellar-data
 
-# expose streamlit default port
 EXPOSE 8501
-ENV PYTHONPATH="${PYTHONPATH}:/app/src"
+ENV PYTHONPATH=/app
 
 # healthcheck
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \

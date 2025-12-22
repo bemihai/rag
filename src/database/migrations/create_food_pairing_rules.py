@@ -1,5 +1,5 @@
 """
-Migration script to create food_pairing_rules table and populate it with initial data.
+Migration script to create food_pairing_rules table and populate it with initial cellar-data.
 
 This migration creates the food_pairing_rules table and inserts the pairing rules
 that were previously hardcoded in the pairing_tools.py file.

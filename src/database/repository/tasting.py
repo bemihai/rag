@@ -216,7 +216,7 @@ class TastingRepository:
         Update existing tasting record.
 
         Args:
-            tasting: Tasting agents with updated data
+            tasting: Tasting agents with updated cellar-data
 
         Returns:
             True if successful

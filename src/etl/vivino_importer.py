@@ -21,7 +21,7 @@ from src.utils.logger import logger
 
 
 class VivinoImporter:
-    """Import wine data from Vivino CSV exports."""
+    """Import wine cellar-data from Vivino CSV exports."""
 
     def __init__(self, db_path: str | None = None):
         """
@@ -121,7 +121,7 @@ class VivinoImporter:
             return self.stats
 
     def _process_full_wine_list_data(self, data: dict):
-        """Process aggregated data from full_wine_list.csv."""
+        """Process aggregated cellar-data from full_wine_list.csv."""
 
         if not (wine_import := self._create_wine_object_from_data(data)):
             self.stats["wines_skipped"] += 1
@@ -169,7 +169,7 @@ class VivinoImporter:
             self.stats["bottles_imported"] += 1
 
     def _create_wine_object_from_data(self, data: dict) -> Wine | None:
-        """Create Wine object from aggregated data (without tasting fields)."""
+        """Create Wine object from aggregated cellar-data (without tasting fields)."""
         row = data["row"]
         winery = clean_text(row["Winery"])
         wine_name = clean_text(row["Wine name"])
@@ -220,10 +220,10 @@ class VivinoImporter:
 
     def _create_or_update_tasting(self, data: dict, wine_id: int) -> int | None:
         """
-        Create or update tasting record from Vivino data.
+        Create or update tasting record from Vivino cellar-data.
 
         Args:
-            data: Aggregated wine data with ratings and reviews
+            data: Aggregated wine cellar-data with ratings and reviews
             wine_id: Wine ID to associate tasting with
 
         Returns:
@@ -277,7 +277,7 @@ class VivinoImporter:
             except (ValueError, TypeError):
                 pass
 
-        # Check if we have any tasting data
+        # Check if we have any tasting cellar-data
         if not (personal_rating or tasting_notes or community_rating):
             return None
 

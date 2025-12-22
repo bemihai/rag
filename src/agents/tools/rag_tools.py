@@ -71,7 +71,7 @@ def search_wine_knowledge(
         >>> info = search_wine_knowledge("Barolo aging requirements", max_results=3)
 
     Notes:
-        - Does NOT query user's personal cellar or taste data
+        - Does NOT query user's personal cellar or taste cellar-data
         - Returns general wine knowledge, not personalized information
     """
     try:

@@ -262,7 +262,7 @@ db-stats: check-env
 .PHONY: install-deps
 install-deps:
 	@echo "Installing Python dependencies for ChromaDB..."
-	@pip install chromadb langchain-chroma
+	@uv sync --group chroma
 
 .PHONY: test-connection
 test-connection: check-env
@@ -275,7 +275,7 @@ db-load: db-up install-deps
 	@PYTHONPATH=$(shell pwd) python3 src/rag/load_data.py
 
 # Wine Cellar Database Commands
-CELLAR_DB_PATH ?= data/wine_cellar.db
+CELLAR_DB_PATH ?= cellar-data/wine_cellar.db
 CELLAR_BACKUP_DIR ?= backups/wine_cellar
 
 .PHONY: cellar-init

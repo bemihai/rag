@@ -86,7 +86,7 @@ def show_rating_distribution():
         ratings = [row['personal_rating'] for row in cursor.fetchall()]
 
     if not ratings:
-        st.info("No rating data available yet.")
+        st.info("No rating cellar-data available yet.")
         return
 
     # Create 5-point intervals: 0-49, 50-54, 55-59, ..., 95-100
@@ -155,7 +155,7 @@ def show_wine_type_distribution():
     wine_type_stats = stats_repo.get_wine_type_stats()
 
     if not wine_type_stats:
-        st.info("No wine type data available yet.")
+        st.info("No wine type cellar-data available yet.")
         return
 
     st.markdown("### <i class='fa-solid fa-wine-glass fa-icon'></i>Wine Type Distribution", unsafe_allow_html=True)
@@ -187,7 +187,7 @@ def show_wine_type_performance():
     wine_type_stats = stats_repo.get_wine_type_stats()
 
     if not wine_type_stats:
-        st.info("No wine type data available yet.")
+        st.info("No wine type cellar-data available yet.")
         return
 
     st.markdown("### <i class='fa-solid fa-star fa-icon'></i>Performance by Type", unsafe_allow_html=True)
@@ -212,7 +212,7 @@ def show_top_varietals():
     varietals = stats_repo.get_varietal_preferences(limit=10)
 
     if not varietals:
-        st.info("No varietal data available yet.")
+        st.info("No varietal cellar-data available yet.")
         return
 
     st.markdown("### <i class='fa-solid fa-seedling fa-icon'></i>Top 3 Varietals", unsafe_allow_html=True)
@@ -236,7 +236,7 @@ def show_top_varietals():
                     st.write(f"⭐ {avg_rating:.1f}/100")
                 st.markdown("---")
     else:
-        st.info("Not enough varietal data to display top 3.")
+        st.info("Not enough varietal cellar-data to display top 3.")
 
 
 def show_varietal_analysis():
@@ -245,7 +245,7 @@ def show_varietal_analysis():
     varietals = stats_repo.get_varietal_preferences(limit=10)
 
     if not varietals:
-        st.info("No varietal data available yet.")
+        st.info("No varietal cellar-data available yet.")
         return
 
     st.markdown("### <i class='fa-solid fa-chart-line fa-icon'></i>Varietal Analysis", unsafe_allow_html=True)
@@ -296,7 +296,7 @@ def show_producer_loyalty():
     producers = stats_repo.get_producer_preferences(limit=5)
 
     if not producers:
-        st.info("No producer data available yet.")
+        st.info("No producer cellar-data available yet.")
         return
 
     st.markdown("### <i class='fa-solid fa-building fa-icon'></i>Favorite Producers", unsafe_allow_html=True)
@@ -334,7 +334,7 @@ def show_favorite_regions():
     regions = stats_repo.get_region_preferences(limit=5)
 
     if not regions:
-        st.info("No region data available yet.")
+        st.info("No region cellar-data available yet.")
         return
 
     st.markdown("### <i class='fa-solid fa-map-location-dot fa-icon'></i>Favorite Regions", unsafe_allow_html=True)
@@ -372,13 +372,13 @@ def show_rating_trends():
     timeline = stats_repo.get_rating_timeline()
 
     if not timeline or len(timeline) < 2:
-        st.info("Not enough data to show rating trends. Keep tasting wines!")
+        st.info("Not enough cellar-data to show rating trends. Keep tasting wines!")
         return
 
     # Filter to show only the most recent 12 months
     timeline_recent = timeline[-12:] if len(timeline) > 12 else timeline
 
-    # Prepare data
+    # Prepare cellar-data
     months = [t['month'] for t in timeline_recent]
     ratings = [t['avg_rating'] for t in timeline_recent]
     counts = [t['wines_count'] for t in timeline_recent]
@@ -665,7 +665,7 @@ def show_favorite_countries():
         countries = [dict(row) for row in cursor.fetchall()]
 
     if not countries:
-        st.info("No country data available yet.")
+        st.info("No country cellar-data available yet.")
         return
 
     st.markdown("### <i class='fa-solid fa-globe fa-icon'></i>Favorite Countries", unsafe_allow_html=True)
@@ -716,7 +716,7 @@ def show_favorite_vintages():
         vintages = [dict(row) for row in cursor.fetchall()]
 
     if not vintages:
-        st.info("No vintage data available yet.")
+        st.info("No vintage cellar-data available yet.")
         return
 
     st.markdown("### <i class='fa-solid fa-calendar fa-icon'></i>Top Vintages", unsafe_allow_html=True)
@@ -769,7 +769,7 @@ def show_favorite_appellations():
         appellations = [dict(row) for row in cursor.fetchall()]
 
     if not appellations:
-        st.info("No appellation data available yet.")
+        st.info("No appellation cellar-data available yet.")
         return
 
     st.markdown("### <i class='fa-solid fa-award fa-icon'></i>Favorite Appellations", unsafe_allow_html=True)

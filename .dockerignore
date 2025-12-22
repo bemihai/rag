@@ -39,7 +39,7 @@ tests/
 !README.md
 
 # Data (will be mounted as volumes)
-data/
+cellar-data/
 chroma-data/
 
 # Logs

@@ -2,7 +2,7 @@
 Wine Agent Quick Start Guide
 
 This example demonstrates how to use the wine agent once tools are implemented.
-Run this file to test the agent with your wine cellar data.
+Run this file to test the agent with your wine cellar cellar-data.
 """
 from src.agents.intelligent.agent import create_wine_agent
 from src.utils import logger

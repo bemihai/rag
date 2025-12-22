@@ -205,7 +205,7 @@ def get_wine_details(
 
     Notes:
         - Returns most recent match if multiple wines found with same name
-        - Returns None values for missing data (e.g., not yet tasted)
+        - Returns None values for missing cellar-data (e.g., not yet tasted)
         - Completely free operation (local SQLite query)
     """
     try:
@@ -302,7 +302,7 @@ def get_cellar_statistics() -> Dict:
         - ready_to_drink: Number of bottles in drinking window
         - still_aging: Number of bottles not yet ready
         - past_peak: Number of bottles past optimal window
-        - unknown_window: Bottles without drinking window data
+        - unknown_window: Bottles without drinking window cellar-data
 
         Value insights:
         - most_expensive: Details of most expensive bottle

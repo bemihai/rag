@@ -194,7 +194,7 @@ cp .env.example .env
 nano .env  # Add your GOOGLE_API_KEY
 
 # 3. Run the quick start script
-./start.sh
+./quickstart.sh
 
 # Or manually:
 docker-compose up --build
@@ -261,13 +261,13 @@ LANGFUSE_HOST=https://cloud.langfuse.com
 
 **Option A: Using Docker (easiest)**
 ```bash
-docker run -p 8000:8000 -v chroma-data:/chroma/chroma chromadb/chroma:latest
+docker run -p 8000:8000 -v chroma-cellar-data:/chroma/chroma chromadb/chroma:latest
 ```
 
 **Option B: Using Python**
 ```bash
 pip install chromadb
-chroma run --path ./chroma-data
+chroma run --path ./chroma-cellar-data
 ```
 
 ### 5. Load Your Wine Books

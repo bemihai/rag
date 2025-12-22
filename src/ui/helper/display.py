@@ -58,12 +58,12 @@ TABS_DISPLAY = """
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
         <style>
         /* Tab styling */
-        .stTabs [data-baseweb="tab-list"] {
+        .stTabs [cellar-data-baseweb="tab-list"] {
             gap: 10px;
             background-color: transparent;
             padding: 10px 0;
         }
-        .stTabs [data-baseweb="tab"] {
+        .stTabs [cellar-data-baseweb="tab"] {
             height: 50px;
             background-color: white;
             border-radius: 8px;
@@ -77,7 +77,7 @@ TABS_DISPLAY = """
             border-color: #7b1fa2;
         }
         /* Better vertical spacing */
-        div[data-testid="stVerticalBlock"] > div {
+        div[cellar-data-testid="stVerticalBlock"] > div {
             gap: 1.5rem;
         }
         /* Font Awesome icon styling */

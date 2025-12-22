@@ -9,14 +9,14 @@ services:
     ports:
       - "8501:8501"
     volumes:
-      - ./data:/app/data
+      - ./cellar-data:/app/cellar-data
       - ./app_config.yml:/app/app_config.yml
     env_file:
       - .env
     environment:
       - CHROMA_HOST=chromadb
       - CHROMA_PORT=8000
-      - PYTHONPATH=/app/src
+      - PYTHONPATH=/app
     depends_on:
       chromadb:
         condition: service_healthy
@@ -33,7 +33,7 @@ services:
     image: chromadb/chroma:latest
     container_name: pour_decisions_chromadb
     volumes:
-      - chroma_data:/chroma/chroma
+      - ./chroma_data:/data
     environment:
       - IS_PERSISTENT=TRUE
       - ANONYMIZED_TELEMETRY=False
@@ -42,11 +42,10 @@ services:
       - "8000:8000"
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
+      test: [ "CMD", "/bin/bash", "-c", "cat < /dev/null > /dev/tcp/localhost/8000" ]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 10s
 
 volumes:
   chroma_data:

@@ -77,7 +77,7 @@ class ProducerRepository:
         Update existing producer record.
 
         Args:
-            producer: Producer agents with updated data
+            producer: Producer agents with updated cellar-data
 
         Returns:
             True if successful
