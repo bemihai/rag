@@ -1,4 +1,4 @@
-"""CLI script to import data from CellarTracker."""
+"""CLI script to import cellar-data from CellarTracker."""
 import argparse
 import sys
 import os
@@ -13,7 +13,7 @@ from src.utils.logger import logger
 
 def main():
     """Main entry point for CellarTracker import."""
-    parser = argparse.ArgumentParser(description='Import wine data from CellarTracker API')
+    parser = argparse.ArgumentParser(description='Import wine cellar-data from CellarTracker API')
 
     parser.add_argument(
         '-u', '--username', type=str, required=False,
@@ -27,8 +27,8 @@ def main():
 
     parser.add_argument(
         '--db-path', type=str, required=False,
-        default='data/wine_cellar.db',
-        help='Path to SQLite database (default: data/wine_cellar.db)'
+        default='cellar-data/wine_cellar.db',
+        help='Path to SQLite database (default: cellar-data/wine_cellar.db)'
     )
 
     parser.add_argument(

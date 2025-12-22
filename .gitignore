@@ -7,14 +7,16 @@ build/
 
 .idea/
 chroma-data/
+/chroma_data/chroma.sqlite3
 secrets.*
 
 experimental/
 design/
 backups/
-data/
+cellar-data/
 
 # Keep GitHub Copilot configuration
 !.github/
 !.github/copilot-instructions.md
+
 

@@ -180,25 +180,63 @@ Robust error handling at every level:
 
 ## 🚀 Setup & Installation
 
+### Quick Start with Docker (Recommended)
+
+The easiest way to run Pour Decisions is with Docker Compose:
+
+```bash
+# 1. Clone the repository
+git clone <your-repo-url>
+cd pour-decisions
+
+# 2. Copy environment file and add your Google API key
+cp .env.example .env
+nano .env  # Add your GOOGLE_API_KEY
+
+# 3. Run the quick start script
+./quickstart.sh
+
+# Or manually:
+docker-compose up --build
+```
+
+Access the app at: **http://localhost:8501**
+
+That's it! Docker Compose will:
+- ✅ Build the application container
+- ✅ Start ChromaDB vector store
+- ✅ Set up persistent storage
+- ✅ Configure networking between services
+
+**See [DEPLOYMENT.md](DEPLOYMENT.md) for production deployment guides (Render.com, Fly.io, VPS).**
+
+---
+
+### Manual Installation (Development)
+
+For local development without Docker:
+
 ### Prerequisites
 
-- Python 3.10+
-- Docker (for ChromaDB)
+- Python 3.11+
 - Google API Key (for Gemini) or OpenAI API Key
 
 ### 1. Clone the Repository
 
 ```bash
 git clone <your-repo-url>
-cd rag
+cd pour-decisions
 ```
 
 ### 2. Install Dependencies
 
 ```bash
+# Using uv (recommended)
+pip install uv
+uv pip install --group ui
+
+# Or using pip
 pip install -r requirements.txt
-# or
-poetry install
 ```
 
 ### 3. Configure Environment
@@ -209,12 +247,11 @@ Create a `.env` file:
 # LLM Provider
 GOOGLE_API_KEY=your_google_api_key_here
 
-# ChromaDB Settings (optional, defaults provided)
-CHROMA_NAME=chroma-db
+# ChromaDB Settings (for local ChromaDB server)
+CHROMA_HOST=localhost
 CHROMA_PORT=8000
-CHROMA_VOLUME=./chroma-rag
 
-# Langfuse (optional, for tracing)
+# Optional: Langfuse (for tracing)
 LANGFUSE_SECRET_KEY=your_key
 LANGFUSE_PUBLIC_KEY=your_key
 LANGFUSE_HOST=https://cloud.langfuse.com
@@ -222,8 +259,15 @@ LANGFUSE_HOST=https://cloud.langfuse.com
 
 ### 4. Start ChromaDB
 
+**Option A: Using Docker (easiest)**
 ```bash
-make db-up
+docker run -p 8000:8000 -v chroma-cellar-data:/chroma/chroma chromadb/chroma:latest
+```
+
+**Option B: Using Python**
+```bash
+pip install chromadb
+chroma run --path ./chroma-cellar-data
 ```
 
 ### 5. Load Your Wine Books
@@ -231,12 +275,10 @@ make db-up
 Place your PDF/text files in the configured directory and run:
 
 ```bash
-make db-load
+python src/rag/load_data.py
 ```
 
 This will:
-- Start ChromaDB if not running
-- Install required dependencies
 - Process and chunk your documents
 - Generate embeddings
 - Store everything in ChromaDB
@@ -393,9 +435,9 @@ make db-down        # Stop ChromaDB
 make db-restart     # Restart ChromaDB
 make db-status      # Check status
 make db-logs        # View logs
-make db-clean       # Delete all rag (destructive!)
+make db-clean       # Delete all ChromaDB data (destructive!)
 make db-backup      # Create backup
-make db-load        # Load rag into ChromaDB
+make db-load        # Load data into ChromaDB
 
 # Testing
 make test-connection  # Test ChromaDB connection

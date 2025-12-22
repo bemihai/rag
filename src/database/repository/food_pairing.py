@@ -160,7 +160,7 @@ class FoodPairingRepository:
         Update existing pairing rule.
 
         Args:
-            rule: FoodPairingRule agents with updated data
+            rule: FoodPairingRule agents with updated cellar-data
 
         Returns:
             True if successful

@@ -21,9 +21,9 @@ from src.utils.logger import logger
 
 
 class CellarTrackerImporter:
-    """Import wine data from CellarTracker API."""
+    """Import wine cellar-data from CellarTracker API."""
 
-    def __init__(self, username: str, password: str, db_path: str = 'data/wine_cellar.db'):
+    def __init__(self, username: str, password: str, db_path: str = 'cellar-data/wine_cellar.db'):
         """
         Initialize CellarTracker importer.
 
@@ -56,7 +56,7 @@ class CellarTrackerImporter:
 
     def import_all(self) -> Dict:
         """
-        Import all data from CellarTracker following recommended strategy.
+        Import all cellar-data from CellarTracker following recommended strategy.
 
         Import Order:
         1. inventory.json - Build Wine catalog + current Bottle inventory
@@ -74,7 +74,7 @@ class CellarTrackerImporter:
             inventory = self.client.get_inventory()
             self._process_inventory(inventory)
 
-            logger.info("Step 2/4: Fetching and importing availability data...")
+            logger.info("Step 2/4: Fetching and importing availability cellar-data...")
             available = self.client.get_availability()
             self._process_availability(available)
 
@@ -143,12 +143,12 @@ class CellarTrackerImporter:
 
     def _process_availability(self, available: List[Dict]):
         """
-        Process availability data - Updates wine catalog with drinking index scores.
+        Process availability cellar-data - Updates wine catalog with drinking index scores.
 
         Updates Wine entities with:
         - drink_index (availability score from Available column, converted to 0-100 scale)
         """
-        logger.info(f"Processing {len(available)} wines from availability data")
+        logger.info(f"Processing {len(available)} wines from availability cellar-data")
 
         for record in available:
             try:

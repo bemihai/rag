@@ -11,7 +11,7 @@ from src.utils.logger import logger
 
 
 def sync_cellartracker_data():
-    """Sync data from CellarTracker."""
+    """Sync cellar-data from CellarTracker."""
     load_dotenv()
 
     username = os.getenv('CELLAR_TRACKER_USERNAME')
@@ -23,7 +23,7 @@ def sync_cellartracker_data():
         return False
 
     try:
-        with st.spinner("🔄 Syncing data from CellarTracker..."):
+        with st.spinner("🔄 Syncing cellar-data from CellarTracker..."):
             db_path = get_default_db_path()
             importer = CellarTrackerImporter(username, password, db_path)
 
@@ -66,7 +66,7 @@ def main():
             st.rerun()
 
         st.markdown("")
-        st.caption("Manually sync your CellarTracker data to update your collection.")
+        st.caption("Manually sync your CellarTracker cellar-data to update your collection.")
 
         # Display sync results if available
         if st.session_state.sync_error:

@@ -1,4 +1,4 @@
-"""CLI tool for importing Vivino data."""
+"""CLI tool for importing Vivino cellar-data."""
 import sys
 from pathlib import Path
 
@@ -8,10 +8,10 @@ from src.utils.logger import logger
 
 
 def main():
-    """Import Vivino CSV data into wine cellar database."""
+    """Import Vivino CSV cellar-data into wine cellar database."""
 
-    cellar_csv = get_project_root() / "data/vivino/cellar.csv"
-    full_wine_list_csv = get_project_root() / "data/vivino/full_wine_list.csv"
+    cellar_csv = get_project_root() / "cellar-data/vivino/cellar.csv"
+    full_wine_list_csv = get_project_root() / "cellar-data/vivino/full_wine_list.csv"
 
     if not (Path(cellar_csv).exists() and Path(full_wine_list_csv).exists()):
         logger.error(f"Vivino csv files not found: {cellar_csv}, {full_wine_list_csv}")

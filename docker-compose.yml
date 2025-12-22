@@ -1,32 +1,52 @@
+name: pour-decisions
+
 services:
   app:
-    build: .
-    container_name: streamlit_app
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: pour_decisions_app
     ports:
       - "8501:8501"
+    volumes:
+      - ./cellar-data:/app/cellar-data
+      - ./app_config.yml:/app/app_config.yml
     env_file:
       - .env
     environment:
-      - BQ_API_ENDPOINT=http://bigquery:${BQ_CONTAINER_PORT}
+      - CHROMA_HOST=chromadb
+      - CHROMA_PORT=8000
+      - PYTHONPATH=/app
     depends_on:
-      - bigquery
-    working_dir: /app
-    command: >
-      sh -c "./wait-for-bq.sh bigquery ${BQ_CONTAINER_PORT} -- python -u src/bigquery/setup.py 2>&1 && streamlit run src/ui/app.py"
+      chromadb:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    command: streamlit run src/ui/app.py --server.address=0.0.0.0
 
-  bigquery:
-    image: ghcr.io/goccy/bigquery-emulator:latest
-    container_name: bigquery_emulator
-    platform: linux/x86_64
+  chromadb:
+    image: chromadb/chroma:latest
+    container_name: pour_decisions_chromadb
+    volumes:
+      - ./chroma_data:/data
+    environment:
+      - IS_PERSISTENT=TRUE
+      - ANONYMIZED_TELEMETRY=False
+      - ALLOW_RESET=True
     ports:
-      - "${BQ_CONTAINER_PORT}:9050"
-    command: >
-      --project=${BQ_PROJECT_ID}
-    env_file:
-      - .env
+      - "8000:8000"
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "/bin/bash", "-c", "cat < /dev/null > /dev/tcp/localhost/8000" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
-
-      
-
-
-
+volumes:
+  chroma_data:
+    driver: local

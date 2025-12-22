@@ -188,7 +188,7 @@ class BottleRepository:
         Update existing bottle record.
 
         Args:
-            bottle: Bottle agents with updated data
+            bottle: Bottle agents with updated cellar-data
 
         Returns:
             True if successful

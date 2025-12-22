@@ -69,7 +69,7 @@ def process_query(question: str) -> str:
     # Step 1: Route by keywords (NO LLM)
     query_type = classify_by_keywords(question)
     
-    # Step 2: Gather data locally (NO LLM)
+    # Step 2: Gather cellar-data locally (NO LLM)
     data = get_data_from_local_source(question, query_type)
     
     # Step 3: SINGLE LLM call for final answer

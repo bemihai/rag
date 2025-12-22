@@ -1,27 +1,36 @@
 FROM python:3.11-slim
 
 ENV PYTHONWRITEBYTECODE=1
-ENV PYTHONBUFFERED=1
+ENV PYTHONUNBUFFERED=1
 
-# set working directory
 WORKDIR /app
 
-# install dependencies
-COPY pyproject.toml uv.lock ./
+# install system dependencies
 RUN apt-get update && apt-get -y install \
     g++ \
     curl \
-    netcat-openbsd \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-RUN pip install --upgrade pip \
-    && pip install --no-cache-dir uv  \
-    && uv pip install --system --group ui
+# install Python dependencies using uv
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+COPY pyproject.toml uv.lock ./
+RUN uv pip install -r pyproject.toml --system
 
 # copy app files
-COPY . .
+COPY src/ ./src/
+COPY app_config.yml ./
 
-# expose streamlit default port
+# create cellar-data directory for volumes
+RUN mkdir -p /app/cellar-data
+
 EXPOSE 8501
-ENV PYTHONPATH="${PYTHONPATH}:/app/src"
+ENV PYTHONPATH=/app
+
+# healthcheck
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+  CMD curl -f http://localhost:8501/_stcore/health || exit 1
+
+# run streamlit app
+CMD ["streamlit", "run", "src/ui/app.py", "--server.address=0.0.0.0"]
+

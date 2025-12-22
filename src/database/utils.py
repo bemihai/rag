@@ -14,7 +14,7 @@ def build_update_query(
 
     Args:
         table_name: Name of the database table.
-        model: Model instance with updated data.
+        model: Model instance with updated cellar-data.
         id_field: Name of the ID field (default is "id", this is not updated).
         exclude_fields: List of fields to exclude from update.
 

@@ -355,7 +355,7 @@ class WineRepository:
         Update existing wine record.
 
         Args:
-            wine: Wine agents with updated data
+            wine: Wine agents with updated cellar-data
 
         Returns:
             True if successful

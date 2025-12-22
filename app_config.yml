@@ -1,7 +1,7 @@
 chroma:
   client:
-    host: localhost                     # ChromaDB server host
-    port: 8000                          # ChromaDB server port
+    host: ${oc.env:CHROMA_HOST, localhost}               # ChromaDB server host (env var or default)
+    port: ${oc.env:CHROMA_PORT, 8000}               # ChromaDB server port (env var or default)
   chunking:
     strategy: by_title                  # basic, by_title, semantic
     chunk_size: 1024
@@ -13,10 +13,10 @@ chroma:
     use_deduplication: false            # enable semantic deduplication of retrieved chunks
   settings:
     batch_size: 2500
-    embedder: sentence-transformers/all-MiniLM-L6-v2  # embedding agents for retrieval
+    embedder: ${oc.env:EMBEDDING_MODEL} # embedding agents for retrieval
   collections:
     - name: wine_books                  # primary collection name to query
-      local_data_path: /Users/bemihai/Books/Wine
+      local_data_path: ${oc.env:WINE_BOOKS_PATH}
       metadata:
         description: "Professional wine books collection"
         hnsw:space: cosine              # similarity measure (cosine, l2, ip)
@@ -33,4 +33,4 @@ initial_message:
   answer: "Hi there! Ask me anything about wine."
 
 cellar:
-  db_path: data/wine_cellar.db        # path to SQLite database for wine cellar
+  db_path: cellar-data/wine_cellar.db        # path to SQLite database for wine cellar

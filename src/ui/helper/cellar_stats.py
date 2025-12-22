@@ -213,7 +213,7 @@ def show_top_rated_consumed_wines_old():
             with col1:
                 st.write(f"**Producer:** {producer_name}")
                 st.write(f"**Wine:** {wine_name}")
-                st.write(f"**Vintage:** {vintage or "Non-Vintage"}")
+                st.write(f"**Vintage:** {vintage or 'Non-Vintage'}")
                 st.write(f"**Type:** {wine_type}")
 
             with col2:
@@ -241,7 +241,7 @@ def show_cellar_inventory():
     for bottle in raw_inventory:
         wine_id = bottle.get('wine_id')
         if wine_id not in wine_groups:
-            # First occurrence - store all wine data
+            # First occurrence - store all wine cellar-data
             wine_groups[wine_id] = bottle.copy()
         else:
             # Add quantity to existing group
@@ -471,7 +471,7 @@ def show_cellar_statistics():
     st.markdown("### <i class='fa-solid fa-chart-line fa-icon'></i>Cellar Statistics & Analytics", unsafe_allow_html=True)
 
 
-    # Get data
+    # Get cellar-data
     overview = stats_repo.get_cellar_overview()
     inventory = bottle_repo.get_inventory()
     drinking_window_wines = stats_repo.get_drinking_window_wines()
@@ -824,7 +824,7 @@ def show_cellar_statistics():
                 import plotly.graph_objects as go
                 from datetime import datetime
 
-                # Extract and format data for plotting
+                # Extract and format cellar-data for plotting
                 months = []
                 cumulative_bottles = []
                 for data in size_data:
@@ -862,5 +862,5 @@ def show_cellar_statistics():
                 )
                 st.plotly_chart(fig, use_container_width=True)
             else:
-                st.info("No CellarTracker bottle purchase data available for timeline chart.")
+                st.info("No CellarTracker bottle purchase cellar-data available for timeline chart.")
 

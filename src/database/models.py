@@ -71,9 +71,9 @@ class Wine(BaseModel):
     drink_index: float | None = Field(None, description="Drinkability index score")
 
     # Community inventory fields
-    q_purchased: int = Field(0, description="Quantity purchased (community data)")
-    q_quantity: int = Field(0, description="Quantity currently owned + pending (community data)")
-    q_consumed: int = Field(0, description="Quantity consumed (community data)")
+    q_purchased: int = Field(0, description="Quantity purchased (community cellar-data)")
+    q_quantity: int = Field(0, description="Quantity currently owned + pending (community cellar-data)")
+    q_consumed: int = Field(0, description="Quantity consumed (community cellar-data)")
 
     # Producer and region fields (not in DB, populated via joins)
     producer_name: str | None = Field(None, description="Producer name")

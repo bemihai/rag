@@ -1,4 +1,4 @@
-"""Runnable script for processing external rag and loading to ChromaDB."""
+"""Runnable script for processing external data and loading to ChromaDB."""
 import os
 
 from src.rag import CollectionDataLoader

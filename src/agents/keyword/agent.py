@@ -323,7 +323,7 @@ class KeywordWineAgent:
                 else:
                     context_parts.append(f"{key}: {value}")
 
-            context = "\n".join(context_parts) if context_parts else "No data found"
+            context = "\n".join(context_parts) if context_parts else "No cellar-data found"
 
             # Load prompt template from file
             prompt_path = Path(__file__).parent / "prompts" / "keyword_agent_generation_prompt.md"

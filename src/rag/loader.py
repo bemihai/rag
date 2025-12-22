@@ -116,7 +116,7 @@ class CollectionDataLoader:
             # Validate chunks
             valid_chunks = validate_chunks(chunks)
 
-            # Prepare the chunked rag for ChromaDB
+            # Prepare the chunked documents for ChromaDB
             docs = []
             metadata_list = []
             ids = []
