@@ -76,8 +76,22 @@ def main():
                         st.session_state.last_retrieved_docs = []
 
                     except Exception as e:
-                        logger.error(f"Error using intelligent agent: {e}", exc_info=True)
-                        answer = "I apologize, but I encountered an error processing your request with the intelligent agent. Please try again or switch to a different agent mode."
+                        error_type = type(e).__name__
+                        error_msg = str(e)
+                        logger.error(f"Error using intelligent agent ({error_type}): {error_msg}", exc_info=True)
+
+                        # Provide more specific error message based on error type
+                        if "429" in error_msg or "RESOURCE_EXHAUSTED" in error_msg or "quota" in error_msg.lower():
+                            answer = "The AI service quota has been exceeded. The free tier allows 20 requests per day. Please try again later or switch to 'No Agent (RAG Only)' mode."
+                        elif "ChatGoogleGenerativeAI" in error_type or "APIError" in error_type:
+                            answer = f"There was an issue with the AI service. Please try again later or switch to 'No Agent (RAG Only)' mode. (Error: {error_type})"
+                        elif "AttributeError" in error_type:
+                            answer = f"I encountered a data formatting error. Please try rephrasing your question or switch to a different agent mode. (Error: {error_type})"
+                        elif "KeyError" in error_type:
+                            answer = f"I encountered a missing data error. Please try rephrasing your question or switch to a different agent mode. (Error: {error_type})"
+                        else:
+                            answer = f"I apologize, but I encountered an error processing your request with the intelligent agent. Please try again or switch to a different agent mode. (Error: {error_type})"
+
                         # Clear sources
                         st.session_state.last_sources = []
                         st.session_state.last_retrieved_docs = []
@@ -106,8 +120,18 @@ def main():
                         st.session_state.last_retrieved_docs = []
 
                     except Exception as e:
-                        logger.error(f"Error using keyword agent: {e}", exc_info=True)
-                        answer = "I apologize, but I encountered an error processing your request with the keyword agent. Please try again or switch to a different agent mode."
+                        error_type = type(e).__name__
+                        error_msg = str(e)
+                        logger.error(f"Error using keyword agent ({error_type}): {error_msg}", exc_info=True)
+
+                        # Provide more specific error message based on error type
+                        if "429" in error_msg or "RESOURCE_EXHAUSTED" in error_msg or "quota" in error_msg.lower():
+                            answer = "The AI service quota has been exceeded. The free tier allows 20 requests per day. Please try again later or switch to 'No Agent (RAG Only)' mode."
+                        elif "ChatGoogleGenerativeAI" in error_type or "APIError" in error_type:
+                            answer = f"There was an issue with the AI service. Please try again later or switch to 'No Agent (RAG Only)' mode. (Error: {error_type})"
+                        else:
+                            answer = f"I apologize, but I encountered an error processing your request with the keyword agent. Please try again or switch to a different agent mode. (Error: {error_type})"
+
                         # Clear sources
                         st.session_state.last_sources = []
                         st.session_state.last_retrieved_docs = []

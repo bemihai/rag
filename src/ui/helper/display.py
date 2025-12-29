@@ -290,7 +290,27 @@ def format_assistant_message(message: dict, sources: list = None) -> str:
     Returns:
         HTML string with formatted message and sources.
     """
-    message_text = html.escape(message["answer"])
+    # Handle case where answer might be a list or other non-string type
+    try:
+        answer = message["answer"]
+        if isinstance(answer, list):
+            # Extract text from content blocks
+            text_parts = []
+            for item in answer:
+                if isinstance(item, dict) and "text" in item:
+                    text_parts.append(item["text"])
+                elif isinstance(item, str):
+                    text_parts.append(item)
+                else:
+                    text_parts.append(str(item))
+            answer = " ".join(text_parts) if text_parts else ""
+        elif not isinstance(answer, str):
+            answer = str(answer)
+
+        message_text = html.escape(answer)
+    except Exception as e:
+        # Fallback if there's any issue processing the answer
+        message_text = html.escape("Error displaying message: " + str(e))
     avatar_emoji = "🍇" # grapes
 
     # Build sources HTML if provided
