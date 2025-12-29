@@ -264,7 +264,7 @@ Storage is dominated by the HNSW index files, which grow linearly with the numbe
 
 ## 2. Retrieval Pipeline
 
-The retrieval pipeline finds the most relevant chunks for a user's question using a multi-stage approach.
+The retrieval pipeline finds the most relevant chunks for a user's question using a multi-stage approach. **Hybrid search and reranking are enabled by default** via `app_config.yml`.
 
 ### 2.1 Query Preprocessing
 
@@ -449,9 +449,31 @@ chroma:
   retrieval:
     n_results: 5
     similarity_threshold: 0.3
+    # Hybrid search
+    enable_hybrid: true
+    hybrid_vector_weight: 0.7
+    hybrid_keyword_weight: 0.3
+    bm25_index_path: "chroma-data/bm25_index.pkl"
+    # Reranking
+    enable_reranking: true
+    reranker_model: "cross-encoder/ms-marco-MiniLM-L-6-v2"
+    rerank_top_k: 5
   settings:
     embedder: sentence-transformers/all-MiniLM-L6-v2
 ```
+
+**Retrieval Mode Options**
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `enable_hybrid` | `true` | Enable hybrid search (vector + BM25) |
+| `enable_reranking` | `true` | Enable cross-encoder reranking |
+
+When both are enabled, the retrieval flow is:
+1. Vector search retrieves `n_results * 2` candidates
+2. BM25 search retrieves `n_results * 2` candidates  
+3. RRF fusion combines rankings
+4. Cross-encoder reranks to `rerank_top_k` final results
 
 ---
 

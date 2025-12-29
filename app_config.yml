@@ -11,6 +11,15 @@ chroma:
     similarity_threshold: 0.3           # minimum similarity score (0.0-1.0) to filter results
     deduplication_threshold: 0.9        # similarity threshold for removing duplicate chunks (optional)
     use_deduplication: false            # enable semantic deduplication of retrieved chunks
+    # Hybrid search settings
+    enable_hybrid: true                 # enable hybrid search (vector + BM25)
+    hybrid_vector_weight: 0.7           # weight for vector search in hybrid mode
+    hybrid_keyword_weight: 0.3          # weight for BM25 keyword search
+    bm25_index_path: "chroma-data/bm25_index.pkl"  # path to BM25 index file
+    # Reranking settings
+    enable_reranking: true              # enable cross-encoder reranking
+    reranker_model: "cross-encoder/ms-marco-MiniLM-L-6-v2"  # reranker model
+    rerank_top_k: 5                     # number of results after reranking
   settings:
     batch_size: 2500
     embedder: ${oc.env:EMBEDDING_MODEL} # embedding agents for retrieval
