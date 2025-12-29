@@ -12,6 +12,7 @@ dependencies = [
     "instructor>=1.13.0",
     "langchain>=1.2.0",
     "langchain-core>=1.2.2",
+    "langchain-experimental>=0.4.1",
     "langchain-google-genai>=4.1.1",
     "langchain-huggingface>=1.2.0",
     "langchain-openai>=1.1.6",

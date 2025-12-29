@@ -3,7 +3,6 @@ from tqdm import tqdm
 import time
 
 from langchain_huggingface import HuggingFaceEmbeddings
-import instructor
 
 from src.rag.chunks import split_file
 from src.utils import logger, initialize_chroma_client, get_or_create_collection, create_chroma_batches, validate_chunks
@@ -19,12 +18,8 @@ class CollectionDataLoader:
         collection_metadata: Optional metadata for the collection.
         chroma_host: Host for ChromaDB.
         chroma_port: Port for ChromaDB.
-        embedding_model: HuggingFace agents name for embeddings.
+        embedding_model: HuggingFace model name for embeddings.
         batch_size: Number of documents to process in each batch.
-        use_instructor: Whether to use semantic chunking with Instructor.
-        gemini_model: Optional, agents name for Google Gemini if using Instructor. Should be
-            a string like 'google/gemini-2.5-flash'.
-        gemini_api_key: Optional, the API key for Google Gemini if using Instructor.
     """
     def __init__(
         self,
@@ -34,22 +29,11 @@ class CollectionDataLoader:
         chroma_port: int,
         embedding_model: str,
         batch_size: int = 2500,
-        use_instructor: bool = False,
-        gemini_model: str | None = None,
-        gemini_api_key: str | None = None,
     ):
         self.collection_name = collection_name
         self.batch_size = batch_size
-        self.use_instructor = use_instructor
-        self.gemini_model = gemini_model
+        self.embedding_model = embedding_model
         self.embedder = HuggingFaceEmbeddings(model_name=embedding_model)
-        self.instructor_client = None
-
-        # Initialize instructor client with Gemini if required
-        if use_instructor and gemini_api_key:
-            # Use the new from_provider approach to avoid deprecation warning
-            self.instructor_client = instructor.from_provider(gemini_model, api_key=gemini_api_key)
-            logger.info("Instructor client with Gemini initialized for semantic chunking.")
 
         # Initialize or get ChromaDB collection
         self.client = initialize_chroma_client(chroma_host, chroma_port)
@@ -104,7 +88,7 @@ class CollectionDataLoader:
                 strategy=strategy,
                 chunk_size=chunk_size,
                 overlap_size=overlap_size,
-                instructor_client=self.instructor_client,
+                embedding_model=self.embedding_model,
             )
 
             if not chunks:
