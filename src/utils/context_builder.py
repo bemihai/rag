@@ -4,6 +4,16 @@ from typing import List, Dict, Any
 import numpy as np
 from langchain_huggingface import HuggingFaceEmbeddings
 
+# Module-level embedder cache to avoid re-instantiation
+_embedder_cache: Dict[str, HuggingFaceEmbeddings] = {}
+
+
+def _get_embedder(model_name: str) -> HuggingFaceEmbeddings:
+    """Get or create cached embedder instance."""
+    if model_name not in _embedder_cache:
+        _embedder_cache[model_name] = HuggingFaceEmbeddings(model_name=model_name)
+    return _embedder_cache[model_name]
+
 
 def build_context_from_chunks(
     retrieved_docs: List[Dict[str, Any]],
@@ -81,7 +91,7 @@ def build_semantic_context(
         retrieved_docs: List of retrieved documents from ChromaRetriever.
         similarity_threshold: Threshold for considering chunks as duplicates. Default is 0.9.
         include_metadata: Whether to include source metadata.
-        embedding_model: HuggingFace agents name for embeddings (should match retriever's agents).
+        embedding_model: HuggingFace model name for embeddings (should match retriever's model).
 
     Returns:
         Formatted context string with duplicates removed.
@@ -89,8 +99,8 @@ def build_semantic_context(
     if not retrieved_docs:
         return ""
 
-    # Initialize embedder (same as retriever)
-    embedder = HuggingFaceEmbeddings(model_name=embedding_model)
+    # Use cached embedder instance
+    embedder = _get_embedder(embedding_model)
 
     unique_docs = []
     unique_embeddings = []
