@@ -1,5 +1,7 @@
 """Retriever component for querying ChromaDB collections."""
 from typing import List, Dict, Any
+from collections import OrderedDict
+import hashlib
 
 import chromadb as cdb
 from langchain_huggingface import HuggingFaceEmbeddings
@@ -19,6 +21,8 @@ class ChromaRetriever:
         n_results: Number of results to retrieve (default: 5).
         similarity_threshold: Minimum similarity score to filter results (default: None).
         enable_query_expansion: Whether to expand queries with related wine terms (default: True).
+        enable_cache: Whether to cache query results (default: True).
+        cache_size: Maximum number of queries to cache (default: 100).
     """
 
     def __init__(
@@ -29,12 +33,19 @@ class ChromaRetriever:
         n_results: int = 5,
         similarity_threshold: float | None = None,
         enable_query_expansion: bool = True,
+        enable_cache: bool = True,
+        cache_size: int = 100,
     ):
         self.client = client
         self.collection_name = collection_name
         self.n_results = n_results
         self.similarity_threshold = similarity_threshold
         self.enable_query_expansion = enable_query_expansion
+        self.enable_cache = enable_cache
+        self.cache_size = cache_size
+        self._cache: OrderedDict[str, List[Dict[str, Any]]] = OrderedDict()
+        self._cache_hits = 0
+        self._cache_misses = 0
         self.embedder = HuggingFaceEmbeddings(model_name=embedding_model)
 
         try:
@@ -43,6 +54,54 @@ class ChromaRetriever:
         except Exception as e:
             logger.error(f"Failed to get collection '{collection_name}': {e}")
             raise
+
+    def _get_cache_key(
+        self,
+        query: str,
+        n_results: int,
+        where: Dict[str, Any] | None,
+        where_document: Dict[str, Any] | None
+    ) -> str:
+        """Generate cache key for query parameters."""
+        key_parts = f"{query}:{n_results}:{str(where)}:{str(where_document)}"
+        return hashlib.md5(key_parts.encode()).hexdigest()
+
+    def _cache_get(self, key: str) -> List[Dict[str, Any]] | None:
+        """Get from cache with LRU update."""
+        if key in self._cache:
+            self._cache.move_to_end(key)
+            self._cache_hits += 1
+            return self._cache[key]
+        self._cache_misses += 1
+        return None
+
+    def _cache_set(self, key: str, value: List[Dict[str, Any]]) -> None:
+        """Set cache with LRU eviction."""
+        if key in self._cache:
+            self._cache.move_to_end(key)
+        else:
+            if len(self._cache) >= self.cache_size:
+                self._cache.popitem(last=False)
+            self._cache[key] = value
+
+    def clear_cache(self) -> None:
+        """Clear the query cache."""
+        self._cache.clear()
+        self._cache_hits = 0
+        self._cache_misses = 0
+        logger.debug("Query cache cleared")
+
+    def get_cache_stats(self) -> Dict[str, Any]:
+        """Get cache statistics."""
+        total = self._cache_hits + self._cache_misses
+        hit_rate = self._cache_hits / total if total > 0 else 0.0
+        return {
+            "size": len(self._cache),
+            "max_size": self.cache_size,
+            "hits": self._cache_hits,
+            "misses": self._cache_misses,
+            "hit_rate": hit_rate,
+        }
 
     def _preprocess_query(self, query: str) -> str:
         """
@@ -87,6 +146,15 @@ class ChromaRetriever:
         """
         n_results = n_results or self.n_results
 
+        # Check cache first
+        cache_key = None
+        if self.enable_cache:
+            cache_key = self._get_cache_key(query, n_results, where, where_document)
+            cached_results = self._cache_get(cache_key)
+            if cached_results is not None:
+                logger.debug(f"Cache hit for query: '{query[:50]}...'")
+                return cached_results
+
         try:
             # Preprocess query with wine terminology normalization
             processed_query = self._preprocess_query(query)
@@ -104,6 +172,10 @@ class ChromaRetriever:
 
             results = self.collection.query(**query_params)
             retrieved_docs = self._format_results(results)
+
+            # Update cache
+            if self.enable_cache and cache_key and retrieved_docs:
+                self._cache_set(cache_key, retrieved_docs)
 
             if retrieved_docs:
                 # Log retrieval statistics
