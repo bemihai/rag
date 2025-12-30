@@ -198,10 +198,68 @@ The loader provides detailed statistics:
 |---------|-------------|
 | `make chroma-up` | Start ChromaDB container |
 | `make chroma-down` | Stop ChromaDB container |
+| `make chroma-upload` | Index new/modified files (incremental) |
+| `make chroma-reindex` | Force reindex all files |
+| `make chroma-status` | Show index status (files and chunks) |
 | `make chroma-health` | Check ChromaDB health status |
 | `make chroma-reset` | Reset ChromaDB (clears all data) |
 | `make chroma-backup` | Backup ChromaDB data directory |
 | `make chroma-restore BACKUP_FILE=path` | Restore from backup |
+
+### 1.8 Incremental Indexing
+
+The loader supports incremental indexing to avoid re-processing unchanged files. This is enabled by default.
+
+**How It Works**
+
+1. A manifest file tracks all indexed files with their content hashes
+2. When running `make chroma-upload`, only new or modified files are processed
+3. File changes are detected by comparing MD5 hashes of file contents
+4. The manifest is stored at `chroma-data/manifests/{collection}_manifest.json`
+
+**Manifest Contents**
+
+For each indexed file, the manifest stores:
+- File path and content hash
+- File size and modification time
+- When the file was indexed
+- Number of chunks created
+- Collection name
+
+**Commands**
+
+```bash
+# Incremental mode (default) - only process new/modified files
+make chroma-upload
+
+# Force reindex all files
+make chroma-reindex
+
+# Show current index status
+make chroma-status
+```
+
+**Example Output**
+
+```
+📊 Index Status for 'wine_books':
+   Files indexed: 5
+   Total chunks: 2847
+   Last updated: 2025-12-30T10:15:32
+
+   Indexed files:
+   - wine_atlas.pdf (892 chunks)
+   - world_of_wine.epub (1203 chunks)
+   - sommelier_guide.pdf (752 chunks)
+```
+
+**When to Force Reindex**
+
+Use `make chroma-reindex` when:
+- Chunking strategy has changed
+- Embedding model has been upgraded
+- Metadata extraction logic has been updated
+- You want to rebuild the entire index
 
 ### 1.7 ChromaDB Storage Structure
 
@@ -438,6 +496,8 @@ src/rag/
 ├── chunks.py                # Document chunking strategies
 ├── deduplication.py         # Semantic deduplication of chunks
 ├── hybrid_retriever.py      # Hybrid search with RRF
+├── index_tracker.py         # Incremental indexing manifest
+├── load_data.py             # CLI for loading data into ChromaDB
 ├── loader.py                # Document ingestion
 ├── metadata_extractor.py    # Wine metadata extraction (grapes, regions, etc.)
 ├── reranker.py              # Cross-encoder reranking

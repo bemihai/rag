@@ -34,7 +34,9 @@ help:
 	@echo "Development Commands:"
 	@echo "  install         - Install Python dependencies with uv"
 	@echo "  run             - Run app locally with ChromaDB (PYTHONPATH configured)"
-	@echo "  chroma-upload - Populate ChromaDB with wine knowledge"
+	@echo "  chroma-upload   - Populate ChromaDB with wine knowledge (incremental)"
+	@echo "  chroma-reindex  - Force reindex all files in ChromaDB"
+	@echo "  chroma-status   - Show index status (files and chunks)"
 	@echo "  chroma-up       - Start only ChromaDB (for local development)"
 	@echo "  chroma-down     - Stop ChromaDB container"
 	@echo "  chroma-health   - Check ChromaDB container health status"
@@ -150,9 +152,20 @@ run:
 
 .PHONY: chroma-upload
 chroma-upload:
-	@echo "Populating ChromaDB with wine knowledge..."
-	@PYTHONPATH=$(shell pwd) python3 src/rag/load_data.py
-	@echo "ChromaDB populated"
+	@echo "Populating ChromaDB with wine knowledge (incremental mode)..."
+	@PYTHONPATH=$(shell pwd) python3 -m src.rag.load_data
+	@echo "ChromaDB indexing complete"
+
+.PHONY: chroma-reindex
+chroma-reindex:
+	@echo "Force reindexing all files to ChromaDB..."
+	@PYTHONPATH=$(shell pwd) python3 -m src.rag.load_data --force
+	@echo "ChromaDB reindexing complete"
+
+.PHONY: chroma-status
+chroma-status:
+	@echo "Checking ChromaDB index status..."
+	@PYTHONPATH=$(shell pwd) python3 -m src.rag.load_data --status
 
 .PHONY: chroma-up
 chroma-up:

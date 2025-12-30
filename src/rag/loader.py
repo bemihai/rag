@@ -170,6 +170,8 @@ class CollectionDataLoader:
         overlap_size: int = 128,
         skip_duplicates: bool = True,
         extract_wine_metadata: bool = True,
+        incremental: bool = True,
+        force_reindex: bool = False,
     ) -> dict:
         """
         Load all files from directory with progress tracking. Returns a summary dict.
@@ -182,7 +184,11 @@ class CollectionDataLoader:
             overlap_size: Overlap size between chunks.
             skip_duplicates: Whether to skip duplicate chunks based on content hash.
             extract_wine_metadata: Whether to extract wine-specific metadata from chunks.
+            incremental: If True, only process new or modified files (default: True).
+            force_reindex: If True, ignore index tracking and reprocess all files.
         """
+        from src.rag.index_tracker import IndexTracker
+
         if file_extensions is None:
             file_extensions = [".epub", ".pdf"]
 
@@ -191,20 +197,42 @@ class CollectionDataLoader:
             raise ValueError(f"Data directory {data_path} does not exist")
 
         # Find all files
-        files_to_process = []
+        all_files = []
         for ext in file_extensions:
-            files_to_process.extend(data_dir.glob(f"**/*{ext}"))
+            all_files.extend(data_dir.glob(f"**/*{ext}"))
 
-        if not files_to_process:
+        if not all_files:
             logger.warning(f"No files found with extensions {file_extensions} in {data_path}")
             return {"total_files": 0, "files_processed": 0, "total_chunks": 0}
 
-        logger.info(f"Found {len(files_to_process)} files to process")
+        # Initialize index tracker for incremental processing
+        tracker = None
+        files_to_process = all_files
+        skipped_files = 0
+
+        if incremental and not force_reindex:
+            tracker = IndexTracker(collection_name=self.collection_name)
+            files_to_process = tracker.get_files_to_index(all_files)
+            skipped_files = len(all_files) - len(files_to_process)
+
+            if not files_to_process:
+                logger.info("All files already indexed, nothing to process")
+                stats = tracker.get_stats()
+                return {
+                    "total_files": len(all_files),
+                    "files_processed": 0,
+                    "files_skipped": skipped_files,
+                    "total_chunks": stats.get("total_chunks", 0),
+                    "message": "All files already indexed",
+                }
+
+        logger.info(f"Found {len(all_files)} files, processing {len(files_to_process)} (skipping {skipped_files} already indexed)")
 
         # Process files with progress bar
         total_stats = {
-            "total_files": len(files_to_process),
+            "total_files": len(all_files),
             "files_processed": 0,
+            "files_skipped": skipped_files,
             "successful_files": 0,
             "failed_files": 0,
             "total_chunks_generated": 0,
@@ -239,8 +267,13 @@ class CollectionDataLoader:
                 if file_stats["errors"]:
                     total_stats["failed_files"] += 1
                     total_stats["errors"].extend(file_stats["errors"])
+                    # Failed files are NOT marked as indexed - they will be retried on next run
+                    logger.warning(f"File '{file_path.name}' failed and will be retried on next run")
                 else:
                     total_stats["successful_files"] += 1
+                    # Mark file as indexed in tracker
+                    if tracker is not None:
+                        tracker.mark_indexed(file_path, file_stats["chunks_added"])
 
                 # Update progress bar
                 pbar.set_postfix(
@@ -250,13 +283,23 @@ class CollectionDataLoader:
                     }
                 )
 
+        # Save index manifest
+        if tracker is not None:
+            tracker.save()
+            logger.info(f"Updated index manifest: {tracker.get_stats()}")
+
         # Log final summary
+        failed_msg = ""
+        if total_stats['failed_files'] > 0:
+            failed_msg = f" (will retry on next run)"
+
         logger.info(
             f"""
             Processing Complete:
             - Files processed: {total_stats['files_processed']}/{total_stats['total_files']}
+            - Files skipped (already indexed): {total_stats['files_skipped']}
             - Successful: {total_stats['successful_files']}
-            - Failed: {total_stats['failed_files']}
+            - Failed: {total_stats['failed_files']}{failed_msg}
             - Total chunks added: {total_stats['total_chunks_added']}
             - Total chunks skipped: {total_stats['total_chunks_skipped']}
             - Total processing time: {total_stats['total_processing_time']:.2f}s
