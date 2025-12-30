@@ -8,7 +8,12 @@ import re
 from typing import Dict, List, Set
 from dataclasses import dataclass, field
 
-from src.rag.wine_terms import GRAPE_SYNONYMS, REGION_VARIATIONS, CLASSIFICATIONS
+from src.rag.wine_terms import (
+    GRAPE_SYNONYMS,
+    REGION_VARIATIONS,
+    CLASSIFICATIONS,
+    WINE_APPELLATIONS,
+)
 
 
 # Build reverse lookup dictionaries for extraction
@@ -67,19 +72,7 @@ _PRODUCER_SUFFIXES = [
     r"wine\s+co\.?",
 ]
 
-# Famous wine appellations (for wine name extraction)
-_WINE_APPELLATIONS = [
-    "barolo", "barbaresco", "brunello di montalcino", "chianti classico",
-    "vino nobile di montepulciano", "amarone", "champagne", "chablis",
-    "meursault", "puligny-montrachet", "chassagne-montrachet", "gevrey-chambertin",
-    "nuits-saint-georges", "vosne-romanée", "pommard", "volnay", "corton",
-    "hermitage", "côte-rôtie", "châteauneuf-du-pape", "gigondas",
-    "sauternes", "pomerol", "saint-émilion", "margaux", "pauillac",
-    "saint-julien", "saint-estèphe", "pessac-léognan", "graves",
-    "rioja", "ribera del duero", "priorat", "rueda",
-    "port", "madeira", "sherry", "marsala",
-    "riesling", "grüner veltliner", "gewürztraminer",
-]
+# WINE_APPELLATIONS is now loaded from JSON via wine_terms.py
 
 
 @dataclass
@@ -269,7 +262,7 @@ def extract_appellations(text: str) -> Set[str]:
     text_lower = text.lower()
     found = set()
 
-    for appellation in _WINE_APPELLATIONS:
+    for appellation in WINE_APPELLATIONS:
         # Use word boundary matching
         pattern = rf'\b{re.escape(appellation)}\b'
         if re.search(pattern, text_lower):

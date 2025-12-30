@@ -1,113 +1,29 @@
-"""Wine terminology for query normalization and expansion."""
+"""Wine terminology for query normalization and expansion.
+
+Loads wine terminology data from JSON files in the data/ directory.
+"""
+import json
+from pathlib import Path
 from typing import Dict, List
 
-# Grape variety synonyms - canonical form as key, variations as values
-GRAPE_SYNONYMS: Dict[str, List[str]] = {
-    "cabernet sauvignon": ["cab sauv", "cabernet", "cs", "cab"],
-    "pinot noir": ["pinot", "pn", "pinot n"],
-    "sauvignon blanc": ["sauv blanc", "sb"],
-    "chardonnay": ["chard"],
-    "riesling": ["ries"],
-    "nebbiolo": ["nebb"],
-    "sangiovese": ["sangio", "sangioveto"],
-    "tempranillo": ["temp", "tempran", "tinto fino", "tinta roriz"],
-    "grenache": ["garnacha", "garnatxa", "cannonau"],
-    "syrah": ["shiraz"],
-    "merlot": ["merl"],
-    "malbec": ["cot", "auxerrois"],
-    "pinot grigio": ["pinot gris", "pg"],
-    "gewurztraminer": ["gewurz", "traminer"],
-    "mourvedre": ["monastrell", "mataro"],
-    "cabernet franc": ["cab franc", "cf"],
-    "chenin blanc": ["chenin", "steen"],
-    "gruner veltliner": ["gruner", "gv", "grüner veltliner"],
-    "albarino": ["albariño"],
-    "viognier": ["viog"],
-}
+# Path to data directory
+_DATA_DIR = Path(__file__).parent / "data"
 
-# Region name variations
-REGION_VARIATIONS: Dict[str, List[str]] = {
-    "burgundy": ["bourgogne", "burgandy"],
-    "champagne": ["champgne"],
-    "bordeaux": ["bdx"],
-    "tuscany": ["toscana"],
-    "piedmont": ["piemonte"],
-    "rioja": ["la rioja"],
-    "rhone": ["rhône", "cotes du rhone", "côtes du rhône"],
-    "napa": ["napa valley"],
-    "sonoma": ["sonoma county", "sonoma coast"],
-    "willamette": ["willamette valley"],
-    "barossa": ["barossa valley"],
-    "marlborough": ["marlboro"],
-    "mosel": ["moselle"],
-    "alsace": ["alsace"],
-    "loire": ["loire valley"],
-    "mendoza": ["mendoza argentina"],
-    "stellenbosch": ["stellenbosch south africa"],
-    "douro": ["douro valley"],
-    "ribera del duero": ["ribera"],
-    "priorat": ["priorato"],
-}
 
-# Wine classification abbreviations
-CLASSIFICATIONS: Dict[str, str] = {
-    "docg": "denominazione di origine controllata e garantita",
-    "doc": "denominazione di origine controllata",
-    "igt": "indicazione geografica tipica",
-    "aoc": "appellation d'origine contrôlée",
-    "aop": "appellation d'origine protégée",
-    "ava": "american viticultural area",
-    "vdp": "verband deutscher prädikatsweingüter",
-    "gw": "grosses gewächs",
-    "gg": "grosses gewächs",
-    "gc": "grand cru",
-    "1er cru": "premier cru",
-    "do": "denominación de origen",
-    "doca": "denominación de origen calificada",
-}
+def _load_json(filename: str) -> dict | list:
+    """Load JSON file from data directory."""
+    filepath = _DATA_DIR / filename
+    with open(filepath, "r", encoding="utf-8") as f:
+        return json.load(f)
 
-# Query expansion - related terms for better retrieval
-QUERY_EXPANSIONS: Dict[str, str] = {
-    "barolo": "barolo nebbiolo piedmont italy docg langhe",
-    "barbaresco": "barbaresco nebbiolo piedmont italy docg",
-    "brunello": "brunello montalcino sangiovese tuscany italy docg",
-    "burgundy red": "burgundy pinot noir bourgogne france cote de nuits cote de beaune",
-    "burgundy white": "burgundy chardonnay bourgogne france cote de beaune meursault puligny",
-    "champagne": "champagne sparkling france chardonnay pinot noir pinot meunier",
-    "bordeaux red": "bordeaux cabernet merlot france medoc saint emilion pomerol",
-    "bordeaux white": "bordeaux sauvignon blanc semillon graves pessac",
-    "napa cabernet": "napa valley cabernet sauvignon california oakville rutherford",
-    "chianti": "chianti sangiovese tuscany italy classico",
-    "rioja": "rioja tempranillo spain crianza reserva gran reserva",
-    "port": "port douro portugal fortified tawny ruby vintage lbv",
-    "sauternes": "sauternes bordeaux dessert botrytis semillon barsac",
-    "amarone": "amarone valpolicella veneto italy ripasso corvina",
-    "chablis": "chablis chardonnay burgundy france",
-    "sancerre": "sancerre sauvignon blanc loire france",
-    "chateauneuf": "chateauneuf du pape rhone france grenache mourvedre syrah",
-    "riesling german": "riesling germany mosel rheingau pfalz kabinett spatlese",
-    "sherry": "sherry jerez spain fortified fino manzanilla oloroso",
-    "prosecco": "prosecco glera veneto italy sparkling",
-    "cava": "cava spain sparkling catalonia",
-}
 
-# Common misspellings
-MISSPELLINGS: Dict[str, str] = {
-    "cabernet savignon": "cabernet sauvignon",
-    "chardonay": "chardonnay",
-    "chardonney": "chardonnay",
-    "pinot nior": "pinot noir",
-    "reisling": "riesling",
-    "sauvingon": "sauvignon",
-    "shirahz": "shiraz",
-    "malbac": "malbec",
-    "sangiovesse": "sangiovese",
-    "nebiolo": "nebbiolo",
-    "tempranilo": "tempranillo",
-    "burgandy": "burgundy",
-    "bourdeaux": "bordeaux",
-    "champaign": "champagne",
-}
+# Load all terminology data from JSON files
+GRAPE_SYNONYMS: Dict[str, List[str]] = _load_json("grape_synonyms.json")
+REGION_VARIATIONS: Dict[str, List[str]] = _load_json("region_variations.json")
+CLASSIFICATIONS: Dict[str, str] = _load_json("classifications.json")
+QUERY_EXPANSIONS: Dict[str, str] = _load_json("query_expansions.json")
+MISSPELLINGS: Dict[str, str] = _load_json("misspellings.json")
+WINE_APPELLATIONS: List[str] = _load_json("wine_appellations.json")
 
 
 def normalize_query(query: str) -> str:
