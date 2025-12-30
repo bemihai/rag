@@ -154,8 +154,21 @@ def main():
                             # Retrieve more docs if reranking is enabled (reranker will filter down)
                             retrieve_count = n_results * 2 if reranker else n_results
 
+                            # Analyze query for metadata-based filtering/boosting
+                            from src.rag.query_analyzer import analyze_query, boost_by_metadata_match
+                            query_analysis = analyze_query(prompt)
+
                             # Retrieve relevant documents from ChromaDB (or hybrid search)
                             retrieved_docs = retriever.retrieve(prompt, n_results=retrieve_count)
+
+                            # Boost results that match query entities in metadata
+                            enable_metadata_boost = getattr(cfg.chroma.retrieval, 'enable_metadata_boost', True)
+                            if enable_metadata_boost and query_analysis.has_filters and retrieved_docs:
+                                boost_factor = getattr(cfg.chroma.retrieval, 'metadata_boost_factor', 0.1)
+                                retrieved_docs = boost_by_metadata_match(
+                                    retrieved_docs, query_analysis, boost_factor=boost_factor
+                                )
+                                logger.debug(f"Applied metadata boosting for: {query_analysis.get_boost_terms()}")
 
                             # Apply reranking if enabled
                             if reranker and retrieved_docs:
@@ -185,6 +198,13 @@ def main():
                                     include_similarity=False,
                                     max_chunks=None
                                 )
+
+                            # Apply context compression if enabled
+                            enable_compression = getattr(cfg.chroma.retrieval, 'enable_compression', False)
+                            if enable_compression and context:
+                                from src.rag.compression import compress_context
+                                max_chars = getattr(cfg.chroma.retrieval, 'compression_max_chars', 8000)
+                                context = compress_context(context, max_chars=max_chars)
 
                             # Store retrieved docs in session state for sidebar display
                             if retrieved_docs:

@@ -48,6 +48,7 @@ src/
 - Ensure all functions and classes have clear and concise docstrings. If a function or class is complex, 
   include usage examples in the docstring.
 - New features should be modular, easily testable, and integrated into the existing architecture without major refactoring.
+- Focus on code quality over quantity; prioritize maintainability and readability.
 
 ### Critical Constraints
 1. **Minimize LLM calls** - Use local solutions where possible, batch requests

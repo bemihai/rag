@@ -1,8 +1,8 @@
 """Wine metadata extraction from document content.
 
 This module provides utilities for extracting wine-specific metadata from text,
-including grape varieties, wine regions, and vintage years. All extraction is
-done locally using pattern matching - no LLM calls required.
+including grape varieties, wine regions, vintage years, and producer names.
+All extraction is done locally using pattern matching - no LLM calls required.
 """
 import re
 from typing import Dict, List, Set
@@ -27,6 +27,60 @@ for canonical, variations in REGION_VARIATIONS.items():
 # Wine classification patterns
 _CLASSIFICATION_PATTERNS = set(CLASSIFICATIONS.keys())
 
+# Producer name patterns (common prefixes in wine producer names)
+_PRODUCER_PREFIXES = [
+    r"château",
+    r"chateau",
+    r"domaine",
+    r"domain",
+    r"maison",
+    r"cave",
+    r"caves",
+    r"bodega",
+    r"bodegas",
+    r"cantina",
+    r"tenuta",
+    r"fattoria",
+    r"podere",
+    r"azienda",
+    r"weingut",
+    r"schloss",
+    r"quinta",
+    r"clos",
+    r"mas",
+    r"casa",
+    r"vina",
+    r"viña",
+]
+
+# Producer suffix patterns
+_PRODUCER_SUFFIXES = [
+    r"winery",
+    r"vineyards",
+    r"vineyard",
+    r"estate",
+    r"estates",
+    r"cellars",
+    r"cellar",
+    r"wines",
+    r"wine\s+company",
+    r"wine\s+co\.?",
+]
+
+# Famous wine appellations (for wine name extraction)
+_WINE_APPELLATIONS = [
+    "barolo", "barbaresco", "brunello di montalcino", "chianti classico",
+    "vino nobile di montepulciano", "amarone", "champagne", "chablis",
+    "meursault", "puligny-montrachet", "chassagne-montrachet", "gevrey-chambertin",
+    "nuits-saint-georges", "vosne-romanée", "pommard", "volnay", "corton",
+    "hermitage", "côte-rôtie", "châteauneuf-du-pape", "gigondas",
+    "sauternes", "pomerol", "saint-émilion", "margaux", "pauillac",
+    "saint-julien", "saint-estèphe", "pessac-léognan", "graves",
+    "rioja", "ribera del duero", "priorat", "rueda",
+    "port", "madeira", "sherry", "marsala",
+    "riesling", "grüner veltliner", "gewürztraminer",
+]
+
 
 @dataclass
 class WineMetadata:
@@ -39,12 +93,14 @@ class WineMetadata:
         vintages: Set of vintage years mentioned in the text.
         classifications: Set of wine classifications (DOCG, AOC, etc.) mentioned.
         producers: Set of producer/winery names mentioned.
+        appellations: Set of wine appellations mentioned (Barolo, Champagne, etc.).
     """
     grapes: Set[str] = field(default_factory=set)
     regions: Set[str] = field(default_factory=set)
     vintages: Set[str] = field(default_factory=set)
     classifications: Set[str] = field(default_factory=set)
     producers: Set[str] = field(default_factory=set)
+    appellations: Set[str] = field(default_factory=set)
 
     def to_dict(self) -> Dict[str, List[str]]:
         """Convert to dictionary with sorted lists for JSON serialization."""
@@ -54,13 +110,14 @@ class WineMetadata:
             "vintages": sorted(self.vintages),
             "classifications": sorted(self.classifications),
             "producers": sorted(self.producers),
+            "appellations": sorted(self.appellations),
         }
 
     def is_empty(self) -> bool:
         """Check if no metadata was extracted."""
         return not any([
             self.grapes, self.regions, self.vintages,
-            self.classifications, self.producers
+            self.classifications, self.producers, self.appellations
         ])
 
 
@@ -161,6 +218,66 @@ def extract_classifications(text: str) -> Set[str]:
     return found
 
 
+def extract_producers(text: str) -> Set[str]:
+    """
+    Extract wine producer/winery names from text.
+
+    Uses pattern matching for common producer naming conventions:
+    - Prefix patterns: Château X, Domaine Y, Bodega Z
+    - Suffix patterns: X Winery, Y Vineyards, Z Estate
+
+    Args:
+        text: Text content to search for producer names.
+
+    Returns:
+        Set of producer names found in the text.
+    """
+    found = set()
+
+    # Build prefix pattern: "Château/Domaine/etc. + Name"
+    prefix_pattern = r'(?:' + '|'.join(_PRODUCER_PREFIXES) + r')\s+([A-Z][a-zA-Zéèêëàâäùûüôöîïç\-\']+(?:\s+[A-Z][a-zA-Zéèêëàâäùûüôöîïç\-\']+){0,3})'
+
+    for match in re.finditer(prefix_pattern, text, re.IGNORECASE):
+        full_match = match.group(0).strip()
+        if len(full_match) > 5:  # Avoid very short matches
+            found.add(full_match.title())
+
+    # Build suffix pattern: "Name + Winery/Vineyards/etc."
+    suffix_pattern = r'([A-Z][a-zA-Zéèêëàâäùûüôöîïç\-\']+(?:\s+[A-Z][a-zA-Zéèêëàâäùûüôöîïç\-\']+){0,2})\s+(?:' + '|'.join(_PRODUCER_SUFFIXES) + r')'
+
+    for match in re.finditer(suffix_pattern, text, re.IGNORECASE):
+        full_match = match.group(0).strip()
+        if len(full_match) > 5:
+            found.add(full_match.title())
+
+    return found
+
+
+def extract_appellations(text: str) -> Set[str]:
+    """
+    Extract wine appellation names from text.
+
+    Looks for famous wine appellations that indicate specific wine types
+    (e.g., Barolo, Champagne, Châteauneuf-du-Pape).
+
+    Args:
+        text: Text content to search for appellations.
+
+    Returns:
+        Set of appellation names found in the text.
+    """
+    text_lower = text.lower()
+    found = set()
+
+    for appellation in _WINE_APPELLATIONS:
+        # Use word boundary matching
+        pattern = rf'\b{re.escape(appellation)}\b'
+        if re.search(pattern, text_lower):
+            found.add(appellation.title())
+
+    return found
+
+
 def extract_wine_metadata(text: str) -> WineMetadata:
     """
     Extract all wine-specific metadata from text.
@@ -179,7 +296,8 @@ def extract_wine_metadata(text: str) -> WineMetadata:
         regions=extract_regions(text),
         vintages=extract_vintages(text),
         classifications=extract_classifications(text),
-        producers=set(),  # Producer extraction requires more sophisticated NER
+        producers=extract_producers(text),
+        appellations=extract_appellations(text),
     )
 
 

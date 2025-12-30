@@ -105,6 +105,8 @@ Each chunk is enriched with metadata for filtering and context:
 | `regions` | Wine regions mentioned (comma-separated) |
 | `vintages` | Vintage years mentioned (comma-separated) |
 | `classifications` | Wine classifications (DOCG, AOC, etc.) |
+| `producers` | Producer/winery names detected |
+| `appellations` | Wine appellations (Barolo, Champagne, etc.) |
 
 **Wine Metadata Extraction**
 
@@ -113,6 +115,8 @@ During indexing, each chunk is analyzed to extract wine-specific metadata:
 - **Regions**: Matched against known wine regions and their variations
 - **Vintages**: Year patterns between 1945-2025
 - **Classifications**: Wine classification abbreviations (DOCG, AOC, AVA, etc.)
+- **Producers**: Detected using naming patterns (e.g., "Château X", "Y Winery", "Domaine Z")
+- **Appellations**: Famous wine appellations (Barolo, Champagne, Châteauneuf-du-Pape, etc.)
 
 This metadata enables filtered retrieval queries like "show me chunks about Nebbiolo from Piedmont".
 
@@ -494,12 +498,14 @@ src/rag/
 ├── __init__.py              # Module exports
 ├── bm25_search.py           # BM25 keyword search index
 ├── chunks.py                # Document chunking strategies
+├── compression.py           # Context compression (reduce token usage)
 ├── deduplication.py         # Semantic deduplication of chunks
 ├── hybrid_retriever.py      # Hybrid search with RRF
 ├── index_tracker.py         # Incremental indexing manifest
 ├── load_data.py             # CLI for loading data into ChromaDB
 ├── loader.py                # Document ingestion
 ├── metadata_extractor.py    # Wine metadata extraction (grapes, regions, etc.)
+├── query_analyzer.py        # Query analysis for metadata boosting
 ├── reranker.py              # Cross-encoder reranking
 ├── retriever.py             # ChromaDB vector retrieval
 ├── small_to_big.py          # Small-to-big retrieval (hierarchical chunks)
@@ -595,15 +601,16 @@ The pipeline minimizes LLM costs through:
 
 Planned improvements documented in `design/rag/rag-improvement-plan.md`:
 
-### Near-term
+### Completed
 - Contextual retrieval (augment chunks with document context)
 - Small-to-big retrieval (small chunks for search, larger for context)
+- Wine entity extraction (producers, appellations)
+- Context compression (reduce token usage)
 - Evaluation framework with P@K, MRR metrics
 
-### Long-term
-- Wine entity extraction
-- Knowledge graph integration
-- Multi-query retrieval for complex questions
+### Remaining
+- Multi-query retrieval for complex questions (requires LLM)
+- Knowledge graph integration (low priority)
 
 ---
 

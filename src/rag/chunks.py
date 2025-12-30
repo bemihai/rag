@@ -56,6 +56,8 @@ class ChunkMetadata:
     regions: str = ""  # Comma-separated list of wine regions
     vintages: str = ""  # Comma-separated list of vintage years
     classifications: str = ""  # Comma-separated list (DOCG, AOC, etc.)
+    producers: str = ""  # Comma-separated list of producer/winery names
+    appellations: str = ""  # Comma-separated list of wine appellations
 
 
 def semantic_chunking(
@@ -185,6 +187,8 @@ def split_file(
                     regions=",".join(wine_meta.regions) if wine_meta else "",
                     vintages=",".join(wine_meta.vintages) if wine_meta else "",
                     classifications=",".join(wine_meta.classifications) if wine_meta else "",
+                    producers=",".join(wine_meta.producers) if wine_meta else "",
+                    appellations=",".join(wine_meta.appellations) if wine_meta else "",
                 )
 
                 chunks.append({
@@ -238,6 +242,8 @@ def split_file(
                     regions=",".join(wine_meta.regions) if wine_meta else "",
                     vintages=",".join(wine_meta.vintages) if wine_meta else "",
                     classifications=",".join(wine_meta.classifications) if wine_meta else "",
+                    producers=",".join(wine_meta.producers) if wine_meta else "",
+                    appellations=",".join(wine_meta.appellations) if wine_meta else "",
                 )
 
                 chunks.append({
