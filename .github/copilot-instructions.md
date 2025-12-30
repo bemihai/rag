@@ -35,6 +35,7 @@ src/
 - **Logging**: Use Python logging module, no print statements
 - **Formatting**: Black (120 chars), isort for imports
 - **Code Style**: Follow PEP 8 guidelines
+- **Imports**: All imports must be at the top of the file, grouped by standard library, third-party, local modules
 
 ### Code Generation Constraints
 - Do not generate extra Markdown files to explain the changes unless explicitly requested. Instead, update

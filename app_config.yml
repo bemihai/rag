@@ -7,6 +7,10 @@ chroma:
     chunk_size: 1024
     chunk_overlap: 256
     extract_wine_metadata: true         # extract grape, region, vintage from chunks
+    # Small-to-big retrieval settings
+    enable_small_to_big: false          # use small chunks for retrieval, larger for context
+    small_chunk_size: 256               # size of small chunks for embedding
+    large_chunk_size: 1024              # size of larger context chunks
   retrieval:
     n_results: 5                        # number of chunks to retrieve per query
     similarity_threshold: 0.3           # minimum similarity score (0.0-1.0) to filter results

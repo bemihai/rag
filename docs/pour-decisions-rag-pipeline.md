@@ -502,6 +502,7 @@ src/rag/
 ├── metadata_extractor.py    # Wine metadata extraction (grapes, regions, etc.)
 ├── reranker.py              # Cross-encoder reranking
 ├── retriever.py             # ChromaDB vector retrieval
+├── small_to_big.py          # Small-to-big retrieval (hierarchical chunks)
 └── wine_terms.py            # Wine terminology dictionary
 ```
 

@@ -163,6 +163,13 @@ def main():
                                 retrieved_docs = reranker.rerank(prompt, retrieved_docs, top_k=rerank_top_k)
                                 logger.debug(f"Reranked to top {rerank_top_k} documents")
 
+                            # Expand to parent context if small-to-big is enabled
+                            enable_small_to_big = getattr(cfg.chroma.chunking, 'enable_small_to_big', False)
+                            if enable_small_to_big and retrieved_docs:
+                                from src.rag.small_to_big import expand_to_parent_context
+                                retrieved_docs = expand_to_parent_context(retrieved_docs)
+                                logger.debug("Expanded to parent context (small-to-big)")
+
                             # Build context from retrieved chunks with optional deduplication
                             if cfg.chroma.retrieval.use_deduplication:
                                 context = build_semantic_context(

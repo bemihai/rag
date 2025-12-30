@@ -7,3 +7,4 @@ from .reranker import DocumentReranker
 from .metadata_extractor import extract_wine_metadata, extract_document_context, WineMetadata
 from .deduplication import deduplicate_chunks, deduplicate_context
 from .index_tracker import IndexTracker
+from .small_to_big import create_hierarchical_chunks, expand_to_parent_context
