@@ -6,11 +6,32 @@ chroma:
     strategy: by_title                  # basic, by_title, semantic
     chunk_size: 1024
     chunk_overlap: 256
+    extract_wine_metadata: true         # extract grape, region, vintage from chunks
+    # Small-to-big retrieval settings
+    enable_small_to_big: false          # use small chunks for retrieval, larger for context
+    small_chunk_size: 256               # size of small chunks for embedding
+    large_chunk_size: 1024              # size of larger context chunks
   retrieval:
     n_results: 5                        # number of chunks to retrieve per query
     similarity_threshold: 0.3           # minimum similarity score (0.0-1.0) to filter results
-    deduplication_threshold: 0.9        # similarity threshold for removing duplicate chunks (optional)
-    use_deduplication: false            # enable semantic deduplication of retrieved chunks
+    # Deduplication settings
+    use_deduplication: true             # enable semantic deduplication of retrieved chunks
+    deduplication_threshold: 0.9        # similarity threshold for removing duplicate chunks
+    # Hybrid search settings
+    enable_hybrid: true                 # enable hybrid search (vector + BM25)
+    hybrid_vector_weight: 0.7           # weight for vector search in hybrid mode
+    hybrid_keyword_weight: 0.3          # weight for BM25 keyword search
+    bm25_index_path: "chroma-data/bm25_index.pkl"  # path to BM25 index file
+    # Reranking settings
+    enable_reranking: true              # enable cross-encoder reranking
+    reranker_model: "cross-encoder/ms-marco-MiniLM-L-6-v2"  # reranker model
+    rerank_top_k: 5                     # number of results after reranking
+    # Context compression settings (reduces token usage)
+    enable_compression: false           # enable context compression before LLM
+    compression_max_chars: 8000         # max context size (~2000 tokens)
+    # Metadata boosting (uses wine entity extraction)
+    enable_metadata_boost: true         # boost results matching query entities
+    metadata_boost_factor: 0.1          # score boost per matching entity
   settings:
     batch_size: 2500
     embedder: ${oc.env:EMBEDDING_MODEL} # embedding agents for retrieval

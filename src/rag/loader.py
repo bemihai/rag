@@ -3,7 +3,6 @@ from tqdm import tqdm
 import time
 
 from langchain_huggingface import HuggingFaceEmbeddings
-import instructor
 
 from src.rag.chunks import split_file
 from src.utils import logger, initialize_chroma_client, get_or_create_collection, create_chroma_batches, validate_chunks
@@ -19,12 +18,8 @@ class CollectionDataLoader:
         collection_metadata: Optional metadata for the collection.
         chroma_host: Host for ChromaDB.
         chroma_port: Port for ChromaDB.
-        embedding_model: HuggingFace agents name for embeddings.
+        embedding_model: HuggingFace model name for embeddings.
         batch_size: Number of documents to process in each batch.
-        use_instructor: Whether to use semantic chunking with Instructor.
-        gemini_model: Optional, agents name for Google Gemini if using Instructor. Should be
-            a string like 'google/gemini-2.5-flash'.
-        gemini_api_key: Optional, the API key for Google Gemini if using Instructor.
     """
     def __init__(
         self,
@@ -34,22 +29,11 @@ class CollectionDataLoader:
         chroma_port: int,
         embedding_model: str,
         batch_size: int = 2500,
-        use_instructor: bool = False,
-        gemini_model: str | None = None,
-        gemini_api_key: str | None = None,
     ):
         self.collection_name = collection_name
         self.batch_size = batch_size
-        self.use_instructor = use_instructor
-        self.gemini_model = gemini_model
+        self.embedding_model = embedding_model
         self.embedder = HuggingFaceEmbeddings(model_name=embedding_model)
-        self.instructor_client = None
-
-        # Initialize instructor client with Gemini if required
-        if use_instructor and gemini_api_key:
-            # Use the new from_provider approach to avoid deprecation warning
-            self.instructor_client = instructor.from_provider(gemini_model, api_key=gemini_api_key)
-            logger.info("Instructor client with Gemini initialized for semantic chunking.")
 
         # Initialize or get ChromaDB collection
         self.client = initialize_chroma_client(chroma_host, chroma_port)
@@ -73,6 +57,7 @@ class CollectionDataLoader:
         chunk_size: int = 512,
         overlap_size: int = 128,
         skip_duplicates: bool = True,
+        extract_wine_metadata: bool = True,
     ) -> dict:
         """
         Process a single file and return a dict with stats.
@@ -83,6 +68,7 @@ class CollectionDataLoader:
             chunk_size: Size of each chunk.
             overlap_size: Overlap size between chunks.
             skip_duplicates: Whether to skip duplicate chunks based on content hash.
+            extract_wine_metadata: Whether to extract wine-specific metadata from chunks.
         """
         file_path = Path(file_path)
         start_time = time.time()
@@ -104,7 +90,8 @@ class CollectionDataLoader:
                 strategy=strategy,
                 chunk_size=chunk_size,
                 overlap_size=overlap_size,
-                instructor_client=self.instructor_client,
+                embedding_model=self.embedding_model,
+                extract_wine_metadata=extract_wine_metadata,
             )
 
             if not chunks:
@@ -177,11 +164,14 @@ class CollectionDataLoader:
     def load_directory(
         self,
         data_path: str | Path,
-        file_extensions: list[str] = [".epub", ".pdf"],
+        file_extensions: list[str] = None,
         strategy: str = "basic",
         chunk_size: int = 512,
         overlap_size: int = 128,
         skip_duplicates: bool = True,
+        extract_wine_metadata: bool = True,
+        incremental: bool = True,
+        force_reindex: bool = False,
     ) -> dict:
         """
         Load all files from directory with progress tracking. Returns a summary dict.
@@ -193,27 +183,56 @@ class CollectionDataLoader:
             chunk_size: Size of each chunk.
             overlap_size: Overlap size between chunks.
             skip_duplicates: Whether to skip duplicate chunks based on content hash.
+            extract_wine_metadata: Whether to extract wine-specific metadata from chunks.
+            incremental: If True, only process new or modified files (default: True).
+            force_reindex: If True, ignore index tracking and reprocess all files.
         """
+        from src.rag.index_tracker import IndexTracker
+
+        if file_extensions is None:
+            file_extensions = [".epub", ".pdf"]
 
         data_dir = Path(data_path)
         if not data_dir.exists():
             raise ValueError(f"Data directory {data_path} does not exist")
 
         # Find all files
-        files_to_process = []
+        all_files = []
         for ext in file_extensions:
-            files_to_process.extend(data_dir.glob(f"**/*{ext}"))
+            all_files.extend(data_dir.glob(f"**/*{ext}"))
 
-        if not files_to_process:
+        if not all_files:
             logger.warning(f"No files found with extensions {file_extensions} in {data_path}")
             return {"total_files": 0, "files_processed": 0, "total_chunks": 0}
 
-        logger.info(f"Found {len(files_to_process)} files to process")
+        # Initialize index tracker for incremental processing
+        tracker = None
+        files_to_process = all_files
+        skipped_files = 0
+
+        if incremental and not force_reindex:
+            tracker = IndexTracker(collection_name=self.collection_name)
+            files_to_process = tracker.get_files_to_index(all_files)
+            skipped_files = len(all_files) - len(files_to_process)
+
+            if not files_to_process:
+                logger.info("All files already indexed, nothing to process")
+                stats = tracker.get_stats()
+                return {
+                    "total_files": len(all_files),
+                    "files_processed": 0,
+                    "files_skipped": skipped_files,
+                    "total_chunks": stats.get("total_chunks", 0),
+                    "message": "All files already indexed",
+                }
+
+        logger.info(f"Found {len(all_files)} files, processing {len(files_to_process)} (skipping {skipped_files} already indexed)")
 
         # Process files with progress bar
         total_stats = {
-            "total_files": len(files_to_process),
+            "total_files": len(all_files),
             "files_processed": 0,
+            "files_skipped": skipped_files,
             "successful_files": 0,
             "failed_files": 0,
             "total_chunks_generated": 0,
@@ -234,6 +253,7 @@ class CollectionDataLoader:
                     chunk_size=chunk_size,
                     overlap_size=overlap_size,
                     skip_duplicates=skip_duplicates,
+                    extract_wine_metadata=extract_wine_metadata,
                 )
 
                 # Update total stats
@@ -247,8 +267,13 @@ class CollectionDataLoader:
                 if file_stats["errors"]:
                     total_stats["failed_files"] += 1
                     total_stats["errors"].extend(file_stats["errors"])
+                    # Failed files are NOT marked as indexed - they will be retried on next run
+                    logger.warning(f"File '{file_path.name}' failed and will be retried on next run")
                 else:
                     total_stats["successful_files"] += 1
+                    # Mark file as indexed in tracker
+                    if tracker is not None:
+                        tracker.mark_indexed(file_path, file_stats["chunks_added"])
 
                 # Update progress bar
                 pbar.set_postfix(
@@ -258,13 +283,23 @@ class CollectionDataLoader:
                     }
                 )
 
+        # Save index manifest
+        if tracker is not None:
+            tracker.save()
+            logger.info(f"Updated index manifest: {tracker.get_stats()}")
+
         # Log final summary
+        failed_msg = ""
+        if total_stats['failed_files'] > 0:
+            failed_msg = f" (will retry on next run)"
+
         logger.info(
             f"""
             Processing Complete:
             - Files processed: {total_stats['files_processed']}/{total_stats['total_files']}
+            - Files skipped (already indexed): {total_stats['files_skipped']}
             - Successful: {total_stats['successful_files']}
-            - Failed: {total_stats['failed_files']}
+            - Failed: {total_stats['failed_files']}{failed_msg}
             - Total chunks added: {total_stats['total_chunks_added']}
             - Total chunks skipped: {total_stats['total_chunks_skipped']}
             - Total processing time: {total_stats['total_processing_time']:.2f}s

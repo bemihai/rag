@@ -435,9 +435,29 @@ class KeywordWineAgent:
 
         # Extract final answer
         final_answer = ""
-        for msg in response.get("messages", []):
-            if isinstance(msg, AIMessage):
-                final_answer = msg.content
+        try:
+            for msg in response.get("messages", []):
+                if isinstance(msg, AIMessage):
+                    content = msg.content
+                    # Handle case where content is a list (some LLMs return lists of content blocks)
+                    if isinstance(content, list):
+                        # Extract text from content blocks
+                        text_parts = []
+                        for item in content:
+                            if isinstance(item, dict) and "text" in item:
+                                text_parts.append(item["text"])
+                            elif isinstance(item, str):
+                                text_parts.append(item)
+                            else:
+                                text_parts.append(str(item))
+                        final_answer = " ".join(text_parts) if text_parts else ""
+                    elif isinstance(content, str):
+                        final_answer = content
+                    else:
+                        final_answer = str(content)
+        except Exception as e:
+            logger.error(f"Error extracting final answer from keyword agent response: {e}", exc_info=True)
+            final_answer = "I encountered an error processing the response. Please try again."
 
         result = {
             "messages": response.get("messages", []),

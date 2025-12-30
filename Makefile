@@ -34,7 +34,9 @@ help:
 	@echo "Development Commands:"
 	@echo "  install         - Install Python dependencies with uv"
 	@echo "  run             - Run app locally with ChromaDB (PYTHONPATH configured)"
-	@echo "  populate-chroma - Populate ChromaDB with wine knowledge"
+	@echo "  chroma-upload   - Populate ChromaDB with wine knowledge (incremental)"
+	@echo "  chroma-reindex  - Force reindex all files in ChromaDB"
+	@echo "  chroma-status   - Show index status (files and chunks)"
 	@echo "  chroma-up       - Start only ChromaDB (for local development)"
 	@echo "  chroma-down     - Stop ChromaDB container"
 	@echo "  chroma-health   - Check ChromaDB container health status"
@@ -148,11 +150,22 @@ run:
 	@echo "Starting Streamlit app..."
 	@PYTHONPATH=$(shell pwd) streamlit run src/ui/app.py
 
-.PHONY: populate-chroma
-populate-chroma:
-	@echo "Populating ChromaDB with wine knowledge..."
-	@PYTHONPATH=$(shell pwd) python3 src/rag/load_data.py
-	@echo "ChromaDB populated"
+.PHONY: chroma-upload
+chroma-upload:
+	@echo "Populating ChromaDB with wine knowledge (incremental mode)..."
+	@PYTHONPATH=$(shell pwd) python3 -m src.rag.load_data
+	@echo "ChromaDB indexing complete"
+
+.PHONY: chroma-reindex
+chroma-reindex:
+	@echo "Force reindexing all files to ChromaDB..."
+	@PYTHONPATH=$(shell pwd) python3 -m src.rag.load_data --force
+	@echo "ChromaDB reindexing complete"
+
+.PHONY: chroma-status
+chroma-status:
+	@echo "Checking ChromaDB index status..."
+	@PYTHONPATH=$(shell pwd) python3 -m src.rag.load_data --status
 
 .PHONY: chroma-up
 chroma-up:
@@ -199,7 +212,7 @@ chroma-reset:
 	@mkdir -p chroma-data
 	@echo "ChromaDB reset complete!"
 	@echo "To restore from backup: make chroma-restore BACKUP_FILE=backups/chroma/chroma-backup-YYYYMMDD-HHMMSS.tar.gz"
-	@echo "To populate fresh data: make populate-chroma"
+	@echo "To populate fresh data: make chroma-upload"
 
 .PHONY: chroma-backup
 chroma-backup:

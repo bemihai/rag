@@ -216,20 +216,52 @@ class WineAgent:
         )
 
         # Extract final answer from messages
-        final_answer = response["messages"][-1].content if response["messages"] else ""
+        final_answer = ""
+        try:
+            if response["messages"]:
+                content = response["messages"][-1].content
+                # Handle case where content is a list (some LLMs return lists of content blocks)
+                if isinstance(content, list):
+                    # Extract text from content blocks
+                    text_parts = []
+                    for item in content:
+                        if isinstance(item, dict) and "text" in item:
+                            text_parts.append(item["text"])
+                        elif isinstance(item, str):
+                            text_parts.append(item)
+                        else:
+                            text_parts.append(str(item))
+                    final_answer = " ".join(text_parts) if text_parts else ""
+                elif isinstance(content, str):
+                    final_answer = content
+                else:
+                    final_answer = str(content)
+        except Exception as e:
+            logger.error(f"Error extracting final answer from agent response: {e}", exc_info=True)
+            final_answer = "I encountered an error processing the response. Please try again."
+
+        # Extract tools used (always, for logging and debugging)
+        tools_used = self._extract_tools_used(response)
+
+        # Debug logging to help diagnose tool usage
+        if self.verbose or not tools_used:
+            message_types = [type(m).__name__ for m in response.get("messages", [])]
+            logger.debug(f"Response message types: {message_types}")
+            if not tools_used:
+                logger.debug("No tools detected in response messages")
 
         # Build result
         result = {
             "messages": response["messages"],
             "final_answer": final_answer,
+            "tools_used": tools_used,
         }
 
-        # Add debugging info if verbose
+        # Add intermediate steps only in verbose mode
         if self.verbose:
-            result["tools_used"] = self._extract_tools_used(response)
             result["intermediate_steps"] = response.get("intermediate_steps", [])
 
-        logger.info(f"Query processed successfully. Tools used: {len(result.get('tools_used', []))}")
+        logger.info(f"Query processed successfully. Tools used: {len(tools_used)} - {', '.join(tools_used) if tools_used else 'none'}")
 
         return result
 
@@ -278,12 +310,31 @@ class WineAgent:
 
         # Parse messages to find tool calls
         for message in response.get("messages", []):
+            # Check for tool_calls attribute (AIMessage with tool calls)
             if hasattr(message, "tool_calls") and message.tool_calls:
                 for tool_call in message.tool_calls:
-                    if "name" in tool_call:
-                        tools_used.append(tool_call["name"])
+                    # Handle both dict and object formats
+                    if isinstance(tool_call, dict):
+                        name = tool_call.get("name")
+                        if name:
+                            tools_used.append(name)
+                    elif hasattr(tool_call, "get"):
+                        name = tool_call.get("name")
+                        if name:
+                            tools_used.append(name)
+                    else:
+                        # Try to access name attribute directly
+                        if hasattr(tool_call, "name"):
+                            tools_used.append(tool_call.name)
 
-        return list(set(tools_used))  # Remove duplicates
+            # Also check for ToolMessage (responses from tools)
+            if hasattr(message, "type") and message.type == "tool":
+                # ToolMessage indicates a tool was called
+                if hasattr(message, "name"):
+                    tools_used.append(message.name)
+
+        unique_tools = list(set(tools_used))  # Remove duplicates
+        return unique_tools
 
     def get_available_tools(self) -> List[str]:
         """

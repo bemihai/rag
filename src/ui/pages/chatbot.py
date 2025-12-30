@@ -2,7 +2,7 @@
 import streamlit as st
 
 from src.ui.helper.display import CONTENT_STYLE, display_message, make_page_title
-from src.ui.resources import load_llm, load_chroma_client, load_retriever, load_intelligent_agent, load_keyword_agent
+from src.ui.resources import load_llm, load_chroma_client, load_retriever, load_intelligent_agent, load_keyword_agent, load_reranker
 from src.ui.sidebar import render_sidebar
 from src.agents.llm import process_user_prompt
 from src.utils import get_config, get_initial_message, build_semantic_context, format_sources_for_display, \
@@ -15,6 +15,7 @@ def main():
     model = load_llm()
     chroma_client = load_chroma_client()
     retriever = load_retriever()
+    reranker = load_reranker()
 
     # Load agents (cached)
     intelligent_agent = load_intelligent_agent()
@@ -76,8 +77,22 @@ def main():
                         st.session_state.last_retrieved_docs = []
 
                     except Exception as e:
-                        logger.error(f"Error using intelligent agent: {e}", exc_info=True)
-                        answer = "I apologize, but I encountered an error processing your request with the intelligent agent. Please try again or switch to a different agent mode."
+                        error_type = type(e).__name__
+                        error_msg = str(e)
+                        logger.error(f"Error using intelligent agent ({error_type}): {error_msg}", exc_info=True)
+
+                        # Provide more specific error message based on error type
+                        if "429" in error_msg or "RESOURCE_EXHAUSTED" in error_msg or "quota" in error_msg.lower():
+                            answer = "The AI service quota has been exceeded. The free tier allows 20 requests per day. Please try again later or switch to 'No Agent (RAG Only)' mode."
+                        elif "ChatGoogleGenerativeAI" in error_type or "APIError" in error_type:
+                            answer = f"There was an issue with the AI service. Please try again later or switch to 'No Agent (RAG Only)' mode. (Error: {error_type})"
+                        elif "AttributeError" in error_type:
+                            answer = f"I encountered a data formatting error. Please try rephrasing your question or switch to a different agent mode. (Error: {error_type})"
+                        elif "KeyError" in error_type:
+                            answer = f"I encountered a missing data error. Please try rephrasing your question or switch to a different agent mode. (Error: {error_type})"
+                        else:
+                            answer = f"I apologize, but I encountered an error processing your request with the intelligent agent. Please try again or switch to a different agent mode. (Error: {error_type})"
+
                         # Clear sources
                         st.session_state.last_sources = []
                         st.session_state.last_retrieved_docs = []
@@ -106,8 +121,18 @@ def main():
                         st.session_state.last_retrieved_docs = []
 
                     except Exception as e:
-                        logger.error(f"Error using keyword agent: {e}", exc_info=True)
-                        answer = "I apologize, but I encountered an error processing your request with the keyword agent. Please try again or switch to a different agent mode."
+                        error_type = type(e).__name__
+                        error_msg = str(e)
+                        logger.error(f"Error using keyword agent ({error_type}): {error_msg}", exc_info=True)
+
+                        # Provide more specific error message based on error type
+                        if "429" in error_msg or "RESOURCE_EXHAUSTED" in error_msg or "quota" in error_msg.lower():
+                            answer = "The AI service quota has been exceeded. The free tier allows 20 requests per day. Please try again later or switch to 'No Agent (RAG Only)' mode."
+                        elif "ChatGoogleGenerativeAI" in error_type or "APIError" in error_type:
+                            answer = f"There was an issue with the AI service. Please try again later or switch to 'No Agent (RAG Only)' mode. (Error: {error_type})"
+                        else:
+                            answer = f"I apologize, but I encountered an error processing your request with the keyword agent. Please try again or switch to a different agent mode. (Error: {error_type})"
+
                         # Clear sources
                         st.session_state.last_sources = []
                         st.session_state.last_retrieved_docs = []
@@ -126,8 +151,37 @@ def main():
                             # Get user-selected number of results or use default
                             n_results = st.session_state.get("n_results", cfg.chroma.retrieval.n_results)
 
-                            # Retrieve relevant documents from ChromaDB
-                            retrieved_docs = retriever.retrieve(prompt, n_results=n_results)
+                            # Retrieve more docs if reranking is enabled (reranker will filter down)
+                            retrieve_count = n_results * 2 if reranker else n_results
+
+                            # Analyze query for metadata-based filtering/boosting
+                            from src.rag.query_analyzer import analyze_query, boost_by_metadata_match
+                            query_analysis = analyze_query(prompt)
+
+                            # Retrieve relevant documents from ChromaDB (or hybrid search)
+                            retrieved_docs = retriever.retrieve(prompt, n_results=retrieve_count)
+
+                            # Boost results that match query entities in metadata
+                            enable_metadata_boost = getattr(cfg.chroma.retrieval, 'enable_metadata_boost', True)
+                            if enable_metadata_boost and query_analysis.has_filters and retrieved_docs:
+                                boost_factor = getattr(cfg.chroma.retrieval, 'metadata_boost_factor', 0.1)
+                                retrieved_docs = boost_by_metadata_match(
+                                    retrieved_docs, query_analysis, boost_factor=boost_factor
+                                )
+                                logger.debug(f"Applied metadata boosting for: {query_analysis.get_boost_terms()}")
+
+                            # Apply reranking if enabled
+                            if reranker and retrieved_docs:
+                                rerank_top_k = getattr(cfg.chroma.retrieval, 'rerank_top_k', n_results)
+                                retrieved_docs = reranker.rerank(prompt, retrieved_docs, top_k=rerank_top_k)
+                                logger.debug(f"Reranked to top {rerank_top_k} documents")
+
+                            # Expand to parent context if small-to-big is enabled
+                            enable_small_to_big = getattr(cfg.chroma.chunking, 'enable_small_to_big', False)
+                            if enable_small_to_big and retrieved_docs:
+                                from src.rag.small_to_big import expand_to_parent_context
+                                retrieved_docs = expand_to_parent_context(retrieved_docs)
+                                logger.debug("Expanded to parent context (small-to-big)")
 
                             # Build context from retrieved chunks with optional deduplication
                             if cfg.chroma.retrieval.use_deduplication:
@@ -144,6 +198,13 @@ def main():
                                     include_similarity=False,
                                     max_chunks=None
                                 )
+
+                            # Apply context compression if enabled
+                            enable_compression = getattr(cfg.chroma.retrieval, 'enable_compression', False)
+                            if enable_compression and context:
+                                from src.rag.compression import compress_context
+                                max_chars = getattr(cfg.chroma.retrieval, 'compression_max_chars', 8000)
+                                context = compress_context(context, max_chars=max_chars)
 
                             # Store retrieved docs in session state for sidebar display
                             if retrieved_docs:
@@ -183,27 +244,41 @@ def main():
                         processing_time = time.time() - start_time
 
                         # Filter sources to only those cited in the answer
-                        if st.session_state.last_sources:
-                            cited_sources = []
-                            # Look for citation patterns like [1], [2], "According to [1]", etc.
-                            for idx, source in enumerate(st.session_state.last_sources, 1):
-                                # Check for various citation patterns
-                                citation_patterns = [
-                                    rf'\[{idx}\]',  # [1], [2], etc.
-                                    rf'According to \[{idx}\]',
-                                    rf'As mentioned in \[{idx}\]',
-                                    rf'source \[{idx}\]',
-                                    rf'\({idx}\)',  # (1), (2), etc.
-                                ]
+                        if st.session_state.last_sources and st.session_state.last_retrieved_docs:
 
-                                # Check if any citation pattern is found in the answer
-                                is_cited = any(re.search(pattern, answer, re.IGNORECASE) for pattern in citation_patterns)
+                            # Find all citation numbers in the answer (e.g., [1], [2, 3], [1, 4, 5])
+                            citation_pattern = r'\[(\d+(?:\s*,\s*\d+)*)\]'
+                            matches = re.findall(citation_pattern, answer)
 
-                                if is_cited:
-                                    cited_sources.append(source)
+                            # Extract all unique cited numbers
+                            cited_numbers = set()
+                            for match in matches:
+                                numbers = [int(n.strip()) for n in match.split(',')]
+                                cited_numbers.update(numbers)
 
-                            # Update last_sources to only include cited sources
-                            st.session_state.last_sources = cited_sources
+                            if cited_numbers:
+                                # Get sources that were actually cited (1-indexed)
+                                all_sources = st.session_state.last_sources
+                                cited_sources = []
+                                missing_citations = []
+
+                                for num in sorted(cited_numbers):
+                                    if 1 <= num <= len(all_sources):
+                                        cited_sources.append(all_sources[num - 1])
+                                    else:
+                                        missing_citations.append(num)
+
+                                if missing_citations:
+                                    logger.warning(
+                                        f"LLM cited sources {missing_citations} but only {len(all_sources)} sources available"
+                                    )
+
+                                # Update last_sources to only include cited sources
+                                # Keep all sources if filtering would result in empty list
+                                if cited_sources:
+                                    st.session_state.last_sources = cited_sources
+                                else:
+                                    logger.warning("No valid cited sources found, keeping all sources")
 
                         # Store debug information for RAG-only mode
                         st.session_state.last_query_info = {

@@ -1,19 +1,37 @@
 from pathlib import Path
 from dataclasses import dataclass
+from typing import List
 
 from unstructured.chunking.basic import chunk_elements
 from unstructured.chunking.title import chunk_by_title
 from unstructured.partition.auto import partition
 
-import instructor
-from pydantic import BaseModel
+from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_experimental.text_splitter import SemanticChunker
 
 from src.utils import logger, generate_hash
 
 
+# Module-level embedder cache for semantic chunking
+_chunker_embedder_cache: dict = {}
+
+
+def _get_chunker_embedder(model_name: str) -> HuggingFaceEmbeddings:
+    """Get or create cached embedder for semantic chunking."""
+    if model_name not in _chunker_embedder_cache:
+        _chunker_embedder_cache[model_name] = HuggingFaceEmbeddings(model_name=model_name)
+    return _chunker_embedder_cache[model_name]
+
+
 @dataclass
 class ChunkMetadata:
-    """Dataclass for chunk metadata."""
+    """
+    Dataclass for chunk metadata.
+
+    Includes standard document metadata plus wine-specific fields
+    for improved retrieval filtering.
+    """
+    # Standard document metadata
     filename: str
     file_path: str
     file_type: str
@@ -28,95 +46,78 @@ class ChunkMetadata:
     word_count: int = 0
     char_count: int = 0
 
+    # Document context (for contextual retrieval)
+    document_title: str = ""
+    chapter: str = ""
+    section: str = ""
 
-class SemanticChunk(BaseModel):
-    """Pydantic agents for instructor-based semantic chunking."""
-    content: str
-    topic: str
-    category: str
-    summary: str
-    importance_score: float
-    should_split: bool = False
-    split_reason: str | None = None
+    # Wine-specific metadata
+    grapes: str = ""  # Comma-separated list of grape varieties
+    regions: str = ""  # Comma-separated list of wine regions
+    vintages: str = ""  # Comma-separated list of vintage years
+    classifications: str = ""  # Comma-separated list (DOCG, AOC, etc.)
+    producers: str = ""  # Comma-separated list of producer/winery names
+    appellations: str = ""  # Comma-separated list of wine appellations
 
 
 def semantic_chunking(
     content: str,
-    instructor_client: instructor.Instructor,
-    max_chunk_size: int = 512
-) -> list[SemanticChunk]:
-    """Use instructor to create semantic chunks that respect content boundaries."""
+    embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2",
+    breakpoint_threshold_type: str = "percentile",
+    breakpoint_threshold_amount: float = 95.0,
+) -> List[str]:
+    """
+    Create semantic chunks using LangChain's SemanticChunker.
+
+    Uses local embeddings to find semantic boundaries - no LLM calls required.
+
+    Args:
+        content: Text content to chunk.
+        embedding_model: HuggingFace model name for embeddings.
+        breakpoint_threshold_type: How to determine breakpoints. Options:
+            - "percentile": Break at percentile threshold of distances
+            - "standard_deviation": Break at standard deviation threshold
+            - "interquartile": Break at interquartile range threshold
+        breakpoint_threshold_amount: Threshold value for breakpoint detection.
+            For percentile: 95.0 means break at 95th percentile of distances.
+
+    Returns:
+        List of chunk text strings.
+    """
     try:
-        if len(content) <= max_chunk_size:
-            response = instructor_client.chat.completions.create(
-                response_model=SemanticChunk,
-                messages=[
-                    {"role": "system", "content": "Analyze this text chunk and provide semantic metadata."},
-                    {"role": "user", "content": content}
-                ],
-            )
-            return [response]
+        embedder = _get_chunker_embedder(embedding_model)
 
-        chunks = []
-        remaining_content = content
+        chunker = SemanticChunker(
+            embeddings=embedder,
+            breakpoint_threshold_type=breakpoint_threshold_type,
+            breakpoint_threshold_amount=breakpoint_threshold_amount,
+        )
 
-        while len(remaining_content) > max_chunk_size:
-            # Take a portion and ask instructor to find the best split point
-            portion = remaining_content[:max_chunk_size * 2]
+        documents = chunker.create_documents([content])
+        chunks = [doc.page_content for doc in documents]
 
-            response = instructor_client.chat.completions.create(
-                response_model=SemanticChunk,
-                messages=[
-                    {"role": "system", "content": f"Find the best semantic split point in this text around "
-                                                  f"{max_chunk_size} characters. If the text should be split, "
-                                                  f"set should_split=True and provide the split reason."},
-                    {"role": "user", "content": portion}
-                ],
-            )
-
-            if response.should_split and len(response.content) < len(portion):
-                chunks.append(response)
-                remaining_content = remaining_content[len(response.content):]
-            else:
-                # TODO: should increase portion if not split point?
-                chunk_content = remaining_content[:max_chunk_size]
-                chunk = SemanticChunk(
-                    content=chunk_content,
-                    topic="Unknown",
-                    category="Unknown",
-                    summary="Auto-generated chunk",
-                    importance_score=0.5
-                )
-                chunks.append(chunk)
-                remaining_content = remaining_content[max_chunk_size:]
-
-        # Add remaining content as final chunk
-        if remaining_content.strip():
-            final_response = instructor_client.chat.completions.create(
-                response_model=SemanticChunk,
-                messages=[
-                    {"role": "system", "content": "Analyze this final text chunk."},
-                    {"role": "user", "content": remaining_content}
-                ],
-            )
-            chunks.append(final_response)
-
+        logger.debug(f"Semantic chunking created {len(chunks)} chunks")
         return chunks
 
     except Exception as e:
-        logger.error(f"Error in semantic chunking with instructor, fallback to simple chunking: {e}")
-        simple_chunks = []
-        for i in range(0, len(content), max_chunk_size):
-            chunk_content = content[i:i + max_chunk_size]
-            chunk = SemanticChunk(
-                content=chunk_content,
-                topic="Unknown",
-                category="Fallback",
-                summary="Auto-generated fallback chunk",
-                importance_score=0.5
-            )
-            simple_chunks.append(chunk)
-        return simple_chunks
+        logger.error(f"Error in semantic chunking, falling back to simple split: {e}")
+        # Fallback to simple sentence-based splitting
+        sentences = content.replace('\n', ' ').split('. ')
+        chunks = []
+        current_chunk = ""
+
+        for sentence in sentences:
+            if len(current_chunk) + len(sentence) > 1000:
+                if current_chunk:
+                    chunks.append(current_chunk.strip())
+                current_chunk = sentence + ". "
+            else:
+                current_chunk += sentence + ". "
+
+        if current_chunk.strip():
+            chunks.append(current_chunk.strip())
+
+        return chunks if chunks else [content]
 
 
 def split_file(
@@ -124,7 +125,8 @@ def split_file(
     strategy: str = "basic",
     chunk_size: int = 512,
     overlap_size: int = 128,
-    instructor_client: instructor.Instructor | None = None,
+    embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2",
+    extract_wine_metadata: bool = True,
     **kwargs,
 ) -> list[dict]:
     """
@@ -133,14 +135,17 @@ def split_file(
     Args:
         file: Path to the file.
         strategy: Chunking strategy ("basic", "by_title", "semantic").
-        chunk_size: Maximum chunk size.
-        overlap_size: Overlap between chunks.
-        instructor_client: Instructor client for semantic analysis. Required for semantic chunking strategy.
+        chunk_size: Maximum chunk size (used for basic/by_title strategies).
+        overlap_size: Overlap between chunks (used for basic/by_title strategies).
+        embedding_model: HuggingFace model for semantic chunking (used for semantic strategy).
+        extract_wine_metadata: Whether to extract wine-specific metadata from chunks.
         **kwargs: Additional arguments for unstructured chunking.
 
     Returns:
         List of enhanced chunk dictionaries with metadata.
     """
+    from src.rag.metadata_extractor import extract_wine_metadata as extract_wine_meta, extract_document_context
+
     file_path = Path(file)
     chunks = []
 
@@ -148,15 +153,23 @@ def split_file(
         logger.info(f"Processing file: {file_path.name}")
         elements = partition(filename=str(file_path))
 
+        # Extract document-level context
+        doc_context = extract_document_context(elements)
+
         if strategy == "semantic":
-            if not instructor_client:
-                raise ValueError("Instructor client is required for semantic strategy.")
-
             full_text = "\n".join([str(elem) for elem in elements])
-            semantic_chunks = semantic_chunking(full_text, instructor_client, chunk_size)
+            semantic_chunks = semantic_chunking(
+                content=full_text,
+                embedding_model=embedding_model,
+                breakpoint_threshold_type=kwargs.get("breakpoint_threshold_type", "percentile"),
+                breakpoint_threshold_amount=kwargs.get("breakpoint_threshold_amount", 95.0),
+            )
 
-            for i, sem_chunk in enumerate(semantic_chunks):
-                chunk_id = f"{file_path.stem}_{i}_{generate_hash(sem_chunk.content)[:8]}"
+            for i, chunk_text in enumerate(semantic_chunks):
+                chunk_id = f"{file_path.stem}_{i}_{generate_hash(chunk_text)[:8]}"
+
+                # Extract wine metadata if enabled
+                wine_meta = extract_wine_meta(chunk_text) if extract_wine_metadata else None
 
                 metadata = ChunkMetadata(
                     filename=file_path.name,
@@ -164,19 +177,25 @@ def split_file(
                     file_type=file_path.suffix.lower(),
                     chunk_index=i,
                     chunk_id=chunk_id,
-                    content_hash=generate_hash(sem_chunk.content),
-                    topic=sem_chunk.topic,
-                    category=sem_chunk.category,
-                    summary=sem_chunk.summary,
-                    word_count=len(sem_chunk.content.split()),
-                    char_count=len(sem_chunk.content)
+                    content_hash=generate_hash(chunk_text),
+                    word_count=len(chunk_text.split()),
+                    char_count=len(chunk_text),
+                    document_title=doc_context.get("document_title", ""),
+                    chapter=doc_context.get("chapter", ""),
+                    section=doc_context.get("section", ""),
+                    grapes=",".join(wine_meta.grapes) if wine_meta else "",
+                    regions=",".join(wine_meta.regions) if wine_meta else "",
+                    vintages=",".join(wine_meta.vintages) if wine_meta else "",
+                    classifications=",".join(wine_meta.classifications) if wine_meta else "",
+                    producers=",".join(wine_meta.producers) if wine_meta else "",
+                    appellations=",".join(wine_meta.appellations) if wine_meta else "",
                 )
 
                 chunks.append({
                     "id": chunk_id,
-                    "text": sem_chunk.content,
+                    "text": chunk_text,
                     "metadata": metadata.__dict__,
-                    "importance_score": sem_chunk.importance_score
+                    "importance_score": 1.0
                 })
         else:
             if strategy == "basic":
@@ -202,6 +221,9 @@ def split_file(
                     else:
                         chunk_metadata = chunk.metadata.__dict__
 
+                # Extract wine metadata if enabled
+                wine_meta = extract_wine_meta(chunk_text) if extract_wine_metadata else None
+
                 metadata = ChunkMetadata(
                     filename=file_path.name,
                     file_path=str(file_path),
@@ -212,7 +234,16 @@ def split_file(
                     page_number=chunk_metadata.get("page_number", -1),
                     language=chunk_metadata.get("languages", ["unknown"])[0],
                     word_count=len(chunk_text.split()),
-                    char_count=len(chunk_text)
+                    char_count=len(chunk_text),
+                    document_title=doc_context.get("document_title", ""),
+                    chapter=doc_context.get("chapter", ""),
+                    section=doc_context.get("section", ""),
+                    grapes=",".join(wine_meta.grapes) if wine_meta else "",
+                    regions=",".join(wine_meta.regions) if wine_meta else "",
+                    vintages=",".join(wine_meta.vintages) if wine_meta else "",
+                    classifications=",".join(wine_meta.classifications) if wine_meta else "",
+                    producers=",".join(wine_meta.producers) if wine_meta else "",
+                    appellations=",".join(wine_meta.appellations) if wine_meta else "",
                 )
 
                 chunks.append({
