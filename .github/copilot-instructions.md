@@ -1,55 +1,57 @@
 # GitHub Copilot Instructions for Pour Decisions Wine RAG Project
 
 ## Project Overview
-**Pour Decisions** - A RAG-powered wine chatbot for personal wine knowledge and cellar management. Zero-cost hobby project using free-tier services only.
+**Pour Decisions** - A RAG-powered wine chatbot for personal wine knowledge and cellar management. 
+Almost zero-cost hobby project using free-tier services as the first choice.
+
+### Project's general guidelines for code generation and architecture
+1. **Understand wine domain** - Research wine concept before coding and design.
+2. **Analyze cost impact** - How does this affect free-tier usage and costs?
+3. **Design local-first** - Prefer local solutions over cloud/external APIs.
+4. **Optimize LLM usage** - Minimize calls, batch requests, cache results.
+5. **Modular architecture** - Ensure components are decoupled and testable.
 
 ## Tech Stack
-- **RAG**: ChromaDB vector store + LangChain + Google Gemini LLM (free tier)
-- **Embeddings**: sentence-transformers/all-MiniLM-L6-v2 (local)
-- **UI**: Streamlit
+- **RAG**: ChromaDB vector store + LangChain + Hybrid Search (BM25 + Vector)
+- **Embeddings**: sentence transformers local models
+- **Reranking**: Cross-encoder models for precision
+- **UI**: Streamlit and CSS enhancements
 - **Backend**: Python 3.11+, SQLite, Pydantic
-- **IDE**: PyCharm Professional
 
 ## Project Structure
 ```
 src/
-├── database/       # SQLite models for wine cellar data
+├── agents/        # LLM integration, prompts
+├── database/      # SQLite models for wine cellar data
 ├── etl/           # Import from Vivino, CellarTracker
-├── model/         # RAG pipeline, LLM integration, prompts
-├── rag/           # Vector store, retrieval, document chunking
+├── rag/           # Vector store, retrieval, chunking, reranking
 ├── ui/            # Streamlit pages and components
 └── utils/         # Config, logging, helpers
 ```
 
-## Code Style Standards
-
 ### Python Requirements
 - **Type hints**: REQUIRED for all function parameters and returns
-- **Docstrings**: Google-style for all public functions
-- **Formatting**: Black (120 chars, isort for imports
-- **Naming**: Use wine domain terms (vintage, appellation, not year, location)
+- **Docstrings**: Google-style for all public functions, classes, modules, include usage examples if complex
+- **Logging**: Use Python logging module, no print statements
+- **Formatting**: Black (120 chars), isort for imports
+- **Code Style**: Follow PEP 8 guidelines
 
-### Coding Requirements
-- Do not generate markdown files to explain the code generated unless explicitly requested. Markdown files
-  are only needed for project documentation and design, not code explanations.
+### Code Generation Constraints
+- Do not generate extra Markdown files to explain the changes unless explicitly requested. Instead, update
+  the existing documentation in the codebase.
 - Do not use emojis in code comments, docstrings, logs.
 - Generated code must be less verbose, only use comments where necessary for clarity.
 - Avoid redundant code; use helper functions or classes to encapsulate repeated logic.
-- Avoid using a lot of print statements, only use logging where appropriate.
+- Always update the documentation when the code is changed significantly or new features are added.
+  If there is no documentation for a component, create a readme file explaining its purpose and usage.
+- Ensure all functions and classes have clear and concise docstrings. If a function or class is complex, 
+  include usage examples in the docstring.
+- New features should be modular, easily testable, and integrated into the existing architecture without major refactoring.
 
 ### Critical Constraints
-1. **Minimize LLM calls** - Use keyword routing, not LLM classification
+1. **Minimize LLM calls** - Use local solutions where possible, batch requests
 2. **Local-first** - Prefer database queries and calculations over external APIs
-3. **No paid services** - All tools must be free or have a generous free tier to minimize cost (DuckDuckGo, not SerpAPI)
-4. **Cache results** - Avoid repeated expensive operations
+3. **No paid services first** - All tools must be free or have a generous free tier to minimize cost. 
+   Paid tools only if absolutely necessary.
+4. **Cache results** - Avoid repeated expensive operations (LLM calls, database queries)
 
-## Development Workflow
-
-### Steps for New Features
-1. **Understand wine domain** - Research wine concept before coding
-2. **Check free-tier impact** - How many LLM calls will this need?
-3. **Design local-first** - Can this work without external APIs?
-4. **Use wine terminology** - Proper names in code and comments
-5. **Add type hints** - All parameters and returns
-6. **Test with real data** - Use actual wine examples
-7. **Review for verbosity** - Remove unnecessary comments and prints
