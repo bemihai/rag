@@ -98,6 +98,23 @@ Each chunk is enriched with metadata for filtering and context:
 | `page_number` | Source page (if available) |
 | `word_count` | Number of words in chunk |
 | `char_count` | Number of characters |
+| `document_title` | Title of source document (contextual retrieval) |
+| `chapter` | Chapter heading if detected |
+| `section` | Section heading if detected |
+| `grapes` | Grape varieties mentioned (comma-separated) |
+| `regions` | Wine regions mentioned (comma-separated) |
+| `vintages` | Vintage years mentioned (comma-separated) |
+| `classifications` | Wine classifications (DOCG, AOC, etc.) |
+
+**Wine Metadata Extraction**
+
+During indexing, each chunk is analyzed to extract wine-specific metadata:
+- **Grapes**: Detected using the wine terminology dictionary (e.g., "nebbiolo", "cabernet sauvignon")
+- **Regions**: Matched against known wine regions and their variations
+- **Vintages**: Year patterns between 1945-2025
+- **Classifications**: Wine classification abbreviations (DOCG, AOC, AVA, etc.)
+
+This metadata enables filtered retrieval queries like "show me chunks about Nebbiolo from Piedmont".
 
 ### 1.5 Vector Storage
 
@@ -416,14 +433,16 @@ Queries can filter by metadata:
 
 ```
 src/rag/
-├── __init__.py          # Module exports
-├── bm25_search.py       # BM25 keyword search index
-├── chunks.py            # Document chunking strategies
-├── hybrid_retriever.py  # Hybrid search with RRF
-├── loader.py            # Document ingestion
-├── reranker.py          # Cross-encoder reranking
-├── retriever.py         # ChromaDB vector retrieval
-└── wine_terms.py        # Wine terminology dictionary
+├── __init__.py              # Module exports
+├── bm25_search.py           # BM25 keyword search index
+├── chunks.py                # Document chunking strategies
+├── deduplication.py         # Semantic deduplication of chunks
+├── hybrid_retriever.py      # Hybrid search with RRF
+├── loader.py                # Document ingestion
+├── metadata_extractor.py    # Wine metadata extraction (grapes, regions, etc.)
+├── reranker.py              # Cross-encoder reranking
+├── retriever.py             # ChromaDB vector retrieval
+└── wine_terms.py            # Wine terminology dictionary
 ```
 
 ### 5.2 Key Classes

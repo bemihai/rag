@@ -57,6 +57,7 @@ class CollectionDataLoader:
         chunk_size: int = 512,
         overlap_size: int = 128,
         skip_duplicates: bool = True,
+        extract_wine_metadata: bool = True,
     ) -> dict:
         """
         Process a single file and return a dict with stats.
@@ -67,6 +68,7 @@ class CollectionDataLoader:
             chunk_size: Size of each chunk.
             overlap_size: Overlap size between chunks.
             skip_duplicates: Whether to skip duplicate chunks based on content hash.
+            extract_wine_metadata: Whether to extract wine-specific metadata from chunks.
         """
         file_path = Path(file_path)
         start_time = time.time()
@@ -89,6 +91,7 @@ class CollectionDataLoader:
                 chunk_size=chunk_size,
                 overlap_size=overlap_size,
                 embedding_model=self.embedding_model,
+                extract_wine_metadata=extract_wine_metadata,
             )
 
             if not chunks:
@@ -161,11 +164,12 @@ class CollectionDataLoader:
     def load_directory(
         self,
         data_path: str | Path,
-        file_extensions: list[str] = [".epub", ".pdf"],
+        file_extensions: list[str] = None,
         strategy: str = "basic",
         chunk_size: int = 512,
         overlap_size: int = 128,
         skip_duplicates: bool = True,
+        extract_wine_metadata: bool = True,
     ) -> dict:
         """
         Load all files from directory with progress tracking. Returns a summary dict.
@@ -177,7 +181,10 @@ class CollectionDataLoader:
             chunk_size: Size of each chunk.
             overlap_size: Overlap size between chunks.
             skip_duplicates: Whether to skip duplicate chunks based on content hash.
+            extract_wine_metadata: Whether to extract wine-specific metadata from chunks.
         """
+        if file_extensions is None:
+            file_extensions = [".epub", ".pdf"]
 
         data_dir = Path(data_path)
         if not data_dir.exists():
@@ -218,6 +225,7 @@ class CollectionDataLoader:
                     chunk_size=chunk_size,
                     overlap_size=overlap_size,
                     skip_duplicates=skip_duplicates,
+                    extract_wine_metadata=extract_wine_metadata,
                 )
 
                 # Update total stats

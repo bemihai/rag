@@ -25,7 +25,13 @@ def _get_chunker_embedder(model_name: str) -> HuggingFaceEmbeddings:
 
 @dataclass
 class ChunkMetadata:
-    """Dataclass for chunk metadata."""
+    """
+    Dataclass for chunk metadata.
+
+    Includes standard document metadata plus wine-specific fields
+    for improved retrieval filtering.
+    """
+    # Standard document metadata
     filename: str
     file_path: str
     file_type: str
@@ -39,6 +45,17 @@ class ChunkMetadata:
     summary: str = "none"
     word_count: int = 0
     char_count: int = 0
+
+    # Document context (for contextual retrieval)
+    document_title: str = ""
+    chapter: str = ""
+    section: str = ""
+
+    # Wine-specific metadata
+    grapes: str = ""  # Comma-separated list of grape varieties
+    regions: str = ""  # Comma-separated list of wine regions
+    vintages: str = ""  # Comma-separated list of vintage years
+    classifications: str = ""  # Comma-separated list (DOCG, AOC, etc.)
 
 
 def semantic_chunking(
@@ -107,6 +124,7 @@ def split_file(
     chunk_size: int = 512,
     overlap_size: int = 128,
     embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2",
+    extract_wine_metadata: bool = True,
     **kwargs,
 ) -> list[dict]:
     """
@@ -118,17 +136,23 @@ def split_file(
         chunk_size: Maximum chunk size (used for basic/by_title strategies).
         overlap_size: Overlap between chunks (used for basic/by_title strategies).
         embedding_model: HuggingFace model for semantic chunking (used for semantic strategy).
+        extract_wine_metadata: Whether to extract wine-specific metadata from chunks.
         **kwargs: Additional arguments for unstructured chunking.
 
     Returns:
         List of enhanced chunk dictionaries with metadata.
     """
+    from src.rag.metadata_extractor import extract_wine_metadata as extract_wine_meta, extract_document_context
+
     file_path = Path(file)
     chunks = []
 
     try:
         logger.info(f"Processing file: {file_path.name}")
         elements = partition(filename=str(file_path))
+
+        # Extract document-level context
+        doc_context = extract_document_context(elements)
 
         if strategy == "semantic":
             full_text = "\n".join([str(elem) for elem in elements])
@@ -142,6 +166,9 @@ def split_file(
             for i, chunk_text in enumerate(semantic_chunks):
                 chunk_id = f"{file_path.stem}_{i}_{generate_hash(chunk_text)[:8]}"
 
+                # Extract wine metadata if enabled
+                wine_meta = extract_wine_meta(chunk_text) if extract_wine_metadata else None
+
                 metadata = ChunkMetadata(
                     filename=file_path.name,
                     file_path=str(file_path),
@@ -150,7 +177,14 @@ def split_file(
                     chunk_id=chunk_id,
                     content_hash=generate_hash(chunk_text),
                     word_count=len(chunk_text.split()),
-                    char_count=len(chunk_text)
+                    char_count=len(chunk_text),
+                    document_title=doc_context.get("document_title", ""),
+                    chapter=doc_context.get("chapter", ""),
+                    section=doc_context.get("section", ""),
+                    grapes=",".join(wine_meta.grapes) if wine_meta else "",
+                    regions=",".join(wine_meta.regions) if wine_meta else "",
+                    vintages=",".join(wine_meta.vintages) if wine_meta else "",
+                    classifications=",".join(wine_meta.classifications) if wine_meta else "",
                 )
 
                 chunks.append({
@@ -183,6 +217,9 @@ def split_file(
                     else:
                         chunk_metadata = chunk.metadata.__dict__
 
+                # Extract wine metadata if enabled
+                wine_meta = extract_wine_meta(chunk_text) if extract_wine_metadata else None
+
                 metadata = ChunkMetadata(
                     filename=file_path.name,
                     file_path=str(file_path),
@@ -193,7 +230,14 @@ def split_file(
                     page_number=chunk_metadata.get("page_number", -1),
                     language=chunk_metadata.get("languages", ["unknown"])[0],
                     word_count=len(chunk_text.split()),
-                    char_count=len(chunk_text)
+                    char_count=len(chunk_text),
+                    document_title=doc_context.get("document_title", ""),
+                    chapter=doc_context.get("chapter", ""),
+                    section=doc_context.get("section", ""),
+                    grapes=",".join(wine_meta.grapes) if wine_meta else "",
+                    regions=",".join(wine_meta.regions) if wine_meta else "",
+                    vintages=",".join(wine_meta.vintages) if wine_meta else "",
+                    classifications=",".join(wine_meta.classifications) if wine_meta else "",
                 )
 
                 chunks.append({

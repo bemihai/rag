@@ -6,11 +6,13 @@ chroma:
     strategy: by_title                  # basic, by_title, semantic
     chunk_size: 1024
     chunk_overlap: 256
+    extract_wine_metadata: true         # extract grape, region, vintage from chunks
   retrieval:
     n_results: 5                        # number of chunks to retrieve per query
     similarity_threshold: 0.3           # minimum similarity score (0.0-1.0) to filter results
-    deduplication_threshold: 0.9        # similarity threshold for removing duplicate chunks (optional)
-    use_deduplication: false            # enable semantic deduplication of retrieved chunks
+    # Deduplication settings
+    use_deduplication: true             # enable semantic deduplication of retrieved chunks
+    deduplication_threshold: 0.9        # similarity threshold for removing duplicate chunks
     # Hybrid search settings
     enable_hybrid: true                 # enable hybrid search (vector + BM25)
     hybrid_vector_weight: 0.7           # weight for vector search in hybrid mode
