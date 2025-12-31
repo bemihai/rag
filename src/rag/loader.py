@@ -271,9 +271,11 @@ class CollectionDataLoader:
                     logger.warning(f"File '{file_path.name}' failed and will be retried on next run")
                 else:
                     total_stats["successful_files"] += 1
-                    # Mark file as indexed in tracker
+                    # Mark file as indexed in tracker and save immediately
+                    # This ensures we can resume from where we left off if interrupted
                     if tracker is not None:
                         tracker.mark_indexed(file_path, file_stats["chunks_added"])
+                        tracker.save()  # Save after each successful file for resume support
 
                 # Update progress bar
                 pbar.set_postfix(
@@ -283,7 +285,7 @@ class CollectionDataLoader:
                     }
                 )
 
-        # Save index manifest
+        # Final save (in case no files were processed)
         if tracker is not None:
             tracker.save()
             logger.info(f"Updated index manifest: {tracker.get_stats()}")

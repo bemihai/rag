@@ -220,6 +220,7 @@ The loader supports incremental indexing to avoid re-processing unchanged files.
 2. When running `make chroma-upload`, only new or modified files are processed
 3. File changes are detected by comparing MD5 hashes of file contents
 4. The manifest is stored at `chroma-data/manifests/{collection}_manifest.json`
+5. **Resume support**: The manifest is saved after each successful file, so if indexing is interrupted (Ctrl+C, crash), it will resume from where it left off
 
 **Manifest Contents**
 
