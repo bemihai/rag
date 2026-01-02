@@ -205,6 +205,7 @@ The loader provides detailed statistics:
 | `make chroma-upload` | Index new/modified files (incremental) |
 | `make chroma-reindex` | Force reindex all files |
 | `make chroma-status` | Show index status (files and chunks) |
+| `make chroma-stats` | Show collection statistics (records, embeddings, metadata) |
 | `make chroma-health` | Check ChromaDB health status |
 | `make chroma-reset` | Reset ChromaDB (clears all data) |
 | `make chroma-backup` | Backup ChromaDB data directory |

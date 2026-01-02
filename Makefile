@@ -37,6 +37,7 @@ help:
 	@echo "  chroma-upload   - Populate ChromaDB with wine knowledge (incremental)"
 	@echo "  chroma-reindex  - Force reindex all files in ChromaDB"
 	@echo "  chroma-status   - Show index status (files and chunks)"
+	@echo "  chroma-stats    - Show ChromaDB collection statistics"
 	@echo "  chroma-up       - Start only ChromaDB (for local development)"
 	@echo "  chroma-down     - Stop ChromaDB container"
 	@echo "  chroma-health   - Check ChromaDB container health status"
@@ -166,6 +167,11 @@ chroma-reindex:
 chroma-status:
 	@echo "Checking ChromaDB index status..."
 	@PYTHONPATH=$(shell pwd) python3 -m src.rag.load_data --status
+
+.PHONY: chroma-stats
+chroma-stats:
+	@echo "Getting ChromaDB collection statistics..."
+	@PYTHONPATH=$(shell pwd) python3 -m src.rag.chroma_stats
 
 .PHONY: chroma-up
 chroma-up:
