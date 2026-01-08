@@ -8,7 +8,7 @@ using the existing RAG pipeline (ChromaDB + LangChain).
 from langchain_core.tools import tool
 
 from src.rag.retriever import ChromaRetriever
-from src.utils.context_builder import build_context_from_chunks
+from src.rag.utils.context_builder import build_context_from_chunks
 from src.utils import initialize_chroma_client, get_config, logger
 
 

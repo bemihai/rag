@@ -6,21 +6,10 @@ from unstructured.chunking.basic import chunk_elements
 from unstructured.chunking.title import chunk_by_title
 from unstructured.partition.auto import partition
 
-from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_experimental.text_splitter import SemanticChunker
 
-from src.utils import logger, generate_hash
-
-
-# Module-level embedder cache for semantic chunking
-_chunker_embedder_cache: dict = {}
-
-
-def _get_chunker_embedder(model_name: str) -> HuggingFaceEmbeddings:
-    """Get or create cached embedder for semantic chunking."""
-    if model_name not in _chunker_embedder_cache:
-        _chunker_embedder_cache[model_name] = HuggingFaceEmbeddings(model_name=model_name)
-    return _chunker_embedder_cache[model_name]
+from src.rag import extract_document_context
+from src.utils import logger, generate_hash, get_embedder
 
 
 @dataclass
@@ -62,7 +51,7 @@ class ChunkMetadata:
 
 def semantic_chunking(
     content: str,
-    embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2",
+    embedding_model: str | None = None,
     breakpoint_threshold_type: str = "percentile",
     breakpoint_threshold_amount: float = 95.0,
 ) -> List[str]:
@@ -73,7 +62,8 @@ def semantic_chunking(
 
     Args:
         content: Text content to chunk.
-        embedding_model: HuggingFace model name for embeddings.
+        embedding_model: HuggingFace model name for embeddings. If not provided explicitly, will use the default
+            model from app config.
         breakpoint_threshold_type: How to determine breakpoints. Options:
             - "percentile": Break at percentile threshold of distances
             - "standard_deviation": Break at standard deviation threshold
@@ -85,7 +75,7 @@ def semantic_chunking(
         List of chunk text strings.
     """
     try:
-        embedder = _get_chunker_embedder(embedding_model)
+        embedder = get_embedder(embedding_model)
 
         chunker = SemanticChunker(
             embeddings=embedder,
@@ -125,7 +115,7 @@ def split_file(
     strategy: str = "basic",
     chunk_size: int = 512,
     overlap_size: int = 128,
-    embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2",
+    embedding_model: str| None = None,
     extract_wine_metadata: bool = True,
     **kwargs,
 ) -> list[dict]:
@@ -138,14 +128,13 @@ def split_file(
         chunk_size: Maximum chunk size (used for basic/by_title strategies).
         overlap_size: Overlap between chunks (used for basic/by_title strategies).
         embedding_model: HuggingFace model for semantic chunking (used for semantic strategy).
+            If not provided, will use default from app config.
         extract_wine_metadata: Whether to extract wine-specific metadata from chunks.
         **kwargs: Additional arguments for unstructured chunking.
 
     Returns:
         List of enhanced chunk dictionaries with metadata.
     """
-    from src.rag.metadata_extractor import extract_wine_metadata as extract_wine_meta, extract_document_context
-
     file_path = Path(file)
     chunks = []
 

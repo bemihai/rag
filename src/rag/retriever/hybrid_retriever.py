@@ -2,7 +2,7 @@
 from typing import List, Dict, Any
 
 from src.rag.retriever import ChromaRetriever
-from src.rag.bm25_search import BM25Index
+from src.rag.retriever.keyword_search import BM25Index
 from src.utils import logger
 
 

@@ -8,8 +8,8 @@ Usage:
 import os
 import argparse
 
-from src.rag import CollectionDataLoader
-from src.rag.index_tracker import IndexTracker
+from src.chroma.index_tracker import IndexTracker
+from src.chroma.loader import CollectionDataLoader
 from src.utils import get_config, logger
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"

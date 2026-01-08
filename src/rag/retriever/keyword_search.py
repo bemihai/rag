@@ -1,5 +1,5 @@
 """BM25 keyword search for hybrid retrieval."""
-from typing import List, Dict, Any
+from typing import Any
 from pathlib import Path
 import pickle
 
@@ -21,13 +21,13 @@ class BM25Index:
 
     def __init__(self, index_path: str | Path | None = None):
         self.index: BM25Okapi | None = None
-        self.documents: List[Dict[str, Any]] = []
+        self.documents: list[dict[str, Any]] = []
         self.index_path = Path(index_path) if index_path else None
 
         if self.index_path and self.index_path.exists():
             self.load()
 
-    def build_index(self, documents: List[Dict[str, Any]]) -> None:
+    def build_index(self, documents: list[dict[str, Any]]) -> None:
         """
         Build BM25 index from documents.
 
@@ -43,11 +43,11 @@ class BM25Index:
         self.index = BM25Okapi(tokenized_docs)
         logger.info(f"Built BM25 index with {len(documents)} documents")
 
-    def _tokenize(self, text: str) -> List[str]:
+    def _tokenize(self, text: str) -> list[str]:
         """Simple tokenization - lowercase and split on whitespace."""
         return text.lower().split()
 
-    def search(self, query: str, top_k: int = 10) -> List[Dict[str, Any]]:
+    def search(self, query: str, top_k: int = 10) -> list[dict[str, Any]]:
         """
         Search using BM25.
 

@@ -6,7 +6,7 @@ import hashlib
 import chromadb as cdb
 from langchain_huggingface import HuggingFaceEmbeddings
 
-from src.rag.wine_terms import normalize_query, expand_query
+from src.rag.query.query_utils import normalize_query, expand_query
 from src.utils import logger
 
 

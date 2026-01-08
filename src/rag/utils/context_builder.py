@@ -102,7 +102,7 @@ def build_semantic_context(
     if not retrieved_docs:
         return ""
 
-    from src.rag.deduplication import deduplicate_context
+    from src.chroma.deduplication import deduplicate_context
 
     # Use the deduplication module for consistent behavior
     unique_docs = deduplicate_context(

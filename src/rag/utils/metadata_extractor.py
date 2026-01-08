@@ -8,7 +8,7 @@ import re
 from typing import Dict, List, Set
 from dataclasses import dataclass, field
 
-from src.rag.wine_terms import (
+from src.rag.query.query_utils import (
     GRAPE_SYNONYMS,
     REGION_VARIATIONS,
     CLASSIFICATIONS,
@@ -72,7 +72,7 @@ _PRODUCER_SUFFIXES = [
     r"wine\s+co\.?",
 ]
 
-# WINE_APPELLATIONS is now loaded from JSON via wine_terms.py
+# WINE_APPELLATIONS is now loaded from JSON via query_utils.py
 
 
 @dataclass

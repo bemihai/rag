@@ -3,6 +3,26 @@ import os
 from pathlib import Path
 
 from omegaconf import DictConfig, OmegaConf
+import chromadb as cdb
+
+from src.utils import logger
+
+
+def initialize_chroma_client(host: str, port: int) -> cdb.ClientAPI:
+    """
+    Initialize the ChromaDB client.
+
+    Args:
+        host: The host address of the ChromaDB server.
+        port: The port number of the ChromaDB server.
+
+    Returns an instance of the ChromaDB client.
+    """
+    client = cdb.HttpClient(host=host, port=port)
+    client.heartbeat()
+    logger.info(f"Connected to ChromaDB at {host}:{port}")
+
+    return client
 
 
 def find_project_root(marker="pyproject.toml"):

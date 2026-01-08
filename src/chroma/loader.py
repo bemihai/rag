@@ -4,8 +4,9 @@ import time
 
 from langchain_huggingface import HuggingFaceEmbeddings
 
-from src.rag.chunks import split_file
-from src.utils import logger, initialize_chroma_client, get_or_create_collection, create_chroma_batches, validate_chunks
+from src.chroma import get_or_create_collection, validate_chunks, create_batches
+from src.chroma.chunks import split_file
+from src.utils import logger, initialize_chroma_client
 
 
 class CollectionDataLoader:
@@ -127,7 +128,7 @@ class CollectionDataLoader:
             embeddings = self.embedder.embed_documents(docs)
 
             # Add to ChromaDB in batches
-            batches = create_chroma_batches(
+            batches = create_batches(
                 batch_size=self.batch_size,
                 documents=docs,
                 embeddings=embeddings,
@@ -187,7 +188,7 @@ class CollectionDataLoader:
             incremental: If True, only process new or modified files (default: True).
             force_reindex: If True, ignore index tracking and reprocess all files.
         """
-        from src.rag.index_tracker import IndexTracker
+        from src.chroma.index_tracker import IndexTracker
 
         if file_extensions is None:
             file_extensions = [".epub", ".pdf"]

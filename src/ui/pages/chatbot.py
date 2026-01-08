@@ -155,7 +155,7 @@ def main():
                             retrieve_count = n_results * 2 if reranker else n_results
 
                             # Analyze query for metadata-based filtering/boosting
-                            from src.rag.query_analyzer import analyze_query, boost_by_metadata_match
+                            from src.rag.query.query_analyzer import analyze_query, boost_by_metadata_match
                             query_analysis = analyze_query(prompt)
 
                             # Retrieve relevant documents from ChromaDB (or hybrid search)
@@ -179,7 +179,7 @@ def main():
                             # Expand to parent context if small-to-big is enabled
                             enable_small_to_big = getattr(cfg.chroma.chunking, 'enable_small_to_big', False)
                             if enable_small_to_big and retrieved_docs:
-                                from src.rag.small_to_big import expand_to_parent_context
+                                from src.chroma.small_to_big import expand_to_parent_context
                                 retrieved_docs = expand_to_parent_context(retrieved_docs)
                                 logger.debug("Expanded to parent context (small-to-big)")
 
@@ -202,7 +202,7 @@ def main():
                             # Apply context compression if enabled
                             enable_compression = getattr(cfg.chroma.retrieval, 'enable_compression', False)
                             if enable_compression and context:
-                                from src.rag.compression import compress_context
+                                from src.rag.query.compression import compress_context
                                 max_chars = getattr(cfg.chroma.retrieval, 'compression_max_chars', 8000)
                                 context = compress_context(context, max_chars=max_chars)
 

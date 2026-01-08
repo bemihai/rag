@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Dict, List
 
 # Path to data directory
-_DATA_DIR = Path(__file__).parent / "data"
+_DATA_DIR = Path(__file__).parent / "terms"
 
 
 def _load_json(filename: str) -> dict | list:

@@ -12,15 +12,7 @@ from langchain_huggingface import HuggingFaceEmbeddings
 from src.utils import logger
 
 
-# Module-level cache for embedder
-_dedup_embedder_cache: Dict[str, HuggingFaceEmbeddings] = {}
 
-
-def _get_embedder(model_name: str) -> HuggingFaceEmbeddings:
-    """Get or create cached embedder instance for deduplication."""
-    if model_name not in _dedup_embedder_cache:
-        _dedup_embedder_cache[model_name] = HuggingFaceEmbeddings(model_name=model_name)
-    return _dedup_embedder_cache[model_name]
 
 
 def cosine_similarity(vec1: np.ndarray, vec2: np.ndarray) -> float:
