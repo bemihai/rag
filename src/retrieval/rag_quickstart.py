@@ -10,12 +10,14 @@ This script tests all components of the Pour Decisions RAG pipeline:
 - Small-to-big retrieval (if enabled)
 
 Usage:
-    python -m src.retrieval.quickstart
+    python -m src.retrieval.rag_quickstart
     PYTHONPATH=$(pwd) python src/retrieval/rag_quickstart.py
 """
 import os
 import time
 from typing import List, Dict, Any
+
+import chromadb
 
 from src.chroma.hierarchical_chunks import expand_to_parent_context
 from src.utils import get_config, logger
@@ -32,6 +34,7 @@ from src.retrieval import (
     compress_context,
     build_semantic_context,
     build_context_from_chunks,
+    BM25Index
 )
 
 
@@ -79,25 +82,54 @@ def test_retrieval(query: str, cfg, use_hybrid: bool = True):
     """Test retrieval with both vector and hybrid search."""
     print_section(f"2. Retrieval ({'Hybrid' if use_hybrid else 'Vector Only'})")
 
+    # Initialize ChromaDB client
+    client = chromadb.HttpClient(
+        host=cfg.chroma.client.host,
+        port=cfg.chroma.client.port
+    )
+
+    # Initialize vector retriever
+    vector_retriever = ChromaRetriever(
+        client=client,
+        collection_name="wine_books",
+        embedding_model=cfg.chroma.settings.embedder,
+    )
+
     # Initialize retrievers
     if use_hybrid:
         print("Using hybrid retrieval (Vector + BM25 with RRF fusion)")
+
+        # Initialize BM25 index
+        print("Building BM25 index from collection...")
+        bm25_index = BM25Index()
+
+        # Fetch documents from collection to build BM25 index
+        collection = vector_retriever.collection
+        all_docs = collection.get(include=["documents", "metadatas"], limit=10000)
+
+        if all_docs and all_docs['ids']:
+            documents = []
+            for i, doc_id in enumerate(all_docs['ids']):
+                documents.append({
+                    'id': doc_id,
+                    'document': all_docs['documents'][i] if all_docs['documents'] else '',
+                    'metadata': all_docs['metadatas'][i] if all_docs['metadatas'] else {},
+                })
+            bm25_index.build_index(documents)
+            print(f"Built BM25 index with {len(documents)} documents")
+        else:
+            print("Warning: No documents found to build BM25 index")
+
+        # Initialize hybrid retriever
         retriever = HybridRetriever(
-            collection_name="wine_books",
-            chroma_host=cfg.chroma.client.host,
-            chroma_port=cfg.chroma.client.port,
-            embedding_model=cfg.chroma.settings.embedder,
+            vector_retriever=vector_retriever,
+            bm25_index=bm25_index,
             vector_weight=cfg.chroma.retrieval.hybrid_vector_weight,
             keyword_weight=cfg.chroma.retrieval.hybrid_keyword_weight,
         )
     else:
         print("Using vector-only retrieval")
-        retriever = ChromaRetriever(
-            collection_name="wine_books",
-            chroma_host=cfg.chroma.client.host,
-            chroma_port=cfg.chroma.client.port,
-            embedding_model=cfg.chroma.settings.embedder,
-        )
+        retriever = vector_retriever
 
     # Retrieve
     n_results = 10  # Get more for reranking
@@ -160,7 +192,6 @@ def test_reranking(query: str, docs: List[Dict[str, Any]], cfg):
 
     reranker = DocumentReranker(
         model_name=cfg.chroma.retrieval.reranker_model,
-        top_k=cfg.chroma.retrieval.rerank_top_k,
     )
 
     print(f"Reranking with model: {cfg.chroma.retrieval.reranker_model}")
@@ -270,7 +301,7 @@ def test_llm_generation(query: str, context: str, cfg):
     """Test LLM generation with the built context."""
     print_section("8. LLM Generation")
 
-    print(f"Model: {cfg.model.name}")
+    print(f"Model: {cfg.model.provider}/{cfg.model.name}")
     print(f"Context length: {len(context)} characters")
 
     # Build prompt
@@ -288,7 +319,10 @@ Answer:"""
     print(f"\nPrompt length: {len(prompt)} characters")
 
     try:
-        llm = load_base_model(cfg.model.name)
+        llm = load_base_model(
+            model_provider=cfg.model.provider,
+            model_name=cfg.model.name
+        )
 
         print("\nGenerating answer...")
         start_time = time.time()
