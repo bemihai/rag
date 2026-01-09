@@ -1,8 +1,9 @@
-"""Hybrid retriever combining vector and keyword search."""
+"""Hybrid retrieval combining vector and keyword search."""
 from typing import List, Dict, Any
 
-from src.rag.retriever import ChromaRetriever
-from src.rag.retriever.keyword_search import BM25Index
+from .vector_retriever import ChromaRetriever
+from .keyword_search import BM25Index
+
 from src.utils import logger
 
 
@@ -10,7 +11,7 @@ class HybridRetriever:
     """
     Combine vector similarity and BM25 keyword search using Reciprocal Rank Fusion.
 
-    This retriever performs both dense (vector) and sparse (BM25) retrieval,
+    This retrieval performs both dense (vector) and sparse (BM25) retrieval,
     then fuses the results using RRF to get the best of both approaches.
 
     Args:
@@ -49,7 +50,7 @@ class HybridRetriever:
         Args:
             query: User's query string.
             n_results: Number of final results to return.
-            **kwargs: Additional arguments passed to vector retriever (e.g., where filters).
+            **kwargs: Additional arguments passed to vector retrieval (e.g., where filters).
 
         Returns:
             List of document dicts with 'rrf_score' added, sorted by relevance.

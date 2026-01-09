@@ -2,11 +2,8 @@
 
 Loads wine terminology data from JSON files in the data/ directory.
 """
-import json
-from pathlib import Path
-from typing import Dict, List
 
-
+from src.utils import GRAPE_SYNONYMS, MISSPELLINGS, REGION_VARIATIONS, QUERY_EXPANSIONS
 
 
 def normalize_query(query: str) -> str:

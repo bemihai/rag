@@ -1,9 +1,9 @@
 """Runnable script for processing external data and loading to ChromaDB.
 
 Usage:
-    python -m src.rag.load_data                    # Incremental mode (default)
-    python -m src.rag.load_data --force            # Force reindex all files
-    python -m src.rag.load_data --status           # Show index status only
+    python -m src.retrieval.load_data                    # Incremental mode (default)
+    python -m src.retrieval.load_data --force            # Force reindex all files
+    python -m src.retrieval.load_data --status           # Show index status only
 """
 import os
 import argparse

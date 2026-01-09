@@ -289,7 +289,7 @@ chroma run --path ./chroma-cellar-data
 Place your PDF/text files in the configured directory and run:
 
 ```bash
-python src/rag/load_data.py
+python src/retrieval/load_data.py
 ```
 
 This will:
@@ -565,7 +565,7 @@ The app integrates with Langfuse for observability:
 
 **Solution:** Run from project root with correct PYTHONPATH:
 ```bash
-PYTHONPATH=$(pwd) python3 -m src.rag.load_data
+PYTHONPATH=$(pwd) python3 -m src.retrieval.load_data
 # or use
 make chroma-upload
 ```

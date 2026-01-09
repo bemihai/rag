@@ -145,7 +145,7 @@ def main():
 
                     cfg = get_config()
 
-                    # Check if RAG is enabled and retriever is available
+                    # Check if RAG is enabled and retrieval is available
                     if st.session_state.get("enable_rag", True) and retriever is not None:
                         try:
                             # Get user-selected number of results or use default
@@ -155,7 +155,7 @@ def main():
                             retrieve_count = n_results * 2 if reranker else n_results
 
                             # Analyze query for metadata-based filtering/boosting
-                            from src.rag.query.query_analyzer import analyze_query, boost_by_metadata_match
+                            from src.rag.query_analyzer import analyze_query, boost_by_metadata_match
                             query_analysis = analyze_query(prompt)
 
                             # Retrieve relevant documents from ChromaDB (or hybrid search)
@@ -202,7 +202,7 @@ def main():
                             # Apply context compression if enabled
                             enable_compression = getattr(cfg.chroma.retrieval, 'enable_compression', False)
                             if enable_compression and context:
-                                from src.rag.query.compression import compress_context
+                                from src.rag.query_compression import compress_context
                                 max_chars = getattr(cfg.chroma.retrieval, 'compression_max_chars', 8000)
                                 context = compress_context(context, max_chars=max_chars)
 
@@ -228,7 +228,7 @@ def main():
                                 "Answering based on general knowledge instead."
                             )
                     else:
-                        # RAG is disabled or retriever unavailable - use empty context
+                        # RAG is disabled or retrieval unavailable - use empty context
                         context = ""
                         st.session_state.last_sources = []
                         st.session_state.last_retrieved_docs = []
