@@ -9,9 +9,15 @@ This script tests all components of the Pour Decisions RAG pipeline:
 - Semantic deduplication
 - Small-to-big retrieval (if enabled)
 
+Uses a dedicated test collection to avoid interfering with production data.
+
 Usage:
     python -m src.retrieval.rag_quickstart
     PYTHONPATH=$(pwd) python src/retrieval/rag_quickstart.py
+
+Prerequisites:
+    - ChromaDB must be running (make chroma-up)
+    - Test data must be indexed first: python -m src.chroma.chroma_quickstart
 """
 import os
 import time
@@ -40,12 +46,62 @@ from src.retrieval import (
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
+# Test collection name - separate from production
+TEST_COLLECTION = "wine_test"
+
 
 def print_section(title: str):
     """Print a formatted section header."""
     print(f"\n{'='*70}")
     print(f"  {title}")
     print(f"{'='*70}\n")
+
+
+def check_prerequisites():
+    """Check if prerequisites are met."""
+    print_section("Prerequisites Check")
+
+    # Check ChromaDB connection
+    try:
+        cfg = get_config()
+        client = chromadb.HttpClient(
+            host=cfg.chroma.client.host,
+            port=cfg.chroma.client.port
+        )
+        print(f"✓ ChromaDB connected at {cfg.chroma.client.host}:{cfg.chroma.client.port}")
+    except Exception as e:
+        print(f"❌ ChromaDB connection failed: {e}")
+        print(f"\nPlease start ChromaDB with: make chroma-up")
+        return False
+
+    # Check if test collection exists
+    try:
+        collections = client.list_collections()
+        collection_names = [col.name for col in collections]
+
+        if TEST_COLLECTION not in collection_names:
+            print(f"❌ Test collection '{TEST_COLLECTION}' not found")
+            print(f"\nPlease index test data first:")
+            print(f"  python -m src.chroma.chroma_quickstart")
+            return False
+
+        # Check collection has data
+        collection = client.get_collection(TEST_COLLECTION)
+        count = collection.count()
+
+        if count == 0:
+            print(f"❌ Test collection '{TEST_COLLECTION}' is empty")
+            print(f"\nPlease index test data first:")
+            print(f"  python -m src.chroma.chroma_quickstart")
+            return False
+
+        print(f"✓ Test collection '{TEST_COLLECTION}' found with {count:,} documents")
+
+    except Exception as e:
+        print(f"❌ Error checking test collection: {e}")
+        return False
+
+    return True
 
 
 def test_query_preprocessing(query: str):
@@ -88,10 +144,10 @@ def test_retrieval(query: str, cfg, use_hybrid: bool = True):
         port=cfg.chroma.client.port
     )
 
-    # Initialize vector retriever
+    # Initialize vector retriever with test collection
     vector_retriever = ChromaRetriever(
         client=client,
-        collection_name="wine_books",
+        collection_name=TEST_COLLECTION,
         embedding_model=cfg.chroma.settings.embedder,
     )
 
@@ -100,7 +156,7 @@ def test_retrieval(query: str, cfg, use_hybrid: bool = True):
         print("Using hybrid retrieval (Vector + BM25 with RRF fusion)")
 
         # Initialize BM25 index
-        print("Building BM25 index from collection...")
+        print("Building BM25 index from test collection...")
         bm25_index = BM25Index()
 
         # Fetch documents from collection to build BM25 index
@@ -348,7 +404,7 @@ def main():
     """Main quickstart flow testing all RAG components."""
     print(f"""
 {'='*70}
-  Pour Decisions RAG Pipeline - Comprehensive Test
+  RAG Pipeline - Comprehensive Test
 {'='*70}
 
 This script tests all components of the RAG pipeline:
@@ -361,8 +417,17 @@ This script tests all components of the RAG pipeline:
   7. Context compression (if enabled)
   8. LLM generation
 
+Uses test collection: '{TEST_COLLECTION}' (isolated from production)
+
 {'='*70}
 """)
+
+    # Check prerequisites
+    if not check_prerequisites():
+        print("\n" + "="*70)
+        print("Prerequisites not met. Please fix the issues above and try again.")
+        print("="*70)
+        return 1
 
     # Load config
     cfg = get_config()
@@ -370,6 +435,8 @@ This script tests all components of the RAG pipeline:
     # Test query - contains multiple wine entities for testing metadata boosting
     query = "What are the characteristics of 2015 Barolo wines from Piedmont?"
     print(f"Test Query: '{query}'")
+
+    # ...existing test code...
 
     # 1. Query preprocessing
     processed_query, analysis = test_query_preprocessing(query)

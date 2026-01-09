@@ -3,9 +3,10 @@ from pathlib import Path
 from tqdm import tqdm
 import time
 
-from src.chroma import get_or_create_collection, validate_chunks, create_batches
-from src.chroma.chunks import split_file
-from src.chroma.index_tracker import IndexTracker
+from .utils import get_or_create_collection, validate_chunks, create_batches
+from .chunks import split_file
+from .index_tracker import IndexTracker
+
 from src.utils import logger, initialize_chroma_client, get_embedder
 
 

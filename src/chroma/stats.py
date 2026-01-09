@@ -10,7 +10,7 @@ import argparse
 import sys
 from typing import Any
 
-from src.chroma import get_collection_stats, get_all_stats
+from .utils import get_collection_stats, get_all_stats
 from src.utils import get_config, initialize_chroma_client
 
 

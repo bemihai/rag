@@ -208,7 +208,7 @@ cp .env.example .env
 nano .env  # Add your GOOGLE_API_KEY
 
 # 3. Run the quick start script
-./quickstart.sh
+./docker_quickstart.sh
 
 # Or manually:
 docker-compose up --build

@@ -8,8 +8,8 @@ from unstructured.partition.auto import partition
 
 from langchain_experimental.text_splitter import SemanticChunker
 
-from src.chroma import split_text_into_sentences
-from src.chroma.metadata_extractor import extract_wine_metadata, extract_document_context
+from .utils import split_text_into_sentences
+from .metadata_extractor import extract_wine_metadata, extract_document_context
 from src.utils import logger, generate_hash, get_embedder
 
 
