@@ -216,7 +216,7 @@ def search_grape_variety_info(varietal: str) -> str:
 def search_wine_term_definition(term: str) -> str:
     """Search for definition and explanation of wine terminology.
 
-    Look up wine-specific terms, concepts, and jargon in the knowledge base.
+    Look up wine-specific terminology, concepts, and jargon in the knowledge base.
 
     Args:
         term: Wine term to define. Examples:
@@ -241,7 +241,7 @@ def search_wine_term_definition(term: str) -> str:
         - Provides wine-specific definitions, not generic dictionary definitions
         - Includes context and examples
         - Completely free operation (local vector search)
-        - Explains both traditional and modern winemaking terms
+        - Explains both traditional and modern winemaking terminology
     """
     try:
         formatted_query = (

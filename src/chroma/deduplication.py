@@ -1,46 +1,19 @@
 """Context deduplication for removing semantically similar chunks.
 
 This module provides utilities for removing duplicate or near-duplicate
-chunks from retrieved results before sending to the LLM. All processing
-is done locally using embedding similarity - no LLM calls required.
+chunks from retrieved results before sending to the LLM.
 """
-from typing import List, Dict, Any
+from typing import Any
 import numpy as np
 
-from langchain_huggingface import HuggingFaceEmbeddings
-
-from src.utils import logger
-
-
-
-
-
-def cosine_similarity(vec1: np.ndarray, vec2: np.ndarray) -> float:
-    """
-    Compute cosine similarity between two vectors.
-
-    Args:
-        vec1: First vector.
-        vec2: Second vector.
-
-    Returns:
-        Cosine similarity score between -1 and 1.
-    """
-    dot_product = np.dot(vec1, vec2)
-    norm1 = np.linalg.norm(vec1)
-    norm2 = np.linalg.norm(vec2)
-
-    if norm1 == 0 or norm2 == 0:
-        return 0.0
-
-    return float(dot_product / (norm1 * norm2))
+from src.utils import logger, get_embedder, cosine_similarity
 
 
 def deduplicate_chunks(
-    chunks: List[Dict[str, Any]],
+    chunks: list[dict[str, Any]],
     similarity_threshold: float = 0.90,
-    embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2",
-) -> List[Dict[str, Any]]:
+    embedding_model: str | None = None,
+) -> list[dict[str, Any]]:
     """
     Remove semantically duplicate chunks from a list.
 
@@ -60,29 +33,23 @@ def deduplicate_chunks(
     if len(chunks) <= 1:
         return chunks
 
-    embedder = _get_embedder(embedding_model)
+    embedder = get_embedder(embedding_model)
 
-    # Extract texts and compute embeddings
     texts = [chunk.get('document', '') for chunk in chunks]
     embeddings = embedder.embed_documents(texts)
     embeddings_np = np.array(embeddings)
 
-    # Track which indices to keep
     keep_indices = []
 
     for i, chunk in enumerate(chunks):
         is_duplicate = False
 
-        # Check against all previously kept chunks
         for kept_idx in keep_indices:
             similarity = cosine_similarity(embeddings_np[i], embeddings_np[kept_idx])
 
             if similarity >= similarity_threshold:
                 is_duplicate = True
-                logger.debug(
-                    f"Chunk {i} is duplicate of chunk {kept_idx} "
-                    f"(similarity: {similarity:.3f})"
-                )
+                logger.debug(f"Chunk {i} is duplicate of chunk {kept_idx} (similarity: {similarity:.3f})")
                 break
 
         if not is_duplicate:
@@ -97,7 +64,7 @@ def deduplicate_chunks(
     return deduplicated
 
 
-def deduplicate_by_content_hash(chunks: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def deduplicate_by_content_hash(chunks: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """
     Remove exact duplicate chunks based on content hash.
 
@@ -118,7 +85,6 @@ def deduplicate_by_content_hash(chunks: List[Dict[str, Any]]) -> List[Dict[str, 
         content_hash = chunk.get('metadata', {}).get('content_hash', '')
 
         if not content_hash:
-            # No hash available, keep the chunk
             deduplicated.append(chunk)
             continue
 
@@ -134,11 +100,11 @@ def deduplicate_by_content_hash(chunks: List[Dict[str, Any]]) -> List[Dict[str, 
 
 
 def deduplicate_context(
-    chunks: List[Dict[str, Any]],
+    chunks: list[dict[str, Any]],
     similarity_threshold: float = 0.90,
-    embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2",
+    embedding_model: str | None = None,
     use_hash_first: bool = True,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """
     Full deduplication pipeline for retrieved chunks.
 
@@ -159,11 +125,9 @@ def deduplicate_context(
 
     result = chunks
 
-    # First pass: exact hash deduplication (fast)
     if use_hash_first:
         result = deduplicate_by_content_hash(result)
 
-    # Second pass: semantic deduplication (more thorough)
     if len(result) > 1:
         result = deduplicate_chunks(
             result,

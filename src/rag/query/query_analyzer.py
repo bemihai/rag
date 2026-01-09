@@ -6,7 +6,7 @@ metadata filters for improved retrieval. All processing is local.
 from typing import Dict, List, Any
 from dataclasses import dataclass, field
 
-from src.rag.utils.metadata_extractor import (
+from src.chroma.metadata_extractor import (
     extract_grapes,
     extract_regions,
     extract_vintages,
@@ -73,7 +73,7 @@ class QueryAnalysis:
         return {operator: conditions}
 
     def get_boost_terms(self) -> List[str]:
-        """Get terms that should boost relevance if found in chunks."""
+        """Get terminology that should boost relevance if found in chunks."""
         terms = []
         terms.extend(self.grapes)
         terms.extend(self.regions)

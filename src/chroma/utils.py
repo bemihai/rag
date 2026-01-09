@@ -150,3 +150,31 @@ def get_all_stats(client: cdb.ClientAPI) -> list[dict[str, Any]]:
     """Get statistics for all collections in ChromaDB."""
     collections = client.list_collections()
     return [get_collection_stats(client, col.name) for col in collections]
+
+
+def split_text_into_sentences(content: str) -> list[str]:
+    """
+    Split text content into sentences.
+
+    Args:
+        content: The text content to split.
+
+    Returns:
+        List of text chunks.
+    """
+    sentences = content.replace('\n', ' ').split('. ')
+    chunks = []
+    current_chunk = ""
+
+    for sentence in sentences:
+        if len(current_chunk) + len(sentence) > 1000:
+            if current_chunk:
+                chunks.append(current_chunk.strip())
+            current_chunk = sentence + ". "
+        else:
+            current_chunk += sentence + ". "
+
+    if current_chunk.strip():
+        chunks.append(current_chunk.strip())
+
+    return chunks if chunks else [content]

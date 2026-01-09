@@ -50,7 +50,6 @@ def main():
     chroma_cfg = cfg.chroma
 
     for collection in chroma_cfg.collections:
-        # Show status only if requested
         if args.status:
             show_index_status(collection.name)
             continue
@@ -69,8 +68,7 @@ def main():
             batch_size=chroma_cfg.settings.batch_size,
         )
 
-        # Get extract_wine_metadata from config, default to True
-        extract_wine_metadata = getattr(chroma_cfg.chunking, 'extract_wine_metadata', True)
+        extract_wine_metadata = getattr(chroma_cfg.chunking, "extract_wine_metadata", True)
 
         stats = loader.load_directory(
             file_extensions=[".epub", ".pdf"],
@@ -83,7 +81,6 @@ def main():
             force_reindex=args.force,
         )
 
-        # Print summary
         print(f"\n✅ Collection '{collection.name}' processing complete:")
         print(f"   Total files: {stats.get('total_files', 0)}")
         print(f"   Files processed: {stats.get('files_processed', 0)}")

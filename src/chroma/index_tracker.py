@@ -5,13 +5,11 @@ incremental updates. Only new or modified files are processed, avoiding
 redundant re-indexing.
 """
 import json
-import hashlib
 from pathlib import Path
-from typing import Dict, List, Optional, Set
 from dataclasses import dataclass, field, asdict
 from datetime import datetime
 
-from src.utils import logger
+from src.utils import logger, compute_file_hash
 
 
 @dataclass
@@ -51,7 +49,7 @@ class IndexManifest:
     collection_name: str
     created_at: str = field(default_factory=lambda: datetime.now().isoformat())
     updated_at: str = field(default_factory=lambda: datetime.now().isoformat())
-    files: Dict[str, IndexedFileInfo] = field(default_factory=dict)
+    files: dict[str, IndexedFileInfo] = field(default_factory=dict)
 
     def to_dict(self) -> dict:
         """Convert manifest to dictionary for JSON serialization."""
@@ -73,23 +71,6 @@ class IndexManifest:
         for path, info in data.get("files", {}).items():
             manifest.files[path] = IndexedFileInfo(**info)
         return manifest
-
-
-def compute_file_hash(file_path: Path) -> str:
-    """
-    Compute MD5 hash of a file's contents.
-
-    Args:
-        file_path: Path to the file.
-
-    Returns:
-        Hexadecimal MD5 hash string.
-    """
-    hash_md5 = hashlib.md5()
-    with open(file_path, "rb") as f:
-        for chunk in iter(lambda: f.read(8192), b""):
-            hash_md5.update(chunk)
-    return hash_md5.hexdigest()
 
 
 class IndexTracker:
@@ -141,15 +122,7 @@ class IndexTracker:
         logger.debug(f"Saved index manifest to {self.manifest_path}")
 
     def is_file_indexed(self, file_path: Path) -> bool:
-        """
-        Check if a file is already indexed and unchanged.
-
-        Args:
-            file_path: Path to check.
-
-        Returns:
-            True if file is indexed and unchanged, False otherwise.
-        """
+        """Check if a file is already indexed and unchanged."""
         abs_path = str(file_path.absolute())
 
         if abs_path not in self.manifest.files:
@@ -157,11 +130,9 @@ class IndexTracker:
 
         info = self.manifest.files[abs_path]
 
-        # Check if file still exists
         if not file_path.exists():
             return False
 
-        # Check if file has been modified (by hash)
         current_hash = compute_file_hash(file_path)
         if current_hash != info.file_hash:
             logger.debug(f"File changed (hash mismatch): {file_path.name}")
@@ -169,16 +140,8 @@ class IndexTracker:
 
         return True
 
-    def get_files_to_index(self, file_paths: List[Path]) -> List[Path]:
-        """
-        Filter list to only files that need indexing.
-
-        Args:
-            file_paths: List of file paths to check.
-
-        Returns:
-            List of files that are new or modified.
-        """
+    def get_files_to_index(self, file_paths: list[Path]) -> list[Path]:
+        """Filter list to only files that need indexing."""
         to_index = []
         skipped = 0
 
@@ -193,11 +156,7 @@ class IndexTracker:
 
         return to_index
 
-    def mark_indexed(
-        self,
-        file_path: Path,
-        chunk_count: int,
-    ) -> None:
+    def mark_indexed(self, file_path: Path, chunk_count: int) -> None:
         """
         Mark a file as successfully indexed.
 
@@ -219,26 +178,18 @@ class IndexTracker:
         )
 
     def remove_file(self, file_path: Path) -> bool:
-        """
-        Remove a file from the manifest.
-
-        Args:
-            file_path: Path to remove.
-
-        Returns:
-            True if file was in manifest and removed.
-        """
+        """Remove a file from the manifest."""
         abs_path = str(file_path.absolute())
         if abs_path in self.manifest.files:
             del self.manifest.files[abs_path]
             return True
         return False
 
-    def get_indexed_files(self) -> Set[str]:
+    def get_indexed_files(self) -> set[str]:
         """Get set of all indexed file paths."""
         return set(self.manifest.files.keys())
 
-    def get_stats(self) -> Dict:
+    def get_stats(self) -> dict:
         """Get statistics about indexed files."""
         total_chunks = sum(f.chunk_count for f in self.manifest.files.values())
         return {

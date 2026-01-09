@@ -6,24 +6,7 @@ import json
 from pathlib import Path
 from typing import Dict, List
 
-# Path to data directory
-_DATA_DIR = Path(__file__).parent / "terms"
 
-
-def _load_json(filename: str) -> dict | list:
-    """Load JSON file from data directory."""
-    filepath = _DATA_DIR / filename
-    with open(filepath, "r", encoding="utf-8") as f:
-        return json.load(f)
-
-
-# Load all terminology data from JSON files
-GRAPE_SYNONYMS: Dict[str, List[str]] = _load_json("grape_synonyms.json")
-REGION_VARIATIONS: Dict[str, List[str]] = _load_json("region_variations.json")
-CLASSIFICATIONS: Dict[str, str] = _load_json("classifications.json")
-QUERY_EXPANSIONS: Dict[str, str] = _load_json("query_expansions.json")
-MISSPELLINGS: Dict[str, str] = _load_json("misspellings.json")
-WINE_APPELLATIONS: List[str] = _load_json("wine_appellations.json")
 
 
 def normalize_query(query: str) -> str:
@@ -33,7 +16,7 @@ def normalize_query(query: str) -> str:
     Performs:
     - Lowercase conversion
     - Misspelling correction
-    - Synonym replacement with canonical terms
+    - Synonym replacement with canonical terminology
     - Region name normalization
 
     Args:
@@ -49,7 +32,7 @@ def normalize_query(query: str) -> str:
         if misspelled in query_lower:
             query_lower = query_lower.replace(misspelled, correct)
 
-    # Replace grape synonyms with canonical terms
+    # Replace grape synonyms with canonical terminology
     for canonical, synonyms in GRAPE_SYNONYMS.items():
         # Skip if canonical term is already in the query
         if canonical in query_lower:
@@ -64,7 +47,7 @@ def normalize_query(query: str) -> str:
                 query_lower = padded_query.replace(padded_syn, f" {canonical} ").strip()
                 break  # Only replace once per canonical term
 
-    # Replace region variations with canonical terms
+    # Replace region variations with canonical terminology
     for canonical, variations in REGION_VARIATIONS.items():
         # Skip if canonical term is already in the query
         if canonical in query_lower:
@@ -82,19 +65,19 @@ def normalize_query(query: str) -> str:
 
 def expand_query(query: str) -> str:
     """
-    Add related wine terms to query for better retrieval coverage.
+    Add related wine terminology to query for better retrieval coverage.
 
     Args:
         query: Normalized query string
 
     Returns:
-        Query expanded with related terms
+        Query expanded with related terminology
     """
     query_lower = query.lower()
 
     for key, expansion in QUERY_EXPANSIONS.items():
         if key in query_lower:
-            # Add expansion terms that aren't already in query
+            # Add expansion terminology that aren't already in query
             expansion_terms = expansion.split()
             new_terms = [t for t in expansion_terms if t not in query_lower]
             if new_terms:

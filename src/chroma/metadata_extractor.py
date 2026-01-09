@@ -2,77 +2,12 @@
 
 This module provides utilities for extracting wine-specific metadata from text,
 including grape varieties, wine regions, vintage years, and producer names.
-All extraction is done locally using pattern matching - no LLM calls required.
 """
 import re
-from typing import Dict, List, Set
 from dataclasses import dataclass, field
 
-from src.rag.query.query_utils import (
-    GRAPE_SYNONYMS,
-    REGION_VARIATIONS,
-    CLASSIFICATIONS,
-    WINE_APPELLATIONS,
-)
-
-
-# Build reverse lookup dictionaries for extraction
-_GRAPE_PATTERNS: Dict[str, str] = {}
-for canonical, synonyms in GRAPE_SYNONYMS.items():
-    _GRAPE_PATTERNS[canonical.lower()] = canonical
-    for syn in synonyms:
-        _GRAPE_PATTERNS[syn.lower()] = canonical
-
-_REGION_PATTERNS: Dict[str, str] = {}
-for canonical, variations in REGION_VARIATIONS.items():
-    _REGION_PATTERNS[canonical.lower()] = canonical
-    for var in variations:
-        _REGION_PATTERNS[var.lower()] = canonical
-
-# Wine classification patterns
-_CLASSIFICATION_PATTERNS = set(CLASSIFICATIONS.keys())
-
-# Producer name patterns (common prefixes in wine producer names)
-_PRODUCER_PREFIXES = [
-    r"château",
-    r"chateau",
-    r"domaine",
-    r"domain",
-    r"maison",
-    r"cave",
-    r"caves",
-    r"bodega",
-    r"bodegas",
-    r"cantina",
-    r"tenuta",
-    r"fattoria",
-    r"podere",
-    r"azienda",
-    r"weingut",
-    r"schloss",
-    r"quinta",
-    r"clos",
-    r"mas",
-    r"casa",
-    r"vina",
-    r"viña",
-]
-
-# Producer suffix patterns
-_PRODUCER_SUFFIXES = [
-    r"winery",
-    r"vineyards",
-    r"vineyard",
-    r"estate",
-    r"estates",
-    r"cellars",
-    r"cellar",
-    r"wines",
-    r"wine\s+company",
-    r"wine\s+co\.?",
-]
-
-# WINE_APPELLATIONS is now loaded from JSON via query_utils.py
+from src.utils import WINE_APPELLATIONS, GRAPE_PATTERNS, REGION_PATTERNS, CLASSIFICATION_PATTERNS, PRODUCER_PREFIXES, \
+    PRODUCER_SUFFIXES
 
 
 @dataclass
@@ -81,21 +16,21 @@ class WineMetadata:
     Extracted wine-specific metadata from text content.
 
     Attributes:
-        grapes: Set of grape varieties mentioned in the text.
-        regions: Set of wine regions mentioned in the text.
-        vintages: Set of vintage years mentioned in the text.
-        classifications: Set of wine classifications (DOCG, AOC, etc.) mentioned.
-        producers: Set of producer/winery names mentioned.
-        appellations: Set of wine appellations mentioned (Barolo, Champagne, etc.).
+        grapes: set of grape varieties mentioned in the text.
+        regions: set of wine regions mentioned in the text.
+        vintages: set of vintage years mentioned in the text.
+        classifications: set of wine classifications (DOCG, AOC, etc.) mentioned.
+        producers: set of producer/winery names mentioned.
+        appellations: set of wine appellations mentioned (Barolo, Champagne, etc.).
     """
-    grapes: Set[str] = field(default_factory=set)
-    regions: Set[str] = field(default_factory=set)
-    vintages: Set[str] = field(default_factory=set)
-    classifications: Set[str] = field(default_factory=set)
-    producers: Set[str] = field(default_factory=set)
-    appellations: Set[str] = field(default_factory=set)
+    grapes: set[str] = field(default_factory=set)
+    regions: set[str] = field(default_factory=set)
+    vintages: set[str] = field(default_factory=set)
+    classifications: set[str] = field(default_factory=set)
+    producers: set[str] = field(default_factory=set)
+    appellations: set[str] = field(default_factory=set)
 
-    def to_dict(self) -> Dict[str, List[str]]:
+    def to_dict(self) -> dict[str, list[str]]:
         """Convert to dictionary with sorted lists for JSON serialization."""
         return {
             "grapes": sorted(self.grapes),
@@ -114,7 +49,7 @@ class WineMetadata:
         ])
 
 
-def extract_grapes(text: str) -> Set[str]:
+def extract_grapes(text: str) -> set[str]:
     """
     Extract grape variety names from text.
 
@@ -125,20 +60,19 @@ def extract_grapes(text: str) -> Set[str]:
         text: Text content to search for grape varieties.
 
     Returns:
-        Set of canonical grape variety names found in the text.
+        set of canonical grape variety names found in the text.
     """
     text_lower = text.lower()
     found_grapes = set()
 
-    for pattern, canonical in _GRAPE_PATTERNS.items():
-        # Use word boundary matching to avoid partial matches
+    for pattern, canonical in GRAPE_PATTERNS.items():
         if re.search(rf'\b{re.escape(pattern)}\b', text_lower):
             found_grapes.add(canonical)
 
     return found_grapes
 
 
-def extract_regions(text: str) -> Set[str]:
+def extract_regions(text: str) -> set[str]:
     """
     Extract wine region names from text.
 
@@ -149,49 +83,48 @@ def extract_regions(text: str) -> Set[str]:
         text: Text content to search for wine regions.
 
     Returns:
-        Set of canonical wine region names found in the text.
+        set of canonical wine region names found in the text.
     """
     text_lower = text.lower()
     found_regions = set()
 
-    for pattern, canonical in _REGION_PATTERNS.items():
+    for pattern, canonical in REGION_PATTERNS.items():
         if re.search(rf'\b{re.escape(pattern)}\b', text_lower):
             found_regions.add(canonical)
 
     return found_regions
 
 
-def extract_vintages(text: str) -> Set[str]:
+def extract_vintages(text: str) -> set[str]:
     """
     Extract vintage years from text.
 
-    Looks for 4-digit years in the range 1900-2030 that appear in
+    Looks for 4-digit years in the range 1945-2050 that appear in
     wine-related contexts.
 
     Args:
         text: Text content to search for vintage years.
 
     Returns:
-        Set of vintage year strings found in the text.
+        set of vintage year strings found in the text.
     """
-    # Match years from 1900-2030
-    year_pattern = r'\b(19[0-9]{2}|20[0-2][0-9]|2030)\b'
+    # Match years from 1900-2050
+    year_pattern = r'\b(19[0-9]{2}|20[0-2][0-9]|2050)\b'
     matches = re.findall(year_pattern, text)
 
     # Filter to likely vintages (not page numbers, etc.)
     vintages = set()
     for year in matches:
         year_int = int(year)
-        # Most wine vintages are between 1945 and current year
-        if 1945 <= year_int <= 2025:
+        if 1945 <= year_int <= 2050:
             vintages.add(year)
 
     return vintages
 
 
-def extract_classifications(text: str) -> Set[str]:
+def extract_classifications(text: str) -> set[str]:
     """
-    Extract wine classification terms from text.
+    Extract wine classification terminology from text.
 
     Looks for wine classification abbreviations like DOCG, AOC, AVA, etc.
 
@@ -199,19 +132,19 @@ def extract_classifications(text: str) -> Set[str]:
         text: Text content to search for classifications.
 
     Returns:
-        Set of classification abbreviations found in the text (uppercase).
+        set of classification abbreviations found in the text (uppercase).
     """
     text_lower = text.lower()
     found = set()
 
-    for classification in _CLASSIFICATION_PATTERNS:
+    for classification in CLASSIFICATION_PATTERNS:
         if re.search(rf'\b{re.escape(classification)}\b', text_lower):
             found.add(classification.upper())
 
     return found
 
 
-def extract_producers(text: str) -> Set[str]:
+def extract_producers(text: str) -> set[str]:
     """
     Extract wine producer/winery names from text.
 
@@ -223,12 +156,12 @@ def extract_producers(text: str) -> Set[str]:
         text: Text content to search for producer names.
 
     Returns:
-        Set of producer names found in the text.
+        set of producer names found in the text.
     """
     found = set()
 
     # Build prefix pattern: "Château/Domaine/etc. + Name"
-    prefix_pattern = r'(?:' + '|'.join(_PRODUCER_PREFIXES) + r')\s+([A-Z][a-zA-Zéèêëàâäùûüôöîïç\-\']+(?:\s+[A-Z][a-zA-Zéèêëàâäùûüôöîïç\-\']+){0,3})'
+    prefix_pattern = r'(?:' + '|'.join(PRODUCER_PREFIXES) + r')\s+([A-Z][a-zA-Zéèêëàâäùûüôöîïç\-\']+(?:\s+[A-Z][a-zA-Zéèêëàâäùûüôöîïç\-\']+){0,3})'
 
     for match in re.finditer(prefix_pattern, text, re.IGNORECASE):
         full_match = match.group(0).strip()
@@ -236,7 +169,7 @@ def extract_producers(text: str) -> Set[str]:
             found.add(full_match.title())
 
     # Build suffix pattern: "Name + Winery/Vineyards/etc."
-    suffix_pattern = r'([A-Z][a-zA-Zéèêëàâäùûüôöîïç\-\']+(?:\s+[A-Z][a-zA-Zéèêëàâäùûüôöîïç\-\']+){0,2})\s+(?:' + '|'.join(_PRODUCER_SUFFIXES) + r')'
+    suffix_pattern = r'([A-Z][a-zA-Zéèêëàâäùûüôöîïç\-\']+(?:\s+[A-Z][a-zA-Zéèêëàâäùûüôöîïç\-\']+){0,2})\s+(?:' + '|'.join(PRODUCER_SUFFIXES) + r')'
 
     for match in re.finditer(suffix_pattern, text, re.IGNORECASE):
         full_match = match.group(0).strip()
@@ -246,7 +179,7 @@ def extract_producers(text: str) -> Set[str]:
     return found
 
 
-def extract_appellations(text: str) -> Set[str]:
+def extract_appellations(text: str) -> set[str]:
     """
     Extract wine appellation names from text.
 
@@ -257,13 +190,12 @@ def extract_appellations(text: str) -> Set[str]:
         text: Text content to search for appellations.
 
     Returns:
-        Set of appellation names found in the text.
+        set of appellation names found in the text.
     """
     text_lower = text.lower()
     found = set()
 
     for appellation in WINE_APPELLATIONS:
-        # Use word boundary matching
         pattern = rf'\b{re.escape(appellation)}\b'
         if re.search(pattern, text_lower):
             found.add(appellation.title())
@@ -294,7 +226,7 @@ def extract_wine_metadata(text: str) -> WineMetadata:
     )
 
 
-def extract_document_context(elements: list, max_title_length: int = 200) -> Dict[str, str]:
+def extract_document_context(elements: list, max_title_length: int = 200) -> dict[str, str]:
     """
     Extract document-level context from parsed elements.
 
@@ -303,11 +235,11 @@ def extract_document_context(elements: list, max_title_length: int = 200) -> Dic
     to improve retrieval.
 
     Args:
-        elements: List of elements from unstructured partition.
+        elements: list of elements from unstructured partition.
         max_title_length: Maximum length for extracted title.
 
     Returns:
-        Dictionary with 'document_title', 'chapter', and 'section' keys.
+        dictionary with 'document_title', 'chapter', and 'section' keys.
     """
     context = {
         "document_title": "",

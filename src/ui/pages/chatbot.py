@@ -179,7 +179,7 @@ def main():
                             # Expand to parent context if small-to-big is enabled
                             enable_small_to_big = getattr(cfg.chroma.chunking, 'enable_small_to_big', False)
                             if enable_small_to_big and retrieved_docs:
-                                from src.chroma.small_to_big import expand_to_parent_context
+                                from src.chroma.hierarchical_chunks import expand_to_parent_context
                                 retrieved_docs = expand_to_parent_context(retrieved_docs)
                                 logger.debug("Expanded to parent context (small-to-big)")
 
