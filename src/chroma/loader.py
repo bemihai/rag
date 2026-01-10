@@ -1,11 +1,13 @@
+"""ChromaDB Collection Data Loader with Chunking and Embedding Support."""
 from pathlib import Path
 from tqdm import tqdm
 import time
 
-from langchain_huggingface import HuggingFaceEmbeddings
+from .utils import get_or_create_collection, validate_chunks, create_batches
+from .chunks import split_file
+from .index_tracker import IndexTracker
 
-from src.rag.chunks import split_file
-from src.utils import logger, initialize_chroma_client, get_or_create_collection, create_chroma_batches, validate_chunks
+from src.utils import logger, initialize_chroma_client, get_embedder
 
 
 class CollectionDataLoader:
@@ -33,7 +35,7 @@ class CollectionDataLoader:
         self.collection_name = collection_name
         self.batch_size = batch_size
         self.embedding_model = embedding_model
-        self.embedder = HuggingFaceEmbeddings(model_name=embedding_model)
+        self.embedder = get_embedder(model_name=embedding_model)
 
         # Initialize or get ChromaDB collection
         self.client = initialize_chroma_client(chroma_host, chroma_port)
@@ -57,7 +59,7 @@ class CollectionDataLoader:
         chunk_size: int = 512,
         overlap_size: int = 128,
         skip_duplicates: bool = True,
-        extract_wine_metadata: bool = True,
+        extract_metadata: bool = True,
     ) -> dict:
         """
         Process a single file and return a dict with stats.
@@ -68,7 +70,7 @@ class CollectionDataLoader:
             chunk_size: Size of each chunk.
             overlap_size: Overlap size between chunks.
             skip_duplicates: Whether to skip duplicate chunks based on content hash.
-            extract_wine_metadata: Whether to extract wine-specific metadata from chunks.
+            extract_metadata: Whether to extract wine-specific metadata from chunks.
         """
         file_path = Path(file_path)
         start_time = time.time()
@@ -84,14 +86,13 @@ class CollectionDataLoader:
         try:
             logger.info(f"Processing file: {file_path.name}")
 
-            # Generate chunks
             chunks = split_file(
-                file=file_path,
+                filepath=file_path,
                 strategy=strategy,
                 chunk_size=chunk_size,
                 overlap_size=overlap_size,
                 embedding_model=self.embedding_model,
-                extract_wine_metadata=extract_wine_metadata,
+                extract_metadata=extract_metadata,
             )
 
             if not chunks:
@@ -100,10 +101,8 @@ class CollectionDataLoader:
 
             stats["chunks_generated"] = len(chunks)
 
-            # Validate chunks
             valid_chunks = validate_chunks(chunks)
 
-            # Prepare the chunked documents for ChromaDB
             docs = []
             metadata_list = []
             ids = []
@@ -122,12 +121,10 @@ class CollectionDataLoader:
                 stats["processing_time"] = time.time() - start_time
                 return stats
 
-            # Generate embeddings
             logger.info(f"Generating embeddings for {len(docs)} chunks...")
             embeddings = self.embedder.embed_documents(docs)
 
-            # Add to ChromaDB in batches
-            batches = create_chroma_batches(
+            batches = create_batches(
                 batch_size=self.batch_size,
                 documents=docs,
                 embeddings=embeddings,
@@ -169,7 +166,7 @@ class CollectionDataLoader:
         chunk_size: int = 512,
         overlap_size: int = 128,
         skip_duplicates: bool = True,
-        extract_wine_metadata: bool = True,
+        extract_metadata: bool = True,
         incremental: bool = True,
         force_reindex: bool = False,
     ) -> dict:
@@ -183,12 +180,10 @@ class CollectionDataLoader:
             chunk_size: Size of each chunk.
             overlap_size: Overlap size between chunks.
             skip_duplicates: Whether to skip duplicate chunks based on content hash.
-            extract_wine_metadata: Whether to extract wine-specific metadata from chunks.
+            extract_metadata: Whether to extract wine-specific metadata from chunks.
             incremental: If True, only process new or modified files (default: True).
             force_reindex: If True, ignore index tracking and reprocess all files.
         """
-        from src.rag.index_tracker import IndexTracker
-
         if file_extensions is None:
             file_extensions = [".epub", ".pdf"]
 
@@ -196,7 +191,6 @@ class CollectionDataLoader:
         if not data_dir.exists():
             raise ValueError(f"Data directory {data_path} does not exist")
 
-        # Find all files
         all_files = []
         for ext in file_extensions:
             all_files.extend(data_dir.glob(f"**/*{ext}"))
@@ -253,10 +247,9 @@ class CollectionDataLoader:
                     chunk_size=chunk_size,
                     overlap_size=overlap_size,
                     skip_duplicates=skip_duplicates,
-                    extract_wine_metadata=extract_wine_metadata,
+                    extract_metadata=extract_metadata,
                 )
 
-                # Update total stats
                 total_stats["files_processed"] += 1
                 total_stats["total_chunks_generated"] += file_stats["chunks_generated"]
                 total_stats["total_chunks_added"] += file_stats["chunks_added"]
@@ -267,17 +260,13 @@ class CollectionDataLoader:
                 if file_stats["errors"]:
                     total_stats["failed_files"] += 1
                     total_stats["errors"].extend(file_stats["errors"])
-                    # Failed files are NOT marked as indexed - they will be retried on next run
                     logger.warning(f"File '{file_path.name}' failed and will be retried on next run")
                 else:
                     total_stats["successful_files"] += 1
-                    # Mark file as indexed in tracker and save immediately
-                    # This ensures we can resume from where we left off if interrupted
                     if tracker is not None:
                         tracker.mark_indexed(file_path, file_stats["chunks_added"])
-                        tracker.save()  # Save after each successful file for resume support
+                        tracker.save()
 
-                # Update progress bar
                 pbar.set_postfix(
                     {
                         "chunks": total_stats["total_chunks_added"],
@@ -285,12 +274,10 @@ class CollectionDataLoader:
                     }
                 )
 
-        # Final save (in case no files were processed)
         if tracker is not None:
             tracker.save()
             logger.info(f"Updated index manifest: {tracker.get_stats()}")
 
-        # Log final summary
         failed_msg = ""
         if total_stats['failed_files'] > 0:
             failed_msg = f" (will retry on next run)"

@@ -57,7 +57,7 @@ def render_sidebar(retriever=None, chroma_client=None):
             if "enable_rag" not in st.session_state:
                 st.session_state.enable_rag = True
 
-            # Toggle to enable/disable RAG retrieval (disabled if retriever unavailable)
+            # Toggle to enable/disable RAG retrieval (disabled if retrieval unavailable)
             enable_rag = st.toggle(
                 "Enable RAG Retrieval",
                 value=st.session_state.enable_rag if retriever is not None else False,

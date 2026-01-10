@@ -208,7 +208,7 @@ cp .env.example .env
 nano .env  # Add your GOOGLE_API_KEY
 
 # 3. Run the quick start script
-./quickstart.sh
+./docker_quickstart.sh
 
 # Or manually:
 docker-compose up --build
@@ -289,7 +289,7 @@ chroma run --path ./chroma-cellar-data
 Place your PDF/text files in the configured directory and run:
 
 ```bash
-python src/rag/load_data.py
+python src/chroma/load_data.py
 ```
 
 This will:
@@ -565,7 +565,7 @@ The app integrates with Langfuse for observability:
 
 **Solution:** Run from project root with correct PYTHONPATH:
 ```bash
-PYTHONPATH=$(pwd) python3 -m src.rag.load_data
+PYTHONPATH=$(pwd) python3 -m src.chroma.load_data
 # or use
 make chroma-upload
 ```

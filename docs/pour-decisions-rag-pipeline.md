@@ -616,7 +616,68 @@ Planned improvements documented in `design/rag/rag-improvement-plan.md`:
 
 ---
 
-## 8. Troubleshooting
+## 8. Testing the Pipeline
+
+### 8.1 Quickstart Script
+
+A comprehensive testing script is available at `scripts/rag_quickstart.py` that tests all pipeline components:
+
+```bash
+PYTHONPATH=$(pwd) python scripts/rag_quickstart.py
+```
+
+**What it tests:**
+1. **Query Preprocessing** - Normalization, expansion, entity extraction
+2. **Hybrid Retrieval** - Vector + BM25 with RRF fusion
+3. **Metadata Boosting** - Relevance boosting based on wine entities
+4. **Cross-Encoder Reranking** - Precision improvement
+5. **Small-to-Big Retrieval** - Context expansion (if enabled)
+6. **Context Building** - With semantic deduplication
+7. **Context Compression** - Token reduction (if enabled)
+8. **LLM Generation** - Final answer generation
+
+**Example Output:**
+
+```
+======================================================================
+  Pour Decisions RAG Pipeline - Comprehensive Test
+======================================================================
+
+Test Query: 'What are the characteristics of 2015 Barolo wines from Piedmont?'
+
+======================================================================
+  1. Query Preprocessing
+======================================================================
+
+Original query: 'What are the characteristics of 2015 Barolo wines from Piedmont?'
+Normalized:     'what are the characteristics of 2015 barolo wines from piedmont?'
+Expanded:       'what are the characteristics of 2015 barolo wines from piedmont? ...'
+
+Detected entities:
+  Vintages: 2015
+  Appellations: Barolo
+  Regions: piedmont
+
+======================================================================
+  2. Retrieval (Hybrid)
+======================================================================
+
+Using hybrid retrieval (Vector + BM25 with RRF fusion)
+Retrieved 10 documents in 0.234s
+
+Top 3 results:
+  [1] Similarity: 0.876
+      Source: barolo_guide.pdf, Page: 45
+      Preview: The 2015 vintage in Barolo was exceptional, with perfect ripening conditions...
+
+...
+```
+
+The script provides detailed output for each stage, showing exactly how the pipeline processes queries.
+
+---
+
+## 9. Troubleshooting
 
 ### Common Issues
 

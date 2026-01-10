@@ -171,7 +171,7 @@ chroma-status:
 .PHONY: chroma-stats
 chroma-stats:
 	@echo "Getting ChromaDB collection statistics..."
-	@PYTHONPATH=$(shell pwd) python3 -m src.rag.chroma_stats
+	@PYTHONPATH=$(shell pwd) python3 -m src.chroma.stats
 
 .PHONY: chroma-up
 chroma-up:

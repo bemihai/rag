@@ -8,7 +8,7 @@ Compression strategies:
 2. Extractive compression (keep most relevant sentences using TF-IDF)
 3. Length limiting (truncate to max tokens/characters)
 """
-from typing import List, Dict, Any, Tuple
+from typing import List, Tuple
 import re
 from collections import Counter
 import math

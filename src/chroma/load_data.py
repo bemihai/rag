@@ -1,15 +1,15 @@
 """Runnable script for processing external data and loading to ChromaDB.
 
 Usage:
-    python -m src.rag.load_data                    # Incremental mode (default)
-    python -m src.rag.load_data --force            # Force reindex all files
-    python -m src.rag.load_data --status           # Show index status only
+    python -m src.chroma.load_data                    # Incremental mode (default)
+    python -m src.chroma.load_data --force            # Force reindex all files
+    python -m src.chroma.load_data --status           # Show index status only
 """
 import os
 import argparse
 
-from src.rag import CollectionDataLoader
-from src.rag.index_tracker import IndexTracker
+from src.chroma.index_tracker import IndexTracker
+from src.chroma.loader import CollectionDataLoader
 from src.utils import get_config, logger
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
@@ -50,7 +50,6 @@ def main():
     chroma_cfg = cfg.chroma
 
     for collection in chroma_cfg.collections:
-        # Show status only if requested
         if args.status:
             show_index_status(collection.name)
             continue
@@ -69,8 +68,7 @@ def main():
             batch_size=chroma_cfg.settings.batch_size,
         )
 
-        # Get extract_wine_metadata from config, default to True
-        extract_wine_metadata = getattr(chroma_cfg.chunking, 'extract_wine_metadata', True)
+        extract_wine_metadata = getattr(chroma_cfg.chunking, "extract_wine_metadata", True)
 
         stats = loader.load_directory(
             file_extensions=[".epub", ".pdf"],
@@ -78,12 +76,11 @@ def main():
             strategy=chroma_cfg.chunking.strategy,
             chunk_size=chroma_cfg.chunking.chunk_size,
             overlap_size=chroma_cfg.chunking.chunk_overlap,
-            extract_wine_metadata=extract_wine_metadata,
+            extract_metadata=extract_wine_metadata,
             incremental=True,
             force_reindex=args.force,
         )
 
-        # Print summary
         print(f"\n✅ Collection '{collection.name}' processing complete:")
         print(f"   Total files: {stats.get('total_files', 0)}")
         print(f"   Files processed: {stats.get('files_processed', 0)}")

@@ -6,21 +6,11 @@ from unstructured.chunking.basic import chunk_elements
 from unstructured.chunking.title import chunk_by_title
 from unstructured.partition.auto import partition
 
-from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_experimental.text_splitter import SemanticChunker
 
-from src.utils import logger, generate_hash
-
-
-# Module-level embedder cache for semantic chunking
-_chunker_embedder_cache: dict = {}
-
-
-def _get_chunker_embedder(model_name: str) -> HuggingFaceEmbeddings:
-    """Get or create cached embedder for semantic chunking."""
-    if model_name not in _chunker_embedder_cache:
-        _chunker_embedder_cache[model_name] = HuggingFaceEmbeddings(model_name=model_name)
-    return _chunker_embedder_cache[model_name]
+from .utils import split_text_into_sentences
+from .metadata_extractor import extract_wine_metadata, extract_document_context
+from src.utils import logger, generate_hash, get_embedder
 
 
 @dataclass
@@ -62,18 +52,17 @@ class ChunkMetadata:
 
 def semantic_chunking(
     content: str,
-    embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2",
+    embedding_model: str | None = None,
     breakpoint_threshold_type: str = "percentile",
     breakpoint_threshold_amount: float = 95.0,
 ) -> List[str]:
     """
     Create semantic chunks using LangChain's SemanticChunker.
 
-    Uses local embeddings to find semantic boundaries - no LLM calls required.
-
     Args:
         content: Text content to chunk.
-        embedding_model: HuggingFace model name for embeddings.
+        embedding_model: HuggingFace model name for embeddings. If not provided explicitly, will use the default
+            model from app config.
         breakpoint_threshold_type: How to determine breakpoints. Options:
             - "percentile": Break at percentile threshold of distances
             - "standard_deviation": Break at standard deviation threshold
@@ -85,8 +74,7 @@ def semantic_chunking(
         List of chunk text strings.
     """
     try:
-        embedder = _get_chunker_embedder(embedding_model)
-
+        embedder = get_embedder(embedding_model)
         chunker = SemanticChunker(
             embeddings=embedder,
             breakpoint_threshold_type=breakpoint_threshold_type,
@@ -96,64 +84,45 @@ def semantic_chunking(
         documents = chunker.create_documents([content])
         chunks = [doc.page_content for doc in documents]
 
-        logger.debug(f"Semantic chunking created {len(chunks)} chunks")
         return chunks
 
     except Exception as e:
         logger.error(f"Error in semantic chunking, falling back to simple split: {e}")
-        # Fallback to simple sentence-based splitting
-        sentences = content.replace('\n', ' ').split('. ')
-        chunks = []
-        current_chunk = ""
+        return split_text_into_sentences(content)
 
-        for sentence in sentences:
-            if len(current_chunk) + len(sentence) > 1000:
-                if current_chunk:
-                    chunks.append(current_chunk.strip())
-                current_chunk = sentence + ". "
-            else:
-                current_chunk += sentence + ". "
-
-        if current_chunk.strip():
-            chunks.append(current_chunk.strip())
-
-        return chunks if chunks else [content]
 
 
 def split_file(
-    file: str | Path,
+    filepath: str | Path,
     strategy: str = "basic",
     chunk_size: int = 512,
     overlap_size: int = 128,
-    embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2",
-    extract_wine_metadata: bool = True,
+    embedding_model: str | None = None,
+    extract_metadata: bool = True,
     **kwargs,
 ) -> list[dict]:
     """
     Split a file into chunks using specified strategy and enrich with metadata.
 
     Args:
-        file: Path to the file.
+        filepath: Path to the file to split.
         strategy: Chunking strategy ("basic", "by_title", "semantic").
         chunk_size: Maximum chunk size (used for basic/by_title strategies).
         overlap_size: Overlap between chunks (used for basic/by_title strategies).
         embedding_model: HuggingFace model for semantic chunking (used for semantic strategy).
-        extract_wine_metadata: Whether to extract wine-specific metadata from chunks.
-        **kwargs: Additional arguments for unstructured chunking.
+            If not provided, will use default from app config.
+        extract_metadata: Whether to extract wine-specific metadata from chunks.
+        **kwargs: Additional arguments for the chunking function.
 
     Returns:
         List of enhanced chunk dictionaries with metadata.
     """
-    from src.rag.metadata_extractor import extract_wine_metadata as extract_wine_meta, extract_document_context
-
-    file_path = Path(file)
+    filepath = Path(filepath)
     chunks = []
 
     try:
-        logger.info(f"Processing file: {file_path.name}")
-        elements = partition(filename=str(file_path))
-
-        # Extract document-level context
+        logger.info(f"Processing file: {filepath.name}")
+        elements = partition(filename=str(filepath))
         doc_context = extract_document_context(elements)
 
         if strategy == "semantic":
@@ -166,15 +135,13 @@ def split_file(
             )
 
             for i, chunk_text in enumerate(semantic_chunks):
-                chunk_id = f"{file_path.stem}_{i}_{generate_hash(chunk_text)[:8]}"
-
-                # Extract wine metadata if enabled
-                wine_meta = extract_wine_meta(chunk_text) if extract_wine_metadata else None
+                chunk_id = f"{filepath.stem}_{i}_{generate_hash(chunk_text)[:8]}"
+                wine_meta = extract_wine_metadata(chunk_text) if extract_metadata else None
 
                 metadata = ChunkMetadata(
-                    filename=file_path.name,
-                    file_path=str(file_path),
-                    file_type=file_path.suffix.lower(),
+                    filename=filepath.name,
+                    file_path=str(filepath),
+                    file_type=filepath.suffix.lower(),
                     chunk_index=i,
                     chunk_id=chunk_id,
                     content_hash=generate_hash(chunk_text),
@@ -211,7 +178,7 @@ def split_file(
 
             for i, chunk in enumerate(unstructured_chunks):
                 chunk_text = str(chunk)
-                chunk_id = f"{file_path.stem}_{i}_{generate_hash(chunk_text)[:8]}"
+                chunk_id = f"{filepath.stem}_{i}_{generate_hash(chunk_text)[:8]}"
 
                 # Extract metadata from unstructured chunk
                 chunk_metadata = {}
@@ -222,12 +189,12 @@ def split_file(
                         chunk_metadata = chunk.metadata.__dict__
 
                 # Extract wine metadata if enabled
-                wine_meta = extract_wine_meta(chunk_text) if extract_wine_metadata else None
+                wine_meta = extract_wine_metadata(chunk_text) if extract_metadata else None
 
                 metadata = ChunkMetadata(
-                    filename=file_path.name,
-                    file_path=str(file_path),
-                    file_type=file_path.suffix.lower(),
+                    filename=filepath.name,
+                    file_path=str(filepath),
+                    file_type=filepath.suffix.lower(),
                     chunk_index=i,
                     chunk_id=chunk_id,
                     content_hash=generate_hash(chunk_text),
@@ -253,9 +220,9 @@ def split_file(
                     "importance_score": 1.0  # Default importance
                 })
 
-        logger.info(f"Generated {len(chunks)} chunks from {file_path.name}")
+        logger.info(f"Generated {len(chunks)} chunks from {filepath.name}")
         return chunks
 
     except Exception as e:
-        logger.error(f"Error processing file {file_path}: {e}")
+        logger.error(f"Error processing file {filepath}: {e}")
         return []

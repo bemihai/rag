@@ -7,13 +7,12 @@ using the existing RAG pipeline (ChromaDB + LangChain).
 
 from langchain_core.tools import tool
 
-from src.rag.retriever import ChromaRetriever
-from src.utils.context_builder import build_context_from_chunks
+from src.retrieval import ChromaRetriever, build_context_from_chunks
 from src.utils import initialize_chroma_client, get_config, logger
 
 
 def _get_rag_retriever(n_results: int | None = None) -> ChromaRetriever | None:
-    """Helper function to initialize RAG retriever."""
+    """Helper function to initialize RAG retrieval."""
     try:
         cfg = get_config()
         chroma_cfg = cfg.chroma
@@ -32,7 +31,7 @@ def _get_rag_retriever(n_results: int | None = None) -> ChromaRetriever | None:
             similarity_threshold=chroma_cfg.retrieval.similarity_threshold,
         )
     except Exception as e:
-        logger.error(f"Failed to initialize retriever: {e}")
+        logger.error(f"Failed to initialize retrieval: {e}")
         return None
 
 
@@ -216,7 +215,7 @@ def search_grape_variety_info(varietal: str) -> str:
 def search_wine_term_definition(term: str) -> str:
     """Search for definition and explanation of wine terminology.
 
-    Look up wine-specific terms, concepts, and jargon in the knowledge base.
+    Look up wine-specific terminology, concepts, and jargon in the knowledge base.
 
     Args:
         term: Wine term to define. Examples:
@@ -241,7 +240,7 @@ def search_wine_term_definition(term: str) -> str:
         - Provides wine-specific definitions, not generic dictionary definitions
         - Includes context and examples
         - Completely free operation (local vector search)
-        - Explains both traditional and modern winemaking terms
+        - Explains both traditional and modern winemaking terminology
     """
     try:
         formatted_query = (

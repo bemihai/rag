@@ -94,7 +94,7 @@ def build_semantic_context(
         retrieved_docs: List of retrieved documents from ChromaRetriever.
         similarity_threshold: Threshold for considering chunks as duplicates. Default is 0.9.
         include_metadata: Whether to include source metadata.
-        embedding_model: HuggingFace model name for embeddings (should match retriever's model).
+        embedding_model: HuggingFace model name for embeddings (should match retrieval's model).
 
     Returns:
         Formatted context string with duplicates removed.
@@ -102,7 +102,7 @@ def build_semantic_context(
     if not retrieved_docs:
         return ""
 
-    from src.rag.deduplication import deduplicate_context
+    from src.chroma.deduplication import deduplicate_context
 
     # Use the deduplication module for consistent behavior
     unique_docs = deduplicate_context(

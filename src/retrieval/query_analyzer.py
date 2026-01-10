@@ -3,20 +3,13 @@
 This module analyzes user queries to extract wine entities and build
 metadata filters for improved retrieval. All processing is local.
 """
-from typing import Dict, List, Any, Tuple
+from typing import Dict, List, Any
 from dataclasses import dataclass, field
 
-from src.rag.wine_terms import (
-    GRAPE_SYNONYMS,
-    REGION_VARIATIONS,
-    get_canonical_grape,
-    get_canonical_region,
-)
-from src.rag.metadata_extractor import (
+from src.chroma.metadata_extractor import (
     extract_grapes,
     extract_regions,
     extract_vintages,
-    extract_classifications,
     extract_appellations,
 )
 from src.utils import logger
@@ -80,7 +73,7 @@ class QueryAnalysis:
         return {operator: conditions}
 
     def get_boost_terms(self) -> List[str]:
-        """Get terms that should boost relevance if found in chunks."""
+        """Get terminology that should boost relevance if found in chunks."""
         terms = []
         terms.extend(self.grapes)
         terms.extend(self.regions)

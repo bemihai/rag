@@ -3,9 +3,9 @@ import streamlit as st
 
 from src.agents import create_wine_agent, create_keyword_agent
 from src.agents.llm import load_base_model
-from src.rag import ChromaRetriever, BM25Index, HybridRetriever, DocumentReranker
+from src.retrieval import ChromaRetriever, BM25Index, HybridRetriever, DocumentReranker
 from src.utils import get_config, logger
-from src.utils.chroma import initialize_chroma_client
+from src.utils import initialize_chroma_client
 
 
 @st.cache_resource
@@ -87,7 +87,7 @@ def load_vector_retriever():
             enable_cache=True,
         )
     except Exception as e:
-        logger.error(f"Failed to initialize vector retriever: {e}")
+        logger.error(f"Failed to initialize vector retrieval: {e}")
         return None
 
 
@@ -164,9 +164,9 @@ def load_reranker():
 @st.cache_resource
 def load_retriever():
     """
-    Initialize retriever with optional hybrid search and reranking.
+    Initialize retrieval with optional hybrid search and reranking.
 
-    Returns the best available retriever based on configuration:
+    Returns the best available retrieval based on configuration:
     - HybridRetriever if hybrid search is enabled and BM25 index available
     - ChromaRetriever as fallback
 
@@ -178,7 +178,7 @@ def load_retriever():
 
         vector_retriever = load_vector_retriever()
         if vector_retriever is None:
-            logger.warning("Vector retriever not available")
+            logger.warning("Vector retrieval not available")
             st.warning(
                 "Could not initialize the retrieval system. "
                 "RAG features are unavailable."
@@ -209,7 +209,7 @@ def load_retriever():
         return vector_retriever
 
     except Exception as e:
-        logger.error(f"Failed to initialize retriever: {e}")
+        logger.error(f"Failed to initialize retrieval: {e}")
         st.warning(
             "Could not initialize the retrieval system. "
             "RAG features are unavailable. Answers will be based on general knowledge only."

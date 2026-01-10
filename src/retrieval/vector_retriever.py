@@ -6,7 +6,7 @@ import hashlib
 import chromadb as cdb
 from langchain_huggingface import HuggingFaceEmbeddings
 
-from src.rag.wine_terms import normalize_query, expand_query
+from .query_utils import normalize_query, expand_query
 from src.utils import logger
 
 
@@ -20,7 +20,7 @@ class ChromaRetriever:
         embedding_model: HuggingFace model name for embeddings.
         n_results: Number of results to retrieve (default: 5).
         similarity_threshold: Minimum similarity score to filter results (default: None).
-        enable_query_expansion: Whether to expand queries with related wine terms (default: True).
+        enable_query_expansion: Whether to expand queries with related wine terminology (default: True).
         enable_cache: Whether to cache query results (default: True).
         cache_size: Maximum number of queries to cache (default: 100).
     """
@@ -113,10 +113,10 @@ class ChromaRetriever:
         Returns:
             Preprocessed query string
         """
-        # Normalize wine terms (fix misspellings, canonicalize synonyms)
+        # Normalize wine terminology (fix misspellings, canonicalize synonyms)
         processed = normalize_query(query)
 
-        # Optionally expand with related terms
+        # Optionally expand with related terminology
         if self.enable_query_expansion:
             processed = expand_query(processed)
 
