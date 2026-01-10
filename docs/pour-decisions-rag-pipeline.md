@@ -620,14 +620,10 @@ Planned improvements documented in `design/rag/rag-improvement-plan.md`:
 
 ### 8.1 Quickstart Script
 
-A comprehensive testing script is available at `src/rag/quickstart.py` that tests all pipeline components:
+A comprehensive testing script is available at `scripts/rag_quickstart.py` that tests all pipeline components:
 
 ```bash
-# Run the quickstart script
-python -m src.retrieval.quickstart
-
-# Or with PYTHONPATH
-PYTHONPATH=$(pwd) python src/retrieval/rag_quickstart.py
+PYTHONPATH=$(pwd) python scripts/rag_quickstart.py
 ```
 
 **What it tests:**

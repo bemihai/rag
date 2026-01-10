@@ -1,12 +1,13 @@
 """Chatbot page"""
 import streamlit as st
 
+from src.retrieval import analyze_query, boost_by_metadata_match, build_context_from_chunks, build_semantic_context, \
+    compress_context, format_sources_for_display
 from src.ui.helper.display import CONTENT_STYLE, display_message, make_page_title
 from src.ui.resources import load_llm, load_chroma_client, load_retriever, load_intelligent_agent, load_keyword_agent, load_reranker
 from src.ui.sidebar import render_sidebar
 from src.agents.llm import process_user_prompt
-from src.utils import get_config, get_initial_message, build_semantic_context, format_sources_for_display, \
-    build_context_from_chunks, logger
+from src.utils import get_config, get_initial_message, logger
 
 
 def main():
@@ -155,7 +156,6 @@ def main():
                             retrieve_count = n_results * 2 if reranker else n_results
 
                             # Analyze query for metadata-based filtering/boosting
-                            from src.rag.query_analyzer import analyze_query, boost_by_metadata_match
                             query_analysis = analyze_query(prompt)
 
                             # Retrieve relevant documents from ChromaDB (or hybrid search)
@@ -202,7 +202,6 @@ def main():
                             # Apply context compression if enabled
                             enable_compression = getattr(cfg.chroma.retrieval, 'enable_compression', False)
                             if enable_compression and context:
-                                from src.rag.query_compression import compress_context
                                 max_chars = getattr(cfg.chroma.retrieval, 'compression_max_chars', 8000)
                                 context = compress_context(context, max_chars=max_chars)
 

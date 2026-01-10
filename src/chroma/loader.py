@@ -59,7 +59,7 @@ class CollectionDataLoader:
         chunk_size: int = 512,
         overlap_size: int = 128,
         skip_duplicates: bool = True,
-        extract_wine_metadata: bool = True,
+        extract_metadata: bool = True,
     ) -> dict:
         """
         Process a single file and return a dict with stats.
@@ -70,7 +70,7 @@ class CollectionDataLoader:
             chunk_size: Size of each chunk.
             overlap_size: Overlap size between chunks.
             skip_duplicates: Whether to skip duplicate chunks based on content hash.
-            extract_wine_metadata: Whether to extract wine-specific metadata from chunks.
+            extract_metadata: Whether to extract wine-specific metadata from chunks.
         """
         file_path = Path(file_path)
         start_time = time.time()
@@ -92,7 +92,7 @@ class CollectionDataLoader:
                 chunk_size=chunk_size,
                 overlap_size=overlap_size,
                 embedding_model=self.embedding_model,
-                extract_metadata=extract_wine_metadata,
+                extract_metadata=extract_metadata,
             )
 
             if not chunks:
@@ -166,7 +166,7 @@ class CollectionDataLoader:
         chunk_size: int = 512,
         overlap_size: int = 128,
         skip_duplicates: bool = True,
-        extract_wine_metadata: bool = True,
+        extract_metadata: bool = True,
         incremental: bool = True,
         force_reindex: bool = False,
     ) -> dict:
@@ -180,7 +180,7 @@ class CollectionDataLoader:
             chunk_size: Size of each chunk.
             overlap_size: Overlap size between chunks.
             skip_duplicates: Whether to skip duplicate chunks based on content hash.
-            extract_wine_metadata: Whether to extract wine-specific metadata from chunks.
+            extract_metadata: Whether to extract wine-specific metadata from chunks.
             incremental: If True, only process new or modified files (default: True).
             force_reindex: If True, ignore index tracking and reprocess all files.
         """
@@ -247,7 +247,7 @@ class CollectionDataLoader:
                     chunk_size=chunk_size,
                     overlap_size=overlap_size,
                     skip_duplicates=skip_duplicates,
-                    extract_wine_metadata=extract_wine_metadata,
+                    extract_metadata=extract_metadata,
                 )
 
                 total_stats["files_processed"] += 1

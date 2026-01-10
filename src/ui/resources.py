@@ -3,9 +3,9 @@ import streamlit as st
 
 from src.agents import create_wine_agent, create_keyword_agent
 from src.agents.llm import load_base_model
-from src.rag import ChromaRetriever, BM25Index, HybridRetriever, DocumentReranker
+from src.retrieval import ChromaRetriever, BM25Index, HybridRetriever, DocumentReranker
 from src.utils import get_config, logger
-from src.utils.chroma import initialize_chroma_client
+from src.utils import initialize_chroma_client
 
 
 @st.cache_resource

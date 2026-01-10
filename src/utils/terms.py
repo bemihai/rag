@@ -5,14 +5,28 @@ from pathlib import Path
 from src.utils import load_json
 
 
+__all__ = [
+    "GRAPE_SYNONYMS",
+    "REGION_VARIATIONS",
+    "CLASSIFICATIONS",
+    "QUERY_EXPANSIONS",
+    "MISSPELLINGS",
+    "WINE_APPELLATIONS",
+    "PRODUCER_PREFIXES",
+    "PRODUCER_SUFFIXES",
+    "GRAPE_PATTERNS",
+    "REGION_PATTERNS",
+    "CLASSIFICATION_PATTERNS",
+]
+
 _DATA_DIR = Path(__file__).parent / "terminology"
 
-GRAPE_SYNONYMS: dict[str, list[str]] = load_json(_DATA_DIR /_DATA_DIR / "grape_synonyms.json")
-REGION_VARIATIONS: dict[str, list[str]] = load_json(_DATA_DIR /"region_variations.json")
-CLASSIFICATIONS: dict[str, str] = load_json(_DATA_DIR /"classifications.json")
-QUERY_EXPANSIONS: dict[str, str] = load_json(_DATA_DIR /"query_expansions.json")
-MISSPELLINGS: dict[str, str] = load_json(_DATA_DIR /"misspellings.json")
-WINE_APPELLATIONS: list[str] = load_json(_DATA_DIR /"wine_appellations.json")
+GRAPE_SYNONYMS: dict[str, list[str]] = load_json(_DATA_DIR / "grape_synonyms.json")
+REGION_VARIATIONS: dict[str, list[str]] = load_json(_DATA_DIR / "region_variations.json")
+CLASSIFICATIONS: dict[str, str] = load_json(_DATA_DIR / "classifications.json")
+QUERY_EXPANSIONS: dict[str, str] = load_json(_DATA_DIR / "query_expansions.json")
+MISSPELLINGS: dict[str, str] = load_json(_DATA_DIR / "misspellings.json")
+WINE_APPELLATIONS: list[str] = load_json(_DATA_DIR / "wine_appellations.json")
 
 
 # Producer name patterns (common prefixes in wine producer names)

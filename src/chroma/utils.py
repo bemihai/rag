@@ -8,6 +8,15 @@ from chromadb.errors import NotFoundError
 
 from src.utils import logger
 
+__all__ = [
+    "create_batches",
+    "get_or_create_collection",
+    "validate_chunks",
+    "get_collection_stats",
+    "get_all_stats",
+    "split_text_into_sentences",
+]
+
 
 def create_batches(
         ids: list,

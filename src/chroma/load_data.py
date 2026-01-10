@@ -1,9 +1,9 @@
 """Runnable script for processing external data and loading to ChromaDB.
 
 Usage:
-    python -m src.retrieval.load_data                    # Incremental mode (default)
-    python -m src.retrieval.load_data --force            # Force reindex all files
-    python -m src.retrieval.load_data --status           # Show index status only
+    python -m src.chroma.load_data                    # Incremental mode (default)
+    python -m src.chroma.load_data --force            # Force reindex all files
+    python -m src.chroma.load_data --status           # Show index status only
 """
 import os
 import argparse
@@ -76,7 +76,7 @@ def main():
             strategy=chroma_cfg.chunking.strategy,
             chunk_size=chroma_cfg.chunking.chunk_size,
             overlap_size=chroma_cfg.chunking.chunk_overlap,
-            extract_wine_metadata=extract_wine_metadata,
+            extract_metadata=extract_wine_metadata,
             incremental=True,
             force_reindex=args.force,
         )

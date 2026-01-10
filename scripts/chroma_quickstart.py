@@ -14,8 +14,8 @@ This script tests all components of the ChromaDB data processing pipeline:
 Uses a dedicated test collection to avoid interfering with production data.
 
 Usage:
-    python -m src.chroma.chroma_quickstart
-    PYTHONPATH=$(pwd) python src/chroma/chroma_quickstart.py
+    python scripts/chroma_quickstart
+    PYTHONPATH=$(pwd) python scripts/chroma_quickstart.py
 
 Prerequisites:
     - ChromaDB must be running (make chroma-up)
@@ -62,7 +62,7 @@ def check_prerequisites():
     # Check ChromaDB connection
     try:
         cfg = get_config()
-        client = initialize_chroma_client(cfg.chroma.client.host, cfg.chroma.client.port)
+        initialize_chroma_client(cfg.chroma.client.host, cfg.chroma.client.port)
         print(f"✓ ChromaDB connected at {cfg.chroma.client.host}:{cfg.chroma.client.port}")
     except Exception as e:
         print(f"❌ ChromaDB connection failed: {e}")
@@ -370,7 +370,7 @@ def test_full_pipeline(pdf_path: Path, cfg):
         chunk_size=cfg.chroma.chunking.chunk_size,
         overlap_size=cfg.chroma.chunking.chunk_overlap,
         skip_duplicates=True,
-        extract_wine_metadata=cfg.chroma.chunking.extract_wine_metadata,
+        extract_metadata=cfg.chroma.chunking.extract_wine_metadata,
     )
 
     total_time = time.time() - start_time
@@ -491,20 +491,20 @@ Test PDF: {TEST_PDF_PATH}
     semantic_chunks = test_semantic_chunking(TEST_PDF_PATH, cfg)
 
     # 4. Wine metadata extraction
-    metadata_chunks = test_wine_metadata_extraction(TEST_PDF_PATH, cfg)
+    test_wine_metadata_extraction(TEST_PDF_PATH, cfg)
 
     # 5. Hierarchical chunking
     hierarchical_chunks = test_hierarchical_chunking(TEST_PDF_PATH, cfg)
 
     # 6. Deduplication (using by_title chunks)
     if by_title_chunks:
-        deduplicated_chunks = test_deduplication(by_title_chunks, cfg)
+        test_deduplication(by_title_chunks, cfg)
 
     # 7. Index tracking
-    tracker = test_index_tracking(TEST_PDF_PATH, cfg)
+    test_index_tracking(TEST_PDF_PATH, cfg)
 
     # 8. Full pipeline
-    loader = test_full_pipeline(TEST_PDF_PATH, cfg)
+    test_full_pipeline(TEST_PDF_PATH, cfg)
 
     # 9. Collection stats
     test_collection_stats(cfg)

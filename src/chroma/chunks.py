@@ -97,7 +97,7 @@ def split_file(
     strategy: str = "basic",
     chunk_size: int = 512,
     overlap_size: int = 128,
-    embedding_model: str| None = None,
+    embedding_model: str | None = None,
     extract_metadata: bool = True,
     **kwargs,
 ) -> list[dict]:

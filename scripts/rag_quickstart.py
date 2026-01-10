@@ -12,12 +12,12 @@ This script tests all components of the Pour Decisions RAG pipeline:
 Uses a dedicated test collection to avoid interfering with production data.
 
 Usage:
-    python -m src.retrieval.rag_quickstart
-    PYTHONPATH=$(pwd) python src/retrieval/rag_quickstart.py
+    python scripts/rag_quickstart
+    PYTHONPATH=$(pwd) python scripts/rag_quickstart.py
 
 Prerequisites:
     - ChromaDB must be running (make chroma-up)
-    - Test data must be indexed first: python -m src.chroma.chroma_quickstart
+    - Test data must be indexed first: python scripts/chroma_quickstart
 """
 import os
 import time
@@ -92,7 +92,7 @@ def check_prerequisites():
         if count == 0:
             print(f"❌ Test collection '{TEST_COLLECTION}' is empty")
             print(f"\nPlease index test data first:")
-            print(f"  python -m src.chroma.chroma_quickstart")
+            print(f"  python scripts/chroma_quickstart")
             return False
 
         print(f"✓ Test collection '{TEST_COLLECTION}' found with {count:,} documents")

@@ -99,7 +99,7 @@ def extract_vintages(text: str) -> set[str]:
     """
     Extract vintage years from text.
 
-    Looks for 4-digit years in the range 1945-2050 that appear in
+    Looks for 4-digit years in the range 1900-2050 that appear in
     wine-related contexts.
 
     Args:
@@ -116,7 +116,7 @@ def extract_vintages(text: str) -> set[str]:
     vintages = set()
     for year in matches:
         year_int = int(year)
-        if 1945 <= year_int <= 2050:
+        if 1900 <= year_int <= 2050:
             vintages.add(year)
 
     return vintages
